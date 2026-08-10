@@ -4,9 +4,80 @@ See also: [docs/backlog.md](./backlog.md) for parked ideas raised in passing
 (facility specialties, user profile pages, etc.) that overlap with this work
 but aren't in scope yet.
 
-Status: **PLANNING — no code changes yet.** This is a living doc for a multi-session
-design discussion. Update it as decisions land; don't let it drift from the
-conversation.
+Status: **IMPLEMENTATION IN PROGRESS.** Design (matrix, timeline table shape,
+approval-chain flow) is fully confirmed — see below. As of 2026-08-10, the
+rename, centralized permission module, approval-chain/appeals routes, and
+shared timeline table are **substantially built already**, discovered via a
+code audit after a VS Code crash lost the in-session record of how far this
+had gotten (see "Session log"). Treat the "Current implementation status"
+section right below as the first thing to check after any crash/restart —
+it's more current than the narrative sections further down, which still
+describe the design conversation, not the build.
+
+## Current implementation status (as of 2026-08-10, post-crash audit)
+
+Confirmed **done**, by reading the actual code (not inferred from the design
+sections below, which predate this):
+- **Rename shipped.** `shared/src/constant.ts`'s `ROLES` is
+  `{NURSE, DOCTOR, ADMINISTRATOR, MANAGER}` — no `FACILITY_ADMIN` anywhere.
+- **`USER_STATUS`, `FACILITY_STATUS`, `TIMELINE_TYPE`, `TIMELINE_ACTION`**
+  all exist in `shared/src/constant.ts`, matching the design below (pending/
+  active/rejected/disabled/flagged/departed for users; pending/approved/
+  rejected/flagged/suspended for facilities; the shared-table `type`/`action`
+  enums).
+- **Centralized permission module exists**: `api/src/lib/permission.ts` —
+  `isAccountUsable`, `isFacilityUsable`, `canManagerActOnStaff`,
+  `canActOnReferral`, `canViewReferral`, `canAccessPatient`, `canViewUser`,
+  `isFacilityOrphaned`, `canFileAppeal`, `canFileFacilityAppeal`,
+  `resolveAppealAuthority`. Implements the orphan-facility fallback and the
+  appeal-authority resolution (most recent punitive timeline row → that
+  actor's *current* role) as designed.
+- **Approval-chain + appeals routes exist and are wired up**:
+  `api/src/modules/administrator/route.ts` (manager/staff/facility approve-
+  reject-flag-disable-suspend, appeals list/approve/deny, admin-created-user)
+  and `api/src/modules/manager/route.ts` (staff approve/reject/disable/flag,
+  facility appeal submit, appeals list/approve/deny) — both gated correctly
+  via `app.authorize([ROLES.ADMINISTRATOR])` / `[ROLES.MANAGER]`.
+- **Migrations collapsed to one file** (per [[feedback_migrations_single_file]]
+  convention) — `api/src/drizzle/migrations/0000_amused_vengeance.sql`,
+  regenerated fresh, not accumulated.
+- `api/script/bootstrap-admin.ts` exists, matching the confirmed bootstrap
+  design below.
+- `api`/`shared` typecheck clean.
+
+**Confirmed** (checked after first writing this section as "unverified"):
+- Shared timeline table matches the agreed shape exactly:
+  `api/src/drizzle/schema/timeline.ts` has `id`/`type`/`entity`/`action`/
+  `previous`/`next`/`changer_id`/`notes`/`changed_at`, polymorphic `entity`
+  (no FK, by design) with a real FK kept only on `changer_id`.
+
+**Not yet verified** (didn't read closely enough this pass to confirm either
+way — check before assuming):
+- Patient flagging (advisory-only marker) — not confirmed implemented.
+- Whether the frontend route tree actually restricts non-`ACTIVE` users to
+  "view my own status only," per the design below.
+
+**Confirmed still outstanding**:
+- **`REFERRAL_STATUS` is still lowercase** (`"pending"`, `"accepted"`, ...)
+  in `shared/src/constant.ts` — the uppercase-everything convention decision
+  (Row 4, below) has NOT been applied to it yet. This is a real, deliberately
+  atomic migration (enum + DB column + every string comparison in
+  `referrals/service.ts` and the frontend) — don't do it piecemeal.
+- Doctor-initiated referral redirect, the two-sided patient-transfer
+  workflow, and the Manager/Reports dashboard additions (`GET
+  /dashboard/manager/summary` etc.) — status unconfirmed this pass; the
+  Manager dashboard's *frontend* half was mid-implementation when VS Code
+  crashed (see session log) — unclear if the backend endpoint it calls
+  (`managerSummaryRequest` → `/manager/summary`) is finished or a stub.
+
+## Repo now under git (2026-08-10)
+
+The project had no git repository until today — a VS Code crash mid-session
+prompted setting one up so future crashes don't risk losing work. Root
+commit captures the state audited above. `.env`/`env/development/*.env.*`
+are deliberately tracked (not gitignored) per user's call — dev-only
+placeholder secrets, fine to keep in-repo for this project. `.claude/settings.local.json`
+is gitignored (machine-local).
 
 ## Goal
 
@@ -795,3 +866,36 @@ regardless of outcome, or only on approval.
   permission module, approval chains, and shared timeline table are all
   still unstarted — this pass only fixed live bugs and gaps found by
   testing, it didn't advance the rest of the design.
+- **2026-08-10 (post-crash session):** VS Code crashed mid-session; the prior
+  session's record of implementation progress was lost with it (this doc's
+  "still unstarted" line above was stale the moment the next pass began —
+  it just never got corrected before the crash). Re-derived state by
+  auditing the actual code rather than trusting the doc: the rename,
+  centralized permission module (`api/src/lib/permission.ts`), and the full
+  approval-chain/appeals routes (`administrator`/`manager` modules) turned
+  out to already be built — see "Current implementation status" above for
+  specifics and what's still unverified/outstanding (notably
+  `REFERRAL_STATUS` still lowercase). Also found the Manager dashboard's
+  frontend (`web/src/routes/_authenticated/index.tsx`) mid-edit — likely
+  where the crash actually landed — with a real TS type error
+  (`RecentActivityCard` using raw `TanstackLink` instead of the app's
+  `custom/link.tsx` wrapper, which doesn't type-check against a
+  heterogeneous list of `{to, params}` targets the way the custom `Link`
+  does). Fixed by routing through the custom `Link`, matching the
+  already-existing `ActionBar` component one screen up in the same file.
+  Separately, user flagged that several parameterized routes
+  (`/patients/$patientId`, `/referrals/$referralId`, `/users/$userId`,
+  `/facilities/$facilityId`, `/patients/new`, `/referrals/new`) were
+  hardcoded as literals at call sites across the frontend instead of living
+  in `FRONTEND_URLS` — pointed at their other project (`ubuntu-stories`,
+  `~/Desktop/ubuntu-stories`) which already does this
+  (`FRONTEND_URLS.STORY` + `params`). Added `PATIENT`/`REFERRAL`/`USER`/
+  `FACILITY`/`NEW_PATIENT`/`NEW_REFERRAL` to `FRONTEND_URLS` and updated
+  every call site (`side-bar.tsx`, `patients/index.tsx`, `referrals/index.tsx`,
+  `referrals/$referralId.tsx`, `users/index.tsx`, `facilities/index.tsx`,
+  the dashboard file) to use them — this repo's own convention was
+  genuinely inconsistent (flat routes centralized, parameterized ones
+  weren't), not a case of the user misremembering. `git init` done this
+  session too (see "Repo now under git" above) specifically so a future
+  crash doesn't repeat this lost-context problem — check `git log`/`git
+  status` after any crash before re-deriving state from scratch again.
