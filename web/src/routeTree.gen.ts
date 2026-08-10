@@ -16,6 +16,7 @@ import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/
 import { Route as PublicSignUpRouteImport } from './routes/_public/sign-up'
 import { Route as PublicSignInRouteImport } from './routes/_public/sign-in'
 import { Route as AuthenticatedUsersIndexRouteImport } from './routes/_authenticated/users/index'
+import { Route as AuthenticatedTransfersIndexRouteImport } from './routes/_authenticated/transfers/index'
 import { Route as AuthenticatedReferralsIndexRouteImport } from './routes/_authenticated/referrals/index'
 import { Route as AuthenticatedPatientsIndexRouteImport } from './routes/_authenticated/patients/index'
 import { Route as AuthenticatedFacilitiesIndexRouteImport } from './routes/_authenticated/facilities/index'
@@ -60,6 +61,12 @@ const AuthenticatedUsersIndexRoute = AuthenticatedUsersIndexRouteImport.update({
   path: '/users/',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedTransfersIndexRoute =
+  AuthenticatedTransfersIndexRouteImport.update({
+    id: '/transfers/',
+    path: '/transfers/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedReferralsIndexRoute =
   AuthenticatedReferralsIndexRouteImport.update({
     id: '/referrals/',
@@ -135,6 +142,7 @@ export interface FileRoutesByFullPath {
   '/facilities/': typeof AuthenticatedFacilitiesIndexRoute
   '/patients/': typeof AuthenticatedPatientsIndexRoute
   '/referrals/': typeof AuthenticatedReferralsIndexRoute
+  '/transfers/': typeof AuthenticatedTransfersIndexRoute
   '/users/': typeof AuthenticatedUsersIndexRoute
 }
 export interface FileRoutesByTo {
@@ -152,6 +160,7 @@ export interface FileRoutesByTo {
   '/facilities': typeof AuthenticatedFacilitiesIndexRoute
   '/patients': typeof AuthenticatedPatientsIndexRoute
   '/referrals': typeof AuthenticatedReferralsIndexRoute
+  '/transfers': typeof AuthenticatedTransfersIndexRoute
   '/users': typeof AuthenticatedUsersIndexRoute
 }
 export interface FileRoutesById {
@@ -172,6 +181,7 @@ export interface FileRoutesById {
   '/_authenticated/facilities/': typeof AuthenticatedFacilitiesIndexRoute
   '/_authenticated/patients/': typeof AuthenticatedPatientsIndexRoute
   '/_authenticated/referrals/': typeof AuthenticatedReferralsIndexRoute
+  '/_authenticated/transfers/': typeof AuthenticatedTransfersIndexRoute
   '/_authenticated/users/': typeof AuthenticatedUsersIndexRoute
 }
 export interface FileRouteTypes {
@@ -191,6 +201,7 @@ export interface FileRouteTypes {
     | '/facilities/'
     | '/patients/'
     | '/referrals/'
+    | '/transfers/'
     | '/users/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -208,6 +219,7 @@ export interface FileRouteTypes {
     | '/facilities'
     | '/patients'
     | '/referrals'
+    | '/transfers'
     | '/users'
   id:
     | '__root__'
@@ -227,6 +239,7 @@ export interface FileRouteTypes {
     | '/_authenticated/facilities/'
     | '/_authenticated/patients/'
     | '/_authenticated/referrals/'
+    | '/_authenticated/transfers/'
     | '/_authenticated/users/'
   fileRoutesById: FileRoutesById
 }
@@ -285,6 +298,13 @@ declare module '@tanstack/react-router' {
       path: '/users'
       fullPath: '/users/'
       preLoaderRoute: typeof AuthenticatedUsersIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/transfers/': {
+      id: '/_authenticated/transfers/'
+      path: '/transfers'
+      fullPath: '/transfers/'
+      preLoaderRoute: typeof AuthenticatedTransfersIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/referrals/': {
@@ -372,6 +392,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedFacilitiesIndexRoute: typeof AuthenticatedFacilitiesIndexRoute
   AuthenticatedPatientsIndexRoute: typeof AuthenticatedPatientsIndexRoute
   AuthenticatedReferralsIndexRoute: typeof AuthenticatedReferralsIndexRoute
+  AuthenticatedTransfersIndexRoute: typeof AuthenticatedTransfersIndexRoute
   AuthenticatedUsersIndexRoute: typeof AuthenticatedUsersIndexRoute
 }
 
@@ -388,6 +409,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedFacilitiesIndexRoute: AuthenticatedFacilitiesIndexRoute,
   AuthenticatedPatientsIndexRoute: AuthenticatedPatientsIndexRoute,
   AuthenticatedReferralsIndexRoute: AuthenticatedReferralsIndexRoute,
+  AuthenticatedTransfersIndexRoute: AuthenticatedTransfersIndexRoute,
   AuthenticatedUsersIndexRoute: AuthenticatedUsersIndexRoute,
 }
 

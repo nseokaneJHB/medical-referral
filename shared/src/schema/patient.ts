@@ -5,6 +5,7 @@ import {
 	stringSchema,
 	genderSchema,
 	userRefSchema,
+	patientRefSchema,
 	facilityRefSchema,
 } from "./field";
 
@@ -13,6 +14,8 @@ import {
 	paginatedGlobalResponseSchema,
 	paginationSortAndSearchQuerySchema,
 } from "./global";
+
+import { timelineActionSchema } from "./timeline";
 
 /**
  * `phone`/`address` are `.nullable()`, not `.min(1)` — `""` is valid,
@@ -83,3 +86,51 @@ export const patientListResponseSchema = paginatedGlobalResponseSchema.extend({
 export const patientParamsSchema = z.object({
 	id: uuidSchema,
 });
+
+/**
+ * `POST /patients/:id/transfer` — a Nurse/Doctor at the patient's *current*
+ * facility requests a move to `destination_facility_id`. Two-sided
+ * approval (origin Manager, then destination Manager) happens afterward —
+ * see `api/src/lib/transfer.ts`. This never edits `facility_id` directly.
+ */
+export const transferRequestSchema = z.object({
+	destination_facility_id: uuidSchema.describe("Facility to transfer to"),
+	reason: stringSchema.min(1, "A reason is required."),
+});
+
+/** `:id` on a transfer-decision route is the `TRANSFER_REQUESTED` row's id — the
+ * stable identifier for the whole request, not a fresh id per decision step. */
+export const transferParamsSchema = z.object({
+	id: uuidSchema,
+});
+
+/**
+ * A transfer request, hydrated for display — richer than the generic
+ * `TimelineSchema` a raw row would give you (facility/patient names,
+ * not bare ids). `action` is the request's *current* stage
+ * (`TRANSFER_REQUESTED` = awaiting origin, `TRANSFER_APPROVED_ORIGIN` =
+ * awaiting destination, `TRANSFER_APPROVED_DESTINATION`/`TRANSFER_REJECTED`
+ * = closed). `reason` is always the original requester's reason, regardless
+ * of stage — decision-step reasons/notes live in the timeline history,
+ * fetched separately if needed.
+ */
+export const TransferSchema = z.object({
+	id: uuidSchema,
+	patient: patientRefSchema,
+	origin_facility: facilityRefSchema,
+	destination_facility: facilityRefSchema,
+	reason: stringSchema,
+	action: timelineActionSchema,
+	requested_by: userRefSchema,
+	changed_at: z.date(),
+});
+
+export const transferResponseSchema = globalResponseSchema.extend({
+	data: TransferSchema,
+});
+
+export const transferListResponseSchema = paginatedGlobalResponseSchema.extend(
+	{
+		data: z.array(TransferSchema),
+	},
+);

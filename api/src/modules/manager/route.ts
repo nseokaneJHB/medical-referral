@@ -7,11 +7,14 @@ import {
 	userParamsSchema,
 	appealParamsSchema,
 	userResponseSchema,
+	transferParamsSchema,
 	appealDecisionSchema,
 	approveActionSchema,
 	globalResponseSchema,
+	transferResponseSchema,
 	moderationReasonSchema,
 	timelineResponseSchema,
+	transferListResponseSchema,
 	timelineListResponseSchema,
 } from "@referral-tracking/shared";
 
@@ -25,6 +28,13 @@ import {
 	staffDisable,
 	facilityAppealSubmit,
 } from "./service";
+import {
+	transfers,
+	transferOriginReject,
+	transferOriginApprove,
+	transferDestinationReject,
+	transferDestinationApprove,
+} from "../patients/transfer-service";
 
 import { EVENT_NAMES } from "../../lib/constant";
 
@@ -142,6 +152,68 @@ export const route: FastifyPluginAsync = async (
 		schema: {
 			response: {
 				200: timelineListResponseSchema,
+				401: globalResponseSchema,
+				403: globalResponseSchema,
+			},
+		},
+	});
+
+	app.route({
+		method: "PATCH",
+		url: API_PATHS.MANAGER_TRANSFER_ORIGIN_APPROVE,
+		handler: transferOriginApprove,
+		preHandler: preHandler(EVENT_NAMES.MANAGER_TRANSFER_ORIGIN_APPROVE),
+		schema: {
+			params: transferParamsSchema,
+			body: approveActionSchema,
+			response: { 200: transferResponseSchema, ...commonResponses },
+		},
+	});
+
+	app.route({
+		method: "PATCH",
+		url: API_PATHS.MANAGER_TRANSFER_ORIGIN_REJECT,
+		handler: transferOriginReject,
+		preHandler: preHandler(EVENT_NAMES.MANAGER_TRANSFER_ORIGIN_REJECT),
+		schema: {
+			params: transferParamsSchema,
+			body: moderationReasonSchema,
+			response: { 200: transferResponseSchema, ...commonResponses },
+		},
+	});
+
+	app.route({
+		method: "PATCH",
+		url: API_PATHS.MANAGER_TRANSFER_DESTINATION_APPROVE,
+		handler: transferDestinationApprove,
+		preHandler: preHandler(EVENT_NAMES.MANAGER_TRANSFER_DESTINATION_APPROVE),
+		schema: {
+			params: transferParamsSchema,
+			body: approveActionSchema,
+			response: { 200: transferResponseSchema, ...commonResponses },
+		},
+	});
+
+	app.route({
+		method: "PATCH",
+		url: API_PATHS.MANAGER_TRANSFER_DESTINATION_REJECT,
+		handler: transferDestinationReject,
+		preHandler: preHandler(EVENT_NAMES.MANAGER_TRANSFER_DESTINATION_REJECT),
+		schema: {
+			params: transferParamsSchema,
+			body: moderationReasonSchema,
+			response: { 200: transferResponseSchema, ...commonResponses },
+		},
+	});
+
+	app.route({
+		method: "GET",
+		url: API_PATHS.MANAGER_TRANSFER_LIST,
+		handler: transfers,
+		preHandler: preHandler(EVENT_NAMES.MANAGER_TRANSFER_LIST),
+		schema: {
+			response: {
+				200: transferListResponseSchema,
 				401: globalResponseSchema,
 				403: globalResponseSchema,
 			},

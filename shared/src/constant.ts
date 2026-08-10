@@ -26,6 +26,7 @@ export const FRONTEND_URLS = {
 	AUDIT: "/audit",
 	FACILITIES: "/facilities",
 	FACILITY: "/facilities/$facilityId",
+	TRANSFERS: "/transfers",
 } as const;
 
 export type FrontendRedirectUrlPaths = typeof FRONTEND_URLS;
@@ -197,6 +198,13 @@ export const API_PATHS = {
 	ADMINISTRATOR_APPEAL_APPROVE: "/appeals/:id/approve",
 	ADMINISTRATOR_APPEAL_DENY: "/appeals/:id/deny",
 	ADMINISTRATOR_APPEAL_LIST: "/appeals",
+	ADMINISTRATOR_TRANSFER_ORIGIN_APPROVE: "/transfers/:id/origin/approve",
+	ADMINISTRATOR_TRANSFER_ORIGIN_REJECT: "/transfers/:id/origin/reject",
+	ADMINISTRATOR_TRANSFER_DESTINATION_APPROVE:
+		"/transfers/:id/destination/approve",
+	ADMINISTRATOR_TRANSFER_DESTINATION_REJECT:
+		"/transfers/:id/destination/reject",
+	ADMINISTRATOR_TRANSFER_LIST: "/transfers",
 
 	AUDIT_LOGINS: "/logins",
 
@@ -217,11 +225,17 @@ export const API_PATHS = {
 	MANAGER_APPEAL_APPROVE: "/appeals/:id/approve",
 	MANAGER_APPEAL_DENY: "/appeals/:id/deny",
 	MANAGER_APPEAL_LIST: "/appeals",
+	MANAGER_TRANSFER_ORIGIN_APPROVE: "/transfers/:id/origin/approve",
+	MANAGER_TRANSFER_ORIGIN_REJECT: "/transfers/:id/origin/reject",
+	MANAGER_TRANSFER_DESTINATION_APPROVE: "/transfers/:id/destination/approve",
+	MANAGER_TRANSFER_DESTINATION_REJECT: "/transfers/:id/destination/reject",
+	MANAGER_TRANSFER_LIST: "/transfers",
 
 	PATIENT_LIST: "/",
 	PATIENT_BY_ID: "/:id",
 	PATIENT_FLAG: "/:id/flag",
 	PATIENT_UNFLAG: "/:id/unflag",
+	PATIENT_TRANSFER_REQUEST: "/:id/transfer",
 
 	REFERRAL_LIST: "/",
 	REFERRAL_BY_ID: "/:id",
@@ -295,18 +309,26 @@ export const TIMELINE_TYPE = {
 /**
  * `DISABLED`/`DEPARTED` only ever apply to `type: USER`; `SUSPENDED` only
  * to `type: FACILITY`; `STATUS_CHANGE`/`DOCTOR_ASSIGNED`/`REDIRECTED` only
- * to `type: REFERRAL`. `APPROVED`/`REJECTED`/`APPEAL_*` apply to USER and
- * FACILITY; `FLAGGED`/`UNFLAGGED` apply to USER, FACILITY, *and* PATIENT
- * (patient flags are a direct, appeal-free action — see
- * `modules/patients/service.ts` — unlike User/Facility, where a flag is
- * only ever reversed via an approved appeal). None of this is enforced at
- * the DB level — it's the same trust boundary as `entity` itself, upheld
- * by the handlers that write these rows, not a constraint.
+ * to `type: REFERRAL`; `TRANSFER_*` only to `type: PATIENT`. `APPROVED`/
+ * `REJECTED`/`APPEAL_*` apply to USER and FACILITY; `FLAGGED`/`UNFLAGGED`
+ * apply to USER, FACILITY, *and* PATIENT (patient flags are a direct,
+ * appeal-free action — see `modules/patients/service.ts` — unlike
+ * User/Facility, where a flag is only ever reversed via an approved
+ * appeal). `TRANSFER_REQUESTED`'s own row is the stable identifier for a
+ * transfer request throughout its whole lifecycle (both decision steps
+ * reference it by id, not a separate row each time) — see
+ * `api/src/lib/transfer.ts`. None of this is enforced at the DB level —
+ * it's the same trust boundary as `entity` itself, upheld by the handlers
+ * that write these rows, not a constraint.
  */
 export const TIMELINE_ACTION = {
 	STATUS_CHANGE: "STATUS_CHANGE",
 	DOCTOR_ASSIGNED: "DOCTOR_ASSIGNED",
 	REDIRECTED: "REDIRECTED",
+	TRANSFER_REQUESTED: "TRANSFER_REQUESTED",
+	TRANSFER_APPROVED_ORIGIN: "TRANSFER_APPROVED_ORIGIN",
+	TRANSFER_APPROVED_DESTINATION: "TRANSFER_APPROVED_DESTINATION",
+	TRANSFER_REJECTED: "TRANSFER_REJECTED",
 	APPROVED: "APPROVED",
 	REJECTED: "REJECTED",
 	DISABLED: "DISABLED",

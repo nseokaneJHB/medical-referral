@@ -19,6 +19,8 @@ export const QUERY_KEYS = {
 
 	AUDIT_LOGINS: ["audit", "logins"],
 
+	TRANSFERS: ["transfers"],
+
 	DASHBOARD_NURSE: ["dashboard", "nurse"],
 	DASHBOARD_DOCTOR: ["dashboard", "doctor"],
 	DASHBOARD_ADMIN: ["dashboard", "admin"],

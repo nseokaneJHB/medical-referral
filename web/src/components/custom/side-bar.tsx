@@ -7,6 +7,7 @@ import {
 } from "@tanstack/react-router";
 
 import {
+	RepeatIcon,
 	HomeIcon,
 	UsersIcon,
 	UserIcon,
@@ -89,6 +90,12 @@ const NAV_ITEMS: NavItem[] = [
 		icon: Building2Icon,
 		label: "Facilities",
 		roles: [ROLES.ADMINISTRATOR],
+	},
+	{
+		to: FRONTEND_URLS.TRANSFERS,
+		icon: RepeatIcon,
+		label: "Transfers",
+		roles: [ROLES.ADMINISTRATOR, ROLES.MANAGER],
 	},
 	{
 		to: FRONTEND_URLS.AUDIT,

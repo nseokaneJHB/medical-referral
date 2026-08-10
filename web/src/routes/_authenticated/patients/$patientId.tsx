@@ -1,12 +1,12 @@
 import { useState } from "react";
 
 import { createFileRoute, useRouter } from "@tanstack/react-router";
-import { useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
-import { SaveIcon, FlagIcon, FlagOffIcon } from "lucide-react";
+import { SaveIcon, FlagIcon, FlagOffIcon, ArrowLeftRightIcon } from "lucide-react";
 
 import {
 	GENDER,
@@ -14,6 +14,7 @@ import {
 	FRONTEND_URLS,
 	stringToTitleCase,
 	UpdatePatientSchema,
+	type TransferResponse,
 	type PatientResponse,
 	type UpdatePatientBody,
 } from "@referral-tracking/shared";
@@ -42,11 +43,13 @@ import { useFormField } from "@/hooks/use-form-field";
 import { useToastMutation } from "@/hooks/use-toast-mutation";
 
 import { QUERY_KEYS } from "@/api/constant";
+import { facilitiesRequest } from "@/api/facilities";
 import {
 	patientRequest,
 	flagPatient,
 	updatePatient,
 	unflagPatient,
+	requestPatientTransfer,
 } from "@/api/patients";
 
 const GENDER_ITEMS = Object.values(GENDER).map((value) => ({
@@ -137,6 +140,114 @@ const FlagPatientAction = ({
 	);
 };
 
+/**
+ * Nurse/Doctor at the patient's *current* facility only. Replaces every
+ * direct `facility_id` edit — see `docs/roles-permissions.md`, Row 1. This
+ * only starts the request; the origin facility's Manager decides next,
+ * then the destination facility's Manager, before anything actually moves.
+ */
+const RequestTransferAction = ({
+	patientId,
+	currentFacilityId,
+	onChanged,
+}: {
+	patientId: string;
+	currentFacilityId: string;
+	onChanged: () => Promise<void>;
+}) => {
+	const [open, setOpen] = useState(false);
+	const [destinationId, setDestinationId] = useState<string>();
+	const [reason, setReason] = useState("");
+
+	const { data: facilities } = useQuery({
+		queryKey: [...QUERY_KEYS.FACILITIES, "picker"],
+		queryFn: () => facilitiesRequest({ data: { page: "1", limit: "100" } }),
+		enabled: open,
+	});
+
+	const facilityItems =
+		facilities?.data
+			.filter((facility) => facility.id !== currentFacilityId)
+			.map((facility) => ({ value: facility.id, label: facility.name })) ?? [];
+
+	const transferMutation = useMutation<
+		TransferResponse,
+		Error,
+		{ destination_facility_id: string; reason: string }
+	>({
+		mutationFn: (payload) => requestPatientTransfer(patientId, payload),
+	});
+
+	const onConfirm = async () =>
+		useToastMutation({
+			loading: "Requesting transfer...",
+			promise: transferMutation.mutateAsync({
+				destination_facility_id: destinationId!,
+				reason,
+			}),
+			onSuccess: async () => {
+				setOpen(false);
+				setDestinationId(undefined);
+				setReason("");
+				await onChanged();
+			},
+		});
+
+	return (
+		<Dialog open={open} onOpenChange={setOpen}>
+			<Button
+				type="button"
+				variant="outline"
+				title="Request transfer"
+				onClick={() => setOpen(true)}
+			>
+				<ArrowLeftRightIcon />
+				<span>Request transfer</span>
+			</Button>
+			<DialogContent>
+				<DialogHeader>
+					<DialogTitle>Request a facility transfer</DialogTitle>
+					<DialogDescription>
+						The origin facility&apos;s Manager decides first, then the
+						destination facility&apos;s — the patient only moves once both
+						approve.
+					</DialogDescription>
+				</DialogHeader>
+				<SelectInput
+					searchable
+					label="Destination facility"
+					items={facilityItems}
+					placeholder="Select a facility"
+					value={destinationId}
+					onChange={setDestinationId}
+				/>
+				<TextArea
+					required
+					name="reason"
+					label="Reason"
+					value={reason}
+					onChange={(event) => setReason(event.target.value)}
+				/>
+				<DialogFooter>
+					<Button
+						type="button"
+						title="Confirm transfer request"
+						disabled={
+							transferMutation.isPending ||
+							!destinationId ||
+							reason.trim().length === 0
+						}
+						onClick={onConfirm}
+					>
+						{transferMutation.isPending ? <Spinner /> : null}
+						<span>Request transfer</span>
+					</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
+	);
+};
+
 const PatientDetailPage = () => {
 	const router = useRouter();
 	const { user, queryClient } = Route.useRouteContext();
@@ -203,13 +314,17 @@ const PatientDetailPage = () => {
 
 	const isSaving = updatePatientMutation.isPending;
 
-	const onFlagChanged = async () => {
+	const invalidatePatient = async () => {
 		await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PATIENTS });
 		await queryClient.invalidateQueries({
 			queryKey: [...QUERY_KEYS.PATIENT, patient.id],
 		});
 		await router.invalidate();
 	};
+
+	const canRequestTransfer =
+		(user.role === ROLES.NURSE || user.role === ROLES.DOCTOR) &&
+		user.facility_id === patient.facility.id;
 
 	return (
 		<div className="space-y-4">
@@ -229,7 +344,7 @@ const PatientDetailPage = () => {
 						<FlagPatientAction
 							patientId={patient.id}
 							flagged
-							onChanged={onFlagChanged}
+							onChanged={invalidatePatient}
 						/>
 					)}
 				</div>
@@ -245,7 +360,7 @@ const PatientDetailPage = () => {
 							<FlagPatientAction
 								patientId={patient.id}
 								flagged={false}
-								onChanged={onFlagChanged}
+								onChanged={invalidatePatient}
 							/>
 						)}
 					</CardHeader>
@@ -348,19 +463,28 @@ const PatientDetailPage = () => {
 							/>
 						)}
 
-						{!readOnlyFields && (
-							<Button type="submit" title="Save patient" disabled={isSaving}>
-								{isSaving ? (
-									<>
-										<Spinner /> <span>Saving...</span>
-									</>
-								) : (
-									<>
-										<SaveIcon /> <span>Save changes</span>
-									</>
-								)}
-							</Button>
-						)}
+						<div className="flex flex-wrap gap-2">
+							{!readOnlyFields && (
+								<Button type="submit" title="Save patient" disabled={isSaving}>
+									{isSaving ? (
+										<>
+											<Spinner /> <span>Saving...</span>
+										</>
+									) : (
+										<>
+											<SaveIcon /> <span>Save changes</span>
+										</>
+									)}
+								</Button>
+							)}
+							{canRequestTransfer && (
+								<RequestTransferAction
+									patientId={patient.id}
+									currentFacilityId={patient.facility.id}
+									onChanged={invalidatePatient}
+								/>
+							)}
+						</div>
 					</CardContent>
 				</Card>
 			</form>

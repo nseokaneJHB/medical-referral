@@ -9,7 +9,9 @@ import {
 	patientsQuerySchema,
 	globalResponseSchema,
 	patientParamsSchema,
+	transferResponseSchema,
 	moderationReasonSchema,
+	transferRequestSchema,
 	patientResponseSchema,
 	patientListResponseSchema,
 } from "@referral-tracking/shared";
@@ -22,6 +24,7 @@ import {
 	patientUnflag,
 	patientUpdate,
 } from "./service";
+import { transferRequest } from "./transfer-service";
 
 import { EVENT_NAMES } from "../../lib/constant";
 
@@ -149,6 +152,28 @@ export const route: FastifyPluginAsync = async (
 			body: approveActionSchema,
 			response: {
 				200: patientResponseSchema,
+				401: globalResponseSchema,
+				403: globalResponseSchema,
+				404: globalResponseSchema,
+				409: globalResponseSchema,
+			},
+		},
+	});
+
+	app.route({
+		method: "POST",
+		url: API_PATHS.PATIENT_TRANSFER_REQUEST,
+		handler: transferRequest,
+		preHandler: [
+			app.event(EVENT_NAMES.PATIENT_TRANSFER_REQUEST),
+			app.authenticate,
+			app.authorize([ROLES.NURSE, ROLES.DOCTOR]),
+		],
+		schema: {
+			params: patientParamsSchema,
+			body: transferRequestSchema,
+			response: {
+				201: transferResponseSchema,
 				401: globalResponseSchema,
 				403: globalResponseSchema,
 				404: globalResponseSchema,

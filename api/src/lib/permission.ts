@@ -181,6 +181,33 @@ export const canAccessPatient = async (
 	return activeReferrals.data.length > 0;
 };
 
+/** A Nurse/Doctor may request a transfer only from their own current facility. */
+export const canRequestTransfer = (
+	role: Role,
+	userFacilityId: string | null,
+	patient: Pick<PatientModelSelect, "facility_id">,
+): boolean =>
+	(role === ROLES.NURSE || role === ROLES.DOCTOR) &&
+	Boolean(userFacilityId) &&
+	userFacilityId === patient.facility_id;
+
+/**
+ * Whether `role` may decide the origin or destination side of a patient
+ * transfer for `facilityId` — that facility's own Manager, or
+ * Administrator as the orphan-facility fallback (no currently-active
+ * Manager there), same fallback rule as Nurse/Doctor account approvals.
+ */
+export const canDecideTransfer = async (
+	core: PermissionCore,
+	role: Role,
+	userFacilityId: string | null,
+	facilityId: string,
+): Promise<boolean> => {
+	if (role === ROLES.MANAGER) return userFacilityId === facilityId;
+	if (role === ROLES.ADMINISTRATOR) return isFacilityOrphaned(core, facilityId);
+	return false;
+};
+
 /** Administrator sees any user; Manager only their own facility's. */
 export const canViewUser = (
 	role: Role,

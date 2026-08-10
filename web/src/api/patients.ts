@@ -7,10 +7,12 @@ import {
 	buildUrlWithParams,
 	type PatientParams,
 	type PatientsQuery,
+	type TransferResponse,
 	type ApproveActionBody,
 	type CreatePatientBody,
 	type UpdatePatientBody,
 	type PatientResponse,
+	type TransferRequestBody,
 	type ModerationReasonBody,
 	type PatientListResponse,
 } from "@referral-tracking/shared";
@@ -88,6 +90,17 @@ export const unflagPatient = async (
 ): Promise<PatientResponse> => {
 	const { data } = await api.patch<PatientResponse>(
 		`${baseUrl}${buildUrlWithParams(API_PATHS.PATIENT_UNFLAG, { id })}`,
+		payload,
+	);
+	return data;
+};
+
+export const requestPatientTransfer = async (
+	id: string,
+	payload: TransferRequestBody,
+): Promise<TransferResponse> => {
+	const { data } = await api.post<TransferResponse>(
+		`${baseUrl}${buildUrlWithParams(API_PATHS.PATIENT_TRANSFER_REQUEST, { id })}`,
 		payload,
 	);
 	return data;
