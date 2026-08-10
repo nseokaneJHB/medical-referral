@@ -88,12 +88,35 @@ way — check before assuming):
 - Whether the frontend route tree actually restricts non-`ACTIVE` users to
   "view my own status only," per the design below.
 
+- **Doctor-initiated referral redirect — done, 2026-08-10.**
+  `PATCH /referrals/:id/redirect` (Doctor-only, reason required): destination
+  must be `FACILITY_STATUS.APPROVED`; refuses any facility this referral has
+  already been at (origin, current destination, or any prior redirect's
+  destination — computed from `TIMELINE_ACTION.REDIRECTED` rows for this
+  referral, no arbitrary hop limit); resets `status` to `PENDING` and clears
+  `doctor` at the new destination; blocked once terminal. New
+  `canRedirectReferral` permission predicate (assigned doctor, or
+  unassigned-and-destined-to-their-facility — same eligibility as
+  `canViewReferral`'s Doctor branch, deliberately broader than
+  `canActOnReferral`'s "must already be assigned"). Required a second DB
+  reset/regenerate/reseed beyond the `REFERRAL_STATUS` one above — adding
+  `TIMELINE_ACTION.REDIRECTED` to the shared enum after the first reset
+  meant the live `timeline.action` DB enum didn't have it yet, and MySQL
+  silently truncated the insert (500, not a validation error) until
+  regenerated again. Verified end-to-end against the live API: successful
+  redirect, redirect-to-origin rejected, redirect-to-prior-destination
+  rejected, redirect-to-non-`APPROVED`-facility rejected, and that the
+  original doctor correctly loses `canViewReferral`/`canRedirectReferral`
+  access once it moves to a facility that isn't theirs (confirmed this is
+  correct behavior per the permission model, not a bug, mid-testing).
+  Frontend: a Redirect dialog (facility picker + required reason) on
+  `referrals/$referralId.tsx`, gated the same way as the backend.
+
 **Confirmed still outstanding**:
-- Doctor-initiated referral redirect and the two-sided patient-transfer
-  workflow — neither exists in the code at all (confirmed via grep, not just
-  absence-of-evidence): no redirect logic anywhere in
-  `referrals/service.ts`, and `patients/service.ts:188`'s own comment says
-  "the (not-yet-built) transfer workflow's job."
+- The two-sided patient-transfer workflow — doesn't exist in the code at
+  all (confirmed via grep, not just absence-of-evidence):
+  `patients/service.ts:188`'s own comment says "the (not-yet-built) transfer
+  workflow's job."
 - **New convention adopted this session, not yet backfilled everywhere it
   could apply**: API route paths (backend `route.ts` `url:` values) and
   frontend dynamic-param routes (`to`/`params` on `<Link>`) must resolve
@@ -957,6 +980,12 @@ regardless of outcome, or only on approval.
   project-level `.claude/settings.json` permission allowlist (typecheck
   commands, `docker compose ps`) after user flagged prompt fatigue —
   unrelated to this doc's subject but recorded here since it happened
-  mid-session. Three tasks remain: doctor referral redirect, patient
+  mid-session. Separately caught and fixed a real inconsistency: `recharts`
+  in `web/package.json` had a `^` version range while every other
+  dependency is pinned exact (`.npmrc` already has `save-exact=true` — this
+  one must have been hand-edited or installed with an explicit range
+  before that was set) — pinned to `3.10.1` to match. Then built the
+  doctor-initiated referral redirect (backend + frontend, verified live —
+  see "Current implementation status" above). Two tasks remain: the patient
   transfer workflow, and non-`ACTIVE`-user frontend restriction
   verification.
