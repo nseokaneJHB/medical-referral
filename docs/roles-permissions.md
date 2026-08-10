@@ -39,8 +39,9 @@ sections below, which predate this):
   facility appeal submit, appeals list/approve/deny) — both gated correctly
   via `app.authorize([ROLES.ADMINISTRATOR])` / `[ROLES.MANAGER]`.
 - **Migrations collapsed to one file** (per [[feedback_migrations_single_file]]
-  convention) — `api/src/drizzle/migrations/0000_amused_vengeance.sql`,
-  regenerated fresh, not accumulated.
+  convention) — a single `api/src/drizzle/migrations/0000_*.sql`, regenerated
+  fresh (not accumulated) each time the schema changes, most recently for
+  the `REFERRAL_STATUS` uppercase migration below.
 - `api/script/bootstrap-admin.ts` exists, matching the confirmed bootstrap
   design below.
 - `api`/`shared` typecheck clean.
@@ -50,25 +51,64 @@ sections below, which predate this):
   `api/src/drizzle/schema/timeline.ts` has `id`/`type`/`entity`/`action`/
   `previous`/`next`/`changer_id`/`notes`/`changed_at`, polymorphic `entity`
   (no FK, by design) with a real FK kept only on `changer_id`.
+- **`REFERRAL_STATUS` uppercased (done, 2026-08-10)** — `shared/src/constant.ts`
+  now matches `USER_STATUS`/`FACILITY_STATUS`'s convention
+  (`PENDING`/`ACCEPTED`/`IN_PROGRESS`/`ON_HOLD`/`COMPLETED`/`REJECTED`/
+  `CANCELED`). Done as one atomic pass: DB enum regenerated + dev DB reset/
+  reseeded (no in-place data migration — pre-release, matches
+  [[feedback_migrations_single_file]]), `referrals/$referralId.tsx`'s
+  `STATUS_VARIANT`/`TRANSITION_ACTION_LABELS` fixed to computed
+  `[REFERRAL_STATUS.X]` keys (were loosely-typed `Record<string,...>` with
+  hardcoded lowercase literals — a real latent bug the casing change would
+  have made worse, now `Record<ReferralStatus,...>` so TS enforces
+  exhaustiveness). `reports/service.ts`'s `by_status` breakdown deliberately
+  kept lowercase field names via an explicit remap (mirrors
+  `dashboard/service.ts`'s existing per-status-count pattern) — the
+  aggregate response shape is intentionally decoupled from the enum's
+  casing, not something this migration needed to touch. Verified end-to-end
+  against the live dev API (sign-in, flag/unflag round-trip, reports and
+  dashboard summaries) after the reset, not just typecheck.
+- **Patient flagging (advisory-only marker) — done, 2026-08-10.**
+  `PATCH /patients/:id/flag` (reason required) and `/:id/unflag` (Doctor-only),
+  `flagged`/`flag_reason` computed fields added to `PatientSchema` (derived
+  from the most recent `FLAGGED`/`UNFLAGGED` timeline row, not a stored
+  column — batched lookup so the list view doesn't pay an N+1 cost). Frontend:
+  a flagged banner (visible to whoever can already see the patient) plus a
+  Doctor-only flag/unflag dialog on `patients/$patientId.tsx`.
+- **Manager dashboard backend is real, not a stub** —
+  `dashboard/service.ts`'s `managerSummary` is fully implemented
+  (facility-scoped staff/patient/referral totals + status breakdown).
+  **Gap, not yet built**: the design's "pending-actions count" (outstanding
+  Nurse/Doctor applications + pending patient-transfer requests awaiting
+  this Manager's decision) isn't part of `managerSummary`'s response yet —
+  it can't be, since patient transfer doesn't exist yet either (below).
 
 **Not yet verified** (didn't read closely enough this pass to confirm either
 way — check before assuming):
-- Patient flagging (advisory-only marker) — not confirmed implemented.
 - Whether the frontend route tree actually restricts non-`ACTIVE` users to
   "view my own status only," per the design below.
 
 **Confirmed still outstanding**:
-- **`REFERRAL_STATUS` is still lowercase** (`"pending"`, `"accepted"`, ...)
-  in `shared/src/constant.ts` — the uppercase-everything convention decision
-  (Row 4, below) has NOT been applied to it yet. This is a real, deliberately
-  atomic migration (enum + DB column + every string comparison in
-  `referrals/service.ts` and the frontend) — don't do it piecemeal.
-- Doctor-initiated referral redirect, the two-sided patient-transfer
-  workflow, and the Manager/Reports dashboard additions (`GET
-  /dashboard/manager/summary` etc.) — status unconfirmed this pass; the
-  Manager dashboard's *frontend* half was mid-implementation when VS Code
-  crashed (see session log) — unclear if the backend endpoint it calls
-  (`managerSummaryRequest` → `/manager/summary`) is finished or a stub.
+- Doctor-initiated referral redirect and the two-sided patient-transfer
+  workflow — neither exists in the code at all (confirmed via grep, not just
+  absence-of-evidence): no redirect logic anywhere in
+  `referrals/service.ts`, and `patients/service.ts:188`'s own comment says
+  "the (not-yet-built) transfer workflow's job."
+- **New convention adopted this session, not yet backfilled everywhere it
+  could apply**: API route paths (backend `route.ts` `url:` values) and
+  frontend dynamic-param routes (`to`/`params` on `<Link>`) must resolve
+  through named constants — `API_PATHS`/`FRONTEND_URLS` in
+  `shared/src/constant.ts` — never a literal string at the call site.
+  Backend: every module's `route.ts` now does this (was previously literal
+  strings everywhere except `authentication/route.ts`). Frontend: every
+  `web/src/api/*.ts` file now builds URLs via `API_PATHS` +
+  `buildUrlWithParams` (`shared/src/util.ts` — existed, unused, until this
+  session) instead of raw template-literal interpolation; `FRONTEND_URLS`
+  gained `PATIENT`/`REFERRAL`/`USER`/`FACILITY`/`NEW_PATIENT`/`NEW_REFERRAL`
+  for the parameterized routes that were previously hardcoded at each
+  `<Link>` call site. This was user-driven (pointed at their other project,
+  `ubuntu-stories`, as the reference convention), not something already
+  decided in this doc before today.
 
 ## Repo now under git (2026-08-10)
 
@@ -899,3 +939,24 @@ regardless of outcome, or only on approval.
   session too (see "Repo now under git" above) specifically so a future
   crash doesn't repeat this lost-context problem — check `git log`/`git
   status` after any crash before re-deriving state from scratch again.
+- **2026-08-10 (continued):** user asked to continue the rework; built
+  patient flagging end-to-end (backend + frontend, task tracked and
+  completed) and executed the `REFERRAL_STATUS` uppercase migration in
+  full (research fork first, to inventory every call site atomically, then
+  DB reset/regenerate/reseed + frontend fixes) — see "Current implementation
+  status" above for specifics on both. Mid-session, user corrected two more
+  conventions while reviewing the new patient-flag code: (1) don't reach
+  for a raw library component when the app has a `components/custom/`
+  wrapper for it — real payoff beyond consistency, since the custom `Link`
+  type-checks a heterogeneous `{to, params}` list that the raw
+  `TanstackLink` doesn't; (2) route paths (`API_PATHS` backend, seen above)
+  must be centralized the same way on *every* route, not just newly-written
+  ones — backfilled across all existing modules, both API (`route.ts`
+  `url:` values) and frontend (`web/src/api/*.ts`, via `buildUrlWithParams`
+  — existed in `shared/src/util.ts`, unused until now). Also set up a
+  project-level `.claude/settings.json` permission allowlist (typecheck
+  commands, `docker compose ps`) after user flagged prompt fatigue —
+  unrelated to this doc's subject but recorded here since it happened
+  mid-session. Three tasks remain: doctor referral redirect, patient
+  transfer workflow, and non-`ACTIVE`-user frontend restriction
+  verification.
