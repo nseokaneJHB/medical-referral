@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyPluginAsync } from "fastify";
 
 import {
 	ROLES,
+	API_PATHS,
 	CreateReferralSchema,
 	UpdateReferralSchema,
 	referralsQuerySchema,
@@ -30,7 +31,7 @@ export const route: FastifyPluginAsync = async (
 ): Promise<void> => {
 	app.route({
 		method: "POST",
-		url: "/",
+		url: API_PATHS.REFERRAL_LIST,
 		handler: referralCreate,
 		preHandler: [
 			app.event(EVENT_NAMES.REFERRAL_CREATE),
@@ -52,7 +53,7 @@ export const route: FastifyPluginAsync = async (
 
 	app.route({
 		method: "GET",
-		url: "/",
+		url: API_PATHS.REFERRAL_LIST,
 		handler: referrals,
 		preHandler: [
 			app.event(EVENT_NAMES.REFERRAL_LIST),
@@ -71,7 +72,7 @@ export const route: FastifyPluginAsync = async (
 
 	app.route({
 		method: "GET",
-		url: "/:id",
+		url: API_PATHS.REFERRAL_BY_ID,
 		handler: referral,
 		preHandler: [
 			app.event(EVENT_NAMES.REFERRAL_GET),
@@ -91,7 +92,7 @@ export const route: FastifyPluginAsync = async (
 
 	app.route({
 		method: "PATCH",
-		url: "/:id",
+		url: API_PATHS.REFERRAL_BY_ID,
 		handler: referralUpdate,
 		preHandler: [
 			app.event(EVENT_NAMES.REFERRAL_UPDATE),
@@ -113,7 +114,7 @@ export const route: FastifyPluginAsync = async (
 
 	app.route({
 		method: "PATCH",
-		url: "/:id/status",
+		url: API_PATHS.REFERRAL_STATUS_UPDATE,
 		handler: referralStatusUpdate,
 		preHandler: [
 			app.event(EVENT_NAMES.REFERRAL_STATUS_UPDATE),
@@ -136,7 +137,7 @@ export const route: FastifyPluginAsync = async (
 
 	app.route({
 		method: "PATCH",
-		url: "/:id/assign",
+		url: API_PATHS.REFERRAL_ASSIGN,
 		handler: referralAssign,
 		preHandler: [
 			app.event(EVENT_NAMES.REFERRAL_ASSIGN),
@@ -157,7 +158,7 @@ export const route: FastifyPluginAsync = async (
 
 	app.route({
 		method: "GET",
-		url: "/:id/history",
+		url: API_PATHS.REFERRAL_HISTORY,
 		handler: referralHistory,
 		preHandler: [
 			app.event(EVENT_NAMES.REFERRAL_HISTORY),

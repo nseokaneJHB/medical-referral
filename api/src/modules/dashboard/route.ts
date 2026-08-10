@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyPluginAsync } from "fastify";
 
 import {
 	ROLES,
+	API_PATHS,
 	globalResponseSchema,
 	adminSummaryResponseSchema,
 	doctorSummaryResponseSchema,
@@ -23,7 +24,7 @@ export const route: FastifyPluginAsync = async (
 ): Promise<void> => {
 	app.route({
 		method: "GET",
-		url: "/nurse/summary",
+		url: API_PATHS.DASHBOARD_NURSE_SUMMARY,
 		handler: nurseSummary,
 		preHandler: [
 			app.event(EVENT_NAMES.DASHBOARD_NURSE_SUMMARY),
@@ -41,7 +42,7 @@ export const route: FastifyPluginAsync = async (
 
 	app.route({
 		method: "GET",
-		url: "/doctor/summary",
+		url: API_PATHS.DASHBOARD_DOCTOR_SUMMARY,
 		handler: doctorSummary,
 		preHandler: [
 			app.event(EVENT_NAMES.DASHBOARD_DOCTOR_SUMMARY),
@@ -59,7 +60,7 @@ export const route: FastifyPluginAsync = async (
 
 	app.route({
 		method: "GET",
-		url: "/admin/summary",
+		url: API_PATHS.DASHBOARD_ADMIN_SUMMARY,
 		handler: adminSummary,
 		preHandler: [
 			app.event(EVENT_NAMES.DASHBOARD_ADMIN_SUMMARY),
@@ -77,7 +78,7 @@ export const route: FastifyPluginAsync = async (
 
 	app.route({
 		method: "GET",
-		url: "/manager/summary",
+		url: API_PATHS.DASHBOARD_MANAGER_SUMMARY,
 		handler: managerSummary,
 		preHandler: [
 			app.event(EVENT_NAMES.DASHBOARD_MANAGER_SUMMARY),

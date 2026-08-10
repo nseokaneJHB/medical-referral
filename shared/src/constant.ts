@@ -159,6 +159,16 @@ export const API_URLS = <V extends string>(
 		MANAGER: `/api/${version}/manager`,
 	}) as const;
 
+/**
+ * Sub-paths registered *within* each module's own `API_URLS` namespace
+ * prefix (e.g. `PATIENT_FLAG` becomes `/api/v1/patients/:id/flag`) — every
+ * route across every module's `route.ts` resolves its `url` from here
+ * rather than a literal string, so a path never exists in two places that
+ * can drift out of sync. `:id`-style dynamic segments are plain path
+ * template strings (Fastify's own syntax, not a typed-router param map like
+ * the frontend's `FRONTEND_URLS`) — the constant is still the single source
+ * of truth, just without compile-time param checking on this side.
+ */
 export const API_PATHS = {
 	SIGN_UP: "/sign-up",
 	SIGN_IN: "/sign-in",
@@ -167,6 +177,63 @@ export const API_PATHS = {
 
 	LIVEZ: "/livez",
 	READYZ: "/readyz",
+
+	ACCOUNT_STATUS: "/status",
+	ACCOUNT_APPEAL: "/appeal",
+
+	ADMINISTRATOR_MANAGER_APPROVE: "/managers/:id/approve",
+	ADMINISTRATOR_MANAGER_REJECT: "/managers/:id/reject",
+	ADMINISTRATOR_MANAGER_DISABLE: "/managers/:id/disable",
+	ADMINISTRATOR_MANAGER_FLAG: "/managers/:id/flag",
+	ADMINISTRATOR_STAFF_APPROVE: "/staff/:id/approve",
+	ADMINISTRATOR_STAFF_REJECT: "/staff/:id/reject",
+	ADMINISTRATOR_STAFF_FLAG: "/staff/:id/flag",
+	ADMINISTRATOR_STAFF_DISABLE: "/staff/:id/disable",
+	ADMINISTRATOR_FACILITY_APPROVE: "/facilities/:id/approve",
+	ADMINISTRATOR_FACILITY_REJECT: "/facilities/:id/reject",
+	ADMINISTRATOR_FACILITY_FLAG: "/facilities/:id/flag",
+	ADMINISTRATOR_FACILITY_SUSPEND: "/facilities/:id/suspend",
+	ADMINISTRATOR_USER_CREATE: "/users",
+	ADMINISTRATOR_APPEAL_APPROVE: "/appeals/:id/approve",
+	ADMINISTRATOR_APPEAL_DENY: "/appeals/:id/deny",
+	ADMINISTRATOR_APPEAL_LIST: "/appeals",
+
+	AUDIT_LOGINS: "/logins",
+
+	DASHBOARD_NURSE_SUMMARY: "/nurse/summary",
+	DASHBOARD_DOCTOR_SUMMARY: "/doctor/summary",
+	DASHBOARD_ADMIN_SUMMARY: "/admin/summary",
+	DASHBOARD_MANAGER_SUMMARY: "/manager/summary",
+
+	FACILITY_LIST: "/",
+	FACILITY_BY_ID: "/:id",
+	FACILITY_HISTORY: "/:id/history",
+
+	MANAGER_STAFF_APPROVE: "/staff/:id/approve",
+	MANAGER_STAFF_REJECT: "/staff/:id/reject",
+	MANAGER_STAFF_DISABLE: "/staff/:id/disable",
+	MANAGER_STAFF_FLAG: "/staff/:id/flag",
+	MANAGER_FACILITY_APPEAL: "/facility/appeal",
+	MANAGER_APPEAL_APPROVE: "/appeals/:id/approve",
+	MANAGER_APPEAL_DENY: "/appeals/:id/deny",
+	MANAGER_APPEAL_LIST: "/appeals",
+
+	PATIENT_LIST: "/",
+	PATIENT_BY_ID: "/:id",
+	PATIENT_FLAG: "/:id/flag",
+	PATIENT_UNFLAG: "/:id/unflag",
+
+	REFERRAL_LIST: "/",
+	REFERRAL_BY_ID: "/:id",
+	REFERRAL_STATUS_UPDATE: "/:id/status",
+	REFERRAL_ASSIGN: "/:id/assign",
+	REFERRAL_HISTORY: "/:id/history",
+
+	REPORTS_REFERRALS: "/referrals",
+
+	USER_LIST: "/",
+	USER_BY_ID: "/:id",
+	USER_HISTORY: "/:id/history",
 } as const;
 
 export const ROLES = {
@@ -251,16 +318,21 @@ export const TIMELINE_ACTION = {
 } as const;
 
 /**
- * Referral lifecycle states.
+ * Referral lifecycle states. Uppercase, matching the naming convention
+ * applied everywhere else (`USER_STATUS`, `FACILITY_STATUS`, etc.) — see
+ * `docs/roles-permissions.md` Row 4. This is a real data migration, not
+ * just a naming choice: the DB enum, every string comparison in
+ * `referrals/service.ts`, and the frontend's status labels/badges all had
+ * to move together, atomically.
  */
 export const REFERRAL_STATUS = {
-	PENDING: "pending",
-	ACCEPTED: "accepted",
-	IN_PROGRESS: "in_progress",
-	ON_HOLD: "on_hold",
-	COMPLETED: "completed",
-	REJECTED: "rejected",
-	CANCELED: "canceled",
+	PENDING: "PENDING",
+	ACCEPTED: "ACCEPTED",
+	IN_PROGRESS: "IN_PROGRESS",
+	ON_HOLD: "ON_HOLD",
+	COMPLETED: "COMPLETED",
+	REJECTED: "REJECTED",
+	CANCELED: "CANCELED",
 } as const;
 
 /** No further transitions out of these — shared by backend guards and the frontend's edit/action visibility. */

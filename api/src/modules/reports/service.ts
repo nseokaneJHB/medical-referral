@@ -82,7 +82,7 @@ export const referralsReport = async (
 
 	const where = conditions.length > 0 ? and(...conditions) : undefined;
 
-	const [byStatus, byPriority] = (await Promise.all([
+	const [statusCounts, byPriority] = await Promise.all([
 		groupCount(
 			connection,
 			ReferralModel.status,
@@ -94,11 +94,21 @@ export const referralsReport = async (
 			ReferralModel.priority,
 			where,
 			Object.values(PRIORITY),
-		),
-	])) as [
-		ReferralsReportResponse["data"]["by_status"],
-		ReferralsReportResponse["data"]["by_priority"],
-	];
+		) as unknown as Promise<ReferralsReportResponse["data"]["by_priority"]>,
+	]);
+
+	// Field names here are the report's own stable shape, decoupled from
+	// `REFERRAL_STATUS`'s casing — same remap `dashboard/service.ts` already
+	// does for its per-status counts.
+	const byStatus: ReferralsReportResponse["data"]["by_status"] = {
+		pending: statusCounts[REFERRAL_STATUS.PENDING],
+		accepted: statusCounts[REFERRAL_STATUS.ACCEPTED],
+		in_progress: statusCounts[REFERRAL_STATUS.IN_PROGRESS],
+		on_hold: statusCounts[REFERRAL_STATUS.ON_HOLD],
+		completed: statusCounts[REFERRAL_STATUS.COMPLETED],
+		rejected: statusCounts[REFERRAL_STATUS.REJECTED],
+		canceled: statusCounts[REFERRAL_STATUS.CANCELED],
+	};
 
 	const total = Object.values(byStatus).reduce((a, b) => a + b, 0);
 

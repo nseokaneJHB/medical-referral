@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyPluginAsync } from "fastify";
 
 import {
 	ROLES,
+	API_PATHS,
 	globalResponseSchema,
 	referralsReportQuerySchema,
 	referralsReportResponseSchema,
@@ -16,7 +17,7 @@ export const route: FastifyPluginAsync = async (
 ): Promise<void> => {
 	app.route({
 		method: "GET",
-		url: "/referrals",
+		url: API_PATHS.REPORTS_REFERRALS,
 		handler: referralsReport,
 		preHandler: [
 			app.event(EVENT_NAMES.REPORTS_REFERRALS),

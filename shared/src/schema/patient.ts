@@ -50,6 +50,12 @@ export const patientsQuerySchema =
  * column — Fastify's JSON serialization converts them to ISO strings on
  * the wire the same way `JSON.stringify` always has for `Date` values.
  */
+/**
+ * `flagged`/`flag_reason` are derived from the shared `timeline` table (most
+ * recent `FLAGGED`/`UNFLAGGED` row for this patient), not stored columns —
+ * see `docs/roles-permissions.md`'s "flag is orthogonal to status" design.
+ * Advisory-only: never gates any read/write elsewhere.
+ */
 export const PatientSchema = z.object({
 	id: uuidSchema,
 	first_name: stringSchema,
@@ -60,6 +66,8 @@ export const PatientSchema = z.object({
 	address: stringSchema.nullable(),
 	creator: userRefSchema,
 	facility: facilityRefSchema,
+	flagged: z.boolean(),
+	flag_reason: stringSchema.nullable(),
 	created_at: z.date(),
 	updated_at: z.date(),
 });

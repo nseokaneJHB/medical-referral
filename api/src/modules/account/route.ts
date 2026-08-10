@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyPluginAsync } from "fastify";
 
 import {
+	API_PATHS,
 	appealSchema,
 	globalResponseSchema,
 	timelineResponseSchema,
@@ -22,7 +23,7 @@ export const route: FastifyPluginAsync = async (
 ): Promise<void> => {
 	app.route({
 		method: "GET",
-		url: "/status",
+		url: API_PATHS.ACCOUNT_STATUS,
 		handler: accountStatus,
 		preHandler: [app.event(EVENT_NAMES.ACCOUNT_STATUS), app.authenticate],
 		schema: {
@@ -35,7 +36,7 @@ export const route: FastifyPluginAsync = async (
 
 	app.route({
 		method: "POST",
-		url: "/appeal",
+		url: API_PATHS.ACCOUNT_APPEAL,
 		handler: appealSubmit,
 		preHandler: [app.event(EVENT_NAMES.ACCOUNT_APPEAL), app.authenticate],
 		schema: {

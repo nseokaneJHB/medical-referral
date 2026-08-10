@@ -2,16 +2,26 @@ import type { FastifyInstance, FastifyPluginAsync } from "fastify";
 
 import {
 	ROLES,
+	API_PATHS,
 	CreatePatientSchema,
 	UpdatePatientSchema,
+	approveActionSchema,
 	patientsQuerySchema,
 	globalResponseSchema,
 	patientParamsSchema,
+	moderationReasonSchema,
 	patientResponseSchema,
 	patientListResponseSchema,
 } from "@referral-tracking/shared";
 
-import { patient, patients, patientCreate, patientUpdate } from "./service";
+import {
+	patient,
+	patients,
+	patientFlag,
+	patientCreate,
+	patientUnflag,
+	patientUpdate,
+} from "./service";
 
 import { EVENT_NAMES } from "../../lib/constant";
 
@@ -24,7 +34,7 @@ export const route: FastifyPluginAsync = async (
 ): Promise<void> => {
 	app.route({
 		method: "POST",
-		url: "/",
+		url: API_PATHS.PATIENT_LIST,
 		handler: patientCreate,
 		preHandler: [
 			app.event(EVENT_NAMES.PATIENT_CREATE),
@@ -44,7 +54,7 @@ export const route: FastifyPluginAsync = async (
 
 	app.route({
 		method: "GET",
-		url: "/",
+		url: API_PATHS.PATIENT_LIST,
 		handler: patients,
 		preHandler: [
 			app.event(EVENT_NAMES.PATIENT_LIST),
@@ -63,7 +73,7 @@ export const route: FastifyPluginAsync = async (
 
 	app.route({
 		method: "GET",
-		url: "/:id",
+		url: API_PATHS.PATIENT_BY_ID,
 		handler: patient,
 		preHandler: [
 			app.event(EVENT_NAMES.PATIENT_GET),
@@ -83,7 +93,7 @@ export const route: FastifyPluginAsync = async (
 
 	app.route({
 		method: "PATCH",
-		url: "/:id",
+		url: API_PATHS.PATIENT_BY_ID,
 		handler: patientUpdate,
 		preHandler: [
 			app.event(EVENT_NAMES.PATIENT_UPDATE),
@@ -99,6 +109,50 @@ export const route: FastifyPluginAsync = async (
 				403: globalResponseSchema,
 				404: globalResponseSchema,
 				422: globalResponseSchema,
+			},
+		},
+	});
+
+	app.route({
+		method: "PATCH",
+		url: API_PATHS.PATIENT_FLAG,
+		handler: patientFlag,
+		preHandler: [
+			app.event(EVENT_NAMES.PATIENT_FLAG),
+			app.authenticate,
+			app.authorize([ROLES.DOCTOR]),
+		],
+		schema: {
+			params: patientParamsSchema,
+			body: moderationReasonSchema,
+			response: {
+				200: patientResponseSchema,
+				401: globalResponseSchema,
+				403: globalResponseSchema,
+				404: globalResponseSchema,
+				409: globalResponseSchema,
+			},
+		},
+	});
+
+	app.route({
+		method: "PATCH",
+		url: API_PATHS.PATIENT_UNFLAG,
+		handler: patientUnflag,
+		preHandler: [
+			app.event(EVENT_NAMES.PATIENT_UNFLAG),
+			app.authenticate,
+			app.authorize([ROLES.DOCTOR]),
+		],
+		schema: {
+			params: patientParamsSchema,
+			body: approveActionSchema,
+			response: {
+				200: patientResponseSchema,
+				401: globalResponseSchema,
+				403: globalResponseSchema,
+				404: globalResponseSchema,
+				409: globalResponseSchema,
 			},
 		},
 	});

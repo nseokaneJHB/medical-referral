@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyPluginAsync } from "fastify";
 
 import {
 	ROLES,
+	API_PATHS,
 	userParamsSchema,
 	appealParamsSchema,
 	appealDecisionSchema,
@@ -58,7 +59,7 @@ export const route: FastifyPluginAsync = async (
 
 	app.route({
 		method: "PATCH",
-		url: "/managers/:id/approve",
+		url: API_PATHS.ADMINISTRATOR_MANAGER_APPROVE,
 		handler: managerApprove,
 		preHandler: preHandler(EVENT_NAMES.ADMINISTRATOR_MANAGER_APPROVE),
 		schema: {
@@ -70,7 +71,7 @@ export const route: FastifyPluginAsync = async (
 
 	app.route({
 		method: "PATCH",
-		url: "/managers/:id/reject",
+		url: API_PATHS.ADMINISTRATOR_MANAGER_REJECT,
 		handler: managerReject,
 		preHandler: preHandler(EVENT_NAMES.ADMINISTRATOR_MANAGER_REJECT),
 		schema: {
@@ -82,7 +83,7 @@ export const route: FastifyPluginAsync = async (
 
 	app.route({
 		method: "PATCH",
-		url: "/managers/:id/disable",
+		url: API_PATHS.ADMINISTRATOR_MANAGER_DISABLE,
 		handler: managerDisable,
 		preHandler: preHandler(EVENT_NAMES.ADMINISTRATOR_MANAGER_DISABLE),
 		schema: {
@@ -94,7 +95,7 @@ export const route: FastifyPluginAsync = async (
 
 	app.route({
 		method: "PATCH",
-		url: "/managers/:id/flag",
+		url: API_PATHS.ADMINISTRATOR_MANAGER_FLAG,
 		handler: managerFlag,
 		preHandler: preHandler(EVENT_NAMES.ADMINISTRATOR_MANAGER_FLAG),
 		schema: {
@@ -106,7 +107,7 @@ export const route: FastifyPluginAsync = async (
 
 	app.route({
 		method: "PATCH",
-		url: "/staff/:id/approve",
+		url: API_PATHS.ADMINISTRATOR_STAFF_APPROVE,
 		handler: staffApprove,
 		preHandler: preHandler(EVENT_NAMES.ADMINISTRATOR_STAFF_APPROVE),
 		schema: {
@@ -118,7 +119,7 @@ export const route: FastifyPluginAsync = async (
 
 	app.route({
 		method: "PATCH",
-		url: "/staff/:id/reject",
+		url: API_PATHS.ADMINISTRATOR_STAFF_REJECT,
 		handler: staffReject,
 		preHandler: preHandler(EVENT_NAMES.ADMINISTRATOR_STAFF_REJECT),
 		schema: {
@@ -130,7 +131,7 @@ export const route: FastifyPluginAsync = async (
 
 	app.route({
 		method: "PATCH",
-		url: "/staff/:id/flag",
+		url: API_PATHS.ADMINISTRATOR_STAFF_FLAG,
 		handler: staffFlag,
 		preHandler: preHandler(EVENT_NAMES.ADMINISTRATOR_STAFF_FLAG),
 		schema: {
@@ -142,7 +143,7 @@ export const route: FastifyPluginAsync = async (
 
 	app.route({
 		method: "PATCH",
-		url: "/staff/:id/disable",
+		url: API_PATHS.ADMINISTRATOR_STAFF_DISABLE,
 		handler: staffDisable,
 		preHandler: preHandler(EVENT_NAMES.ADMINISTRATOR_STAFF_DISABLE),
 		schema: {
@@ -154,7 +155,7 @@ export const route: FastifyPluginAsync = async (
 
 	app.route({
 		method: "PATCH",
-		url: "/facilities/:id/approve",
+		url: API_PATHS.ADMINISTRATOR_FACILITY_APPROVE,
 		handler: facilityApprove,
 		preHandler: preHandler(EVENT_NAMES.ADMINISTRATOR_FACILITY_APPROVE),
 		schema: {
@@ -166,7 +167,7 @@ export const route: FastifyPluginAsync = async (
 
 	app.route({
 		method: "PATCH",
-		url: "/facilities/:id/reject",
+		url: API_PATHS.ADMINISTRATOR_FACILITY_REJECT,
 		handler: facilityReject,
 		preHandler: preHandler(EVENT_NAMES.ADMINISTRATOR_FACILITY_REJECT),
 		schema: {
@@ -178,7 +179,7 @@ export const route: FastifyPluginAsync = async (
 
 	app.route({
 		method: "PATCH",
-		url: "/facilities/:id/flag",
+		url: API_PATHS.ADMINISTRATOR_FACILITY_FLAG,
 		handler: facilityFlag,
 		preHandler: preHandler(EVENT_NAMES.ADMINISTRATOR_FACILITY_FLAG),
 		schema: {
@@ -190,7 +191,7 @@ export const route: FastifyPluginAsync = async (
 
 	app.route({
 		method: "PATCH",
-		url: "/facilities/:id/suspend",
+		url: API_PATHS.ADMINISTRATOR_FACILITY_SUSPEND,
 		handler: facilitySuspend,
 		preHandler: preHandler(EVENT_NAMES.ADMINISTRATOR_FACILITY_SUSPEND),
 		schema: {
@@ -202,7 +203,7 @@ export const route: FastifyPluginAsync = async (
 
 	app.route({
 		method: "POST",
-		url: "/users",
+		url: API_PATHS.ADMINISTRATOR_USER_CREATE,
 		handler: userCreate,
 		preHandler: preHandler(EVENT_NAMES.ADMINISTRATOR_USER_CREATE),
 		schema: {
@@ -220,7 +221,7 @@ export const route: FastifyPluginAsync = async (
 
 	app.route({
 		method: "PATCH",
-		url: "/appeals/:id/approve",
+		url: API_PATHS.ADMINISTRATOR_APPEAL_APPROVE,
 		handler: appealApprove,
 		preHandler: preHandler(EVENT_NAMES.ADMINISTRATOR_APPEAL_APPROVE),
 		schema: {
@@ -232,7 +233,7 @@ export const route: FastifyPluginAsync = async (
 
 	app.route({
 		method: "PATCH",
-		url: "/appeals/:id/deny",
+		url: API_PATHS.ADMINISTRATOR_APPEAL_DENY,
 		handler: appealDeny,
 		preHandler: preHandler(EVENT_NAMES.ADMINISTRATOR_APPEAL_DENY),
 		schema: {
@@ -244,7 +245,7 @@ export const route: FastifyPluginAsync = async (
 
 	app.route({
 		method: "GET",
-		url: "/appeals",
+		url: API_PATHS.ADMINISTRATOR_APPEAL_LIST,
 		handler: appeals,
 		preHandler: preHandler(EVENT_NAMES.ADMINISTRATOR_APPEAL_LIST),
 		schema: {

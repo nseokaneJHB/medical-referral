@@ -3,6 +3,7 @@ import { getRequest } from "@tanstack/react-start/server";
 
 import {
 	API_URLS,
+	API_PATHS,
 	type ReferralsReportQuery,
 	type ReferralsReportResponse,
 } from "@referral-tracking/shared";
@@ -24,7 +25,7 @@ export const referralsReportRequest = createServerFn({ method: "GET" })
 		};
 
 		const { data } = await api.get<ReferralsReportResponse>(
-			`${baseUrl}/referrals`,
+			`${baseUrl}${API_PATHS.REPORTS_REFERRALS}`,
 			options,
 		);
 		return data;

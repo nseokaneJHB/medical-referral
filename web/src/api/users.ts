@@ -3,6 +3,8 @@ import { getRequest } from "@tanstack/react-start/server";
 
 import {
 	API_URLS,
+	API_PATHS,
+	buildUrlWithParams,
 	type UsersQuery,
 	type UserParams,
 	type UserListResponse,
@@ -39,7 +41,7 @@ export const usersRequest = createServerFn({ method: "GET" })
 export const userRequest = createServerFn({ method: "GET" })
 	.inputValidator((params: UserParams) => params)
 	.handler(async ({ data: params }): Promise<UserDetailResponse> => {
-		const url = `${baseUrl}/${params.id}`;
+		const url = `${baseUrl}${buildUrlWithParams(API_PATHS.USER_BY_ID, params)}`;
 		const { data } = await api.get<UserDetailResponse>(
 			url,
 			forwardedRequestOptions(),
@@ -50,7 +52,7 @@ export const userRequest = createServerFn({ method: "GET" })
 export const userHistoryRequest = createServerFn({ method: "GET" })
 	.inputValidator((params: UserParams) => params)
 	.handler(async ({ data: params }): Promise<TimelineListResponse> => {
-		const url = `${baseUrl}/${params.id}/history`;
+		const url = `${baseUrl}${buildUrlWithParams(API_PATHS.USER_HISTORY, params)}`;
 		const { data } = await api.get<TimelineListResponse>(
 			url,
 			forwardedRequestOptions(),

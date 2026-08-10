@@ -3,6 +3,8 @@ import { getRequest } from "@tanstack/react-start/server";
 
 import {
 	API_URLS,
+	API_PATHS,
+	buildUrlWithParams,
 	type ReferralParams,
 	type ReferralsQuery,
 	type CreateReferralBody,
@@ -42,7 +44,7 @@ export const referralsRequest = createServerFn({ method: "GET" })
 export const referralRequest = createServerFn({ method: "GET" })
 	.inputValidator((params: ReferralParams) => params)
 	.handler(async ({ data: params }): Promise<ReferralResponse> => {
-		const url = `${baseUrl}/${params.id}`;
+		const url = `${baseUrl}${buildUrlWithParams(API_PATHS.REFERRAL_BY_ID, params)}`;
 		const { data } = await api.get<ReferralResponse>(
 			url,
 			forwardedRequestOptions(),
@@ -53,7 +55,7 @@ export const referralRequest = createServerFn({ method: "GET" })
 export const referralHistoryRequest = createServerFn({ method: "GET" })
 	.inputValidator((params: ReferralParams) => params)
 	.handler(async ({ data: params }): Promise<TimelineListResponse> => {
-		const url = `${baseUrl}/${params.id}/history`;
+		const url = `${baseUrl}${buildUrlWithParams(API_PATHS.REFERRAL_HISTORY, params)}`;
 		const { data } = await api.get<TimelineListResponse>(
 			url,
 			forwardedRequestOptions(),
@@ -74,7 +76,7 @@ export const updateReferral = async (
 	payload: UpdateReferralBody,
 ): Promise<ReferralResponse> => {
 	const { data } = await api.patch<ReferralResponse>(
-		`${baseUrl}/${id}`,
+		`${baseUrl}${buildUrlWithParams(API_PATHS.REFERRAL_BY_ID, { id })}`,
 		payload,
 	);
 	return data;
@@ -85,7 +87,7 @@ export const updateReferralStatus = async (
 	payload: UpdateReferralStatusBody,
 ): Promise<ReferralResponse> => {
 	const { data } = await api.patch<ReferralResponse>(
-		`${baseUrl}/${id}/status`,
+		`${baseUrl}${buildUrlWithParams(API_PATHS.REFERRAL_STATUS_UPDATE, { id })}`,
 		payload,
 	);
 	return data;
@@ -93,7 +95,7 @@ export const updateReferralStatus = async (
 
 export const assignReferral = async (id: string): Promise<ReferralResponse> => {
 	const { data } = await api.patch<ReferralResponse>(
-		`${baseUrl}/${id}/assign`,
+		`${baseUrl}${buildUrlWithParams(API_PATHS.REFERRAL_ASSIGN, { id })}`,
 		null,
 	);
 	return data;

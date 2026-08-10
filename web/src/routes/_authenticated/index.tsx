@@ -86,6 +86,9 @@ const ActionBar = ({ actions }: { actions: Action[] }) => (
 	</Card>
 );
 
+// Keys here are the aggregate report's own field names — decoupled from
+// `REFERRAL_STATUS`'s casing on purpose, same as `dashboard/service.ts`'s
+// per-status counts, so this doesn't move if the enum's casing ever does.
 const STATUS_CHART_CONFIG: ChartConfig = {
 	pending: { label: "Pending", color: "var(--color-muted-foreground)" },
 	accepted: { label: "Accepted", color: "var(--color-info)" },

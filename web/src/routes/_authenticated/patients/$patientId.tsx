@@ -1,10 +1,12 @@
+import { useState } from "react";
+
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
-import { SaveIcon } from "lucide-react";
+import { SaveIcon, FlagIcon, FlagOffIcon } from "lucide-react";
 
 import {
 	GENDER,
@@ -16,9 +18,18 @@ import {
 	type UpdatePatientBody,
 } from "@referral-tracking/shared";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+	Dialog,
+	DialogTitle,
+	DialogFooter,
+	DialogHeader,
+	DialogContent,
+	DialogDescription,
+} from "@/components/ui/dialog";
 
 import { Input } from "@/components/custom/input";
 import { BackLink } from "@/components/custom/back-link";
@@ -31,12 +42,100 @@ import { useFormField } from "@/hooks/use-form-field";
 import { useToastMutation } from "@/hooks/use-toast-mutation";
 
 import { QUERY_KEYS } from "@/api/constant";
-import { patientRequest, updatePatient } from "@/api/patients";
+import {
+	patientRequest,
+	flagPatient,
+	updatePatient,
+	unflagPatient,
+} from "@/api/patients";
 
 const GENDER_ITEMS = Object.values(GENDER).map((value) => ({
 	value,
 	label: stringToTitleCase(value),
 }));
+
+/**
+ * Doctor-only flag/unflag control. Advisory marker, not a status/lifecycle
+ * value — see `docs/roles-permissions.md` — so this is a simple direct
+ * action with a reason, not a moderation/approval flow.
+ */
+const FlagPatientAction = ({
+	patientId,
+	flagged,
+	onChanged,
+}: {
+	patientId: string;
+	flagged: boolean;
+	onChanged: () => Promise<void>;
+}) => {
+	const [open, setOpen] = useState(false);
+	const [reason, setReason] = useState("");
+
+	const flagMutation = useMutation<PatientResponse, Error, string>({
+		mutationFn: (notes) =>
+			flagged
+				? unflagPatient(patientId, { notes: notes || undefined })
+				: flagPatient(patientId, { reason: notes }),
+	});
+
+	const onConfirm = async () =>
+		useToastMutation({
+			loading: flagged ? "Unflagging patient..." : "Flagging patient...",
+			promise: flagMutation.mutateAsync(reason),
+			onSuccess: async () => {
+				setOpen(false);
+				setReason("");
+				await onChanged();
+			},
+		});
+
+	return (
+		<Dialog open={open} onOpenChange={setOpen}>
+			<Button
+				type="button"
+				variant={flagged ? "outline" : "warning-outline"}
+				title={flagged ? "Unflag patient" : "Flag patient"}
+				onClick={() => setOpen(true)}
+			>
+				{flagged ? <FlagOffIcon /> : <FlagIcon />}
+				<span>{flagged ? "Unflag" : "Flag"}</span>
+			</Button>
+			<DialogContent>
+				<DialogHeader>
+					<DialogTitle>
+						{flagged ? "Unflag this patient?" : "Flag this patient"}
+					</DialogTitle>
+					<DialogDescription>
+						{flagged
+							? "Optionally add a note on why the flag is being lifted."
+							: "Advisory only — flagging a patient doesn't block care or referrals, it's a visible marker with a reason for other clinicians."}
+					</DialogDescription>
+				</DialogHeader>
+				<TextArea
+					name="reason"
+					label={flagged ? "Note (optional)" : "Reason"}
+					required={!flagged}
+					value={reason}
+					onChange={(event) => setReason(event.target.value)}
+				/>
+				<DialogFooter>
+					<Button
+						type="button"
+						variant={flagged ? "outline" : "warning"}
+						title={flagged ? "Confirm unflag" : "Confirm flag"}
+						disabled={
+							flagMutation.isPending || (!flagged && reason.trim().length === 0)
+						}
+						onClick={onConfirm}
+					>
+						{flagMutation.isPending ? <Spinner /> : null}
+						<span>{flagged ? "Unflag" : "Flag"}</span>
+					</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
+	);
+};
 
 const PatientDetailPage = () => {
 	const router = useRouter();
@@ -104,16 +203,51 @@ const PatientDetailPage = () => {
 
 	const isSaving = updatePatientMutation.isPending;
 
+	const onFlagChanged = async () => {
+		await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PATIENTS });
+		await queryClient.invalidateQueries({
+			queryKey: [...QUERY_KEYS.PATIENT, patient.id],
+		});
+		await router.invalidate();
+	};
+
 	return (
 		<div className="space-y-4">
 			<BackLink label="Back to patients" fallbackTo={FRONTEND_URLS.PATIENTS} />
 
+			{patient.flagged && (
+				<div className="border-warning bg-warning/10 flex items-start justify-between gap-4 rounded-md border p-3">
+					<div>
+						<Badge variant="warning">Flagged</Badge>
+						{patient.flag_reason && (
+							<p className="text-muted-foreground mt-1 text-sm">
+								{patient.flag_reason}
+							</p>
+						)}
+					</div>
+					{user.role === ROLES.DOCTOR && (
+						<FlagPatientAction
+							patientId={patient.id}
+							flagged
+							onChanged={onFlagChanged}
+						/>
+					)}
+				</div>
+			)}
+
 			<form onSubmit={handleSubmit(onSubmit)}>
 				<Card>
-					<CardHeader>
+					<CardHeader className="flex items-center justify-between">
 						<CardTitle className="text-xl">
 							{patient.first_name} {patient.last_name}
 						</CardTitle>
+						{user.role === ROLES.DOCTOR && !patient.flagged && (
+							<FlagPatientAction
+								patientId={patient.id}
+								flagged={false}
+								onChanged={onFlagChanged}
+							/>
+						)}
 					</CardHeader>
 					<CardContent className="space-y-4">
 						<ReadOnlyField label="Facility" value={patient.facility.name} />

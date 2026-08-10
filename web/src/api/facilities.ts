@@ -3,6 +3,8 @@ import { getRequest } from "@tanstack/react-start/server";
 
 import {
 	API_URLS,
+	API_PATHS,
+	buildUrlWithParams,
 	type FacilityParams,
 	type FacilitiesQuery,
 	type UpdateFacilityBody,
@@ -40,7 +42,7 @@ export const facilitiesRequest = createServerFn({ method: "GET" })
 export const facilityRequest = createServerFn({ method: "GET" })
 	.inputValidator((params: FacilityParams) => params)
 	.handler(async ({ data: params }): Promise<FacilityResponse> => {
-		const url = `${baseUrl}/${params.id}`;
+		const url = `${baseUrl}${buildUrlWithParams(API_PATHS.FACILITY_BY_ID, params)}`;
 		const { data } = await api.get<FacilityResponse>(
 			url,
 			forwardedRequestOptions(),
@@ -51,7 +53,7 @@ export const facilityRequest = createServerFn({ method: "GET" })
 export const facilityHistoryRequest = createServerFn({ method: "GET" })
 	.inputValidator((params: FacilityParams) => params)
 	.handler(async ({ data: params }): Promise<TimelineListResponse> => {
-		const url = `${baseUrl}/${params.id}/history`;
+		const url = `${baseUrl}${buildUrlWithParams(API_PATHS.FACILITY_HISTORY, params)}`;
 		const { data } = await api.get<TimelineListResponse>(
 			url,
 			forwardedRequestOptions(),
@@ -65,7 +67,7 @@ export const updateFacility = async (
 	payload: UpdateFacilityBody,
 ): Promise<FacilityResponse> => {
 	const { data } = await api.patch<FacilityResponse>(
-		`${baseUrl}/${id}`,
+		`${baseUrl}${buildUrlWithParams(API_PATHS.FACILITY_BY_ID, { id })}`,
 		payload,
 	);
 	return data;

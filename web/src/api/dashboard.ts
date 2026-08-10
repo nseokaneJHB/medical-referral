@@ -3,6 +3,7 @@ import { getRequest } from "@tanstack/react-start/server";
 
 import {
 	API_URLS,
+	API_PATHS,
 	type NurseSummaryResponse,
 	type DoctorSummaryResponse,
 	type AdminSummaryResponse,
@@ -24,7 +25,7 @@ const forwardedRequestOptions = () => {
 export const nurseSummaryRequest = createServerFn({
 	method: "GET",
 }).handler(async (): Promise<NurseSummaryResponse> => {
-	const url = `${baseUrl}/nurse/summary`;
+	const url = `${baseUrl}${API_PATHS.DASHBOARD_NURSE_SUMMARY}`;
 	const { data } = await api.get<NurseSummaryResponse>(
 		url,
 		forwardedRequestOptions(),
@@ -35,7 +36,7 @@ export const nurseSummaryRequest = createServerFn({
 export const doctorSummaryRequest = createServerFn({
 	method: "GET",
 }).handler(async (): Promise<DoctorSummaryResponse> => {
-	const url = `${baseUrl}/doctor/summary`;
+	const url = `${baseUrl}${API_PATHS.DASHBOARD_DOCTOR_SUMMARY}`;
 	const { data } = await api.get<DoctorSummaryResponse>(
 		url,
 		forwardedRequestOptions(),
@@ -46,7 +47,7 @@ export const doctorSummaryRequest = createServerFn({
 export const adminSummaryRequest = createServerFn({
 	method: "GET",
 }).handler(async (): Promise<AdminSummaryResponse> => {
-	const url = `${baseUrl}/admin/summary`;
+	const url = `${baseUrl}${API_PATHS.DASHBOARD_ADMIN_SUMMARY}`;
 	const { data } = await api.get<AdminSummaryResponse>(
 		url,
 		forwardedRequestOptions(),
@@ -57,7 +58,7 @@ export const adminSummaryRequest = createServerFn({
 export const managerSummaryRequest = createServerFn({
 	method: "GET",
 }).handler(async (): Promise<ManagerSummaryResponse> => {
-	const url = `${baseUrl}/manager/summary`;
+	const url = `${baseUrl}${API_PATHS.DASHBOARD_MANAGER_SUMMARY}`;
 	const { data } = await api.get<ManagerSummaryResponse>(
 		url,
 		forwardedRequestOptions(),

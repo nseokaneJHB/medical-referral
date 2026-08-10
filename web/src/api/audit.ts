@@ -1,7 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 
-import { API_URLS, type LoginsListResponse } from "@referral-tracking/shared";
+import {
+	API_URLS,
+	API_PATHS,
+	type LoginsListResponse,
+} from "@referral-tracking/shared";
 
 import { api } from "@/api";
 
@@ -25,7 +29,7 @@ export const loginsRequest = createServerFn({ method: "GET" })
 		};
 
 		const { data } = await api.get<LoginsListResponse>(
-			`${baseUrl}/logins`,
+			`${baseUrl}${API_PATHS.AUDIT_LOGINS}`,
 			options,
 		);
 		return data;

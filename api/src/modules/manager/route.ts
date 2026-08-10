@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyPluginAsync } from "fastify";
 
 import {
 	ROLES,
+	API_PATHS,
 	appealSchema,
 	userParamsSchema,
 	appealParamsSchema,
@@ -47,7 +48,7 @@ export const route: FastifyPluginAsync = async (
 
 	app.route({
 		method: "PATCH",
-		url: "/staff/:id/approve",
+		url: API_PATHS.MANAGER_STAFF_APPROVE,
 		handler: staffApprove,
 		preHandler: preHandler(EVENT_NAMES.MANAGER_STAFF_APPROVE),
 		schema: {
@@ -59,7 +60,7 @@ export const route: FastifyPluginAsync = async (
 
 	app.route({
 		method: "PATCH",
-		url: "/staff/:id/reject",
+		url: API_PATHS.MANAGER_STAFF_REJECT,
 		handler: staffReject,
 		preHandler: preHandler(EVENT_NAMES.MANAGER_STAFF_REJECT),
 		schema: {
@@ -71,7 +72,7 @@ export const route: FastifyPluginAsync = async (
 
 	app.route({
 		method: "PATCH",
-		url: "/staff/:id/disable",
+		url: API_PATHS.MANAGER_STAFF_DISABLE,
 		handler: staffDisable,
 		preHandler: preHandler(EVENT_NAMES.MANAGER_STAFF_DISABLE),
 		schema: {
@@ -83,7 +84,7 @@ export const route: FastifyPluginAsync = async (
 
 	app.route({
 		method: "PATCH",
-		url: "/staff/:id/flag",
+		url: API_PATHS.MANAGER_STAFF_FLAG,
 		handler: staffFlag,
 		preHandler: preHandler(EVENT_NAMES.MANAGER_STAFF_FLAG),
 		schema: {
@@ -95,7 +96,7 @@ export const route: FastifyPluginAsync = async (
 
 	app.route({
 		method: "POST",
-		url: "/facility/appeal",
+		url: API_PATHS.MANAGER_FACILITY_APPEAL,
 		handler: facilityAppealSubmit,
 		preHandler: preHandler(EVENT_NAMES.MANAGER_FACILITY_APPEAL),
 		schema: {
@@ -111,7 +112,7 @@ export const route: FastifyPluginAsync = async (
 
 	app.route({
 		method: "PATCH",
-		url: "/appeals/:id/approve",
+		url: API_PATHS.MANAGER_APPEAL_APPROVE,
 		handler: appealApprove,
 		preHandler: preHandler(EVENT_NAMES.MANAGER_APPEAL_APPROVE),
 		schema: {
@@ -123,7 +124,7 @@ export const route: FastifyPluginAsync = async (
 
 	app.route({
 		method: "PATCH",
-		url: "/appeals/:id/deny",
+		url: API_PATHS.MANAGER_APPEAL_DENY,
 		handler: appealDeny,
 		preHandler: preHandler(EVENT_NAMES.MANAGER_APPEAL_DENY),
 		schema: {
@@ -135,7 +136,7 @@ export const route: FastifyPluginAsync = async (
 
 	app.route({
 		method: "GET",
-		url: "/appeals",
+		url: API_PATHS.MANAGER_APPEAL_LIST,
 		handler: appeals,
 		preHandler: preHandler(EVENT_NAMES.MANAGER_APPEAL_LIST),
 		schema: {

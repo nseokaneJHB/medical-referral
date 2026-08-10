@@ -66,27 +66,27 @@ const PRIORITY_VARIANT: Record<
 };
 
 const STATUS_VARIANT: Record<
-	string,
+	ReferralStatus,
 	"default" | "info" | "success" | "warning" | "error"
 > = {
-	pending: "default",
-	accepted: "info",
-	in_progress: "info",
-	on_hold: "warning",
-	completed: "success",
-	rejected: "error",
-	canceled: "error",
+	[REFERRAL_STATUS.PENDING]: "default",
+	[REFERRAL_STATUS.ACCEPTED]: "info",
+	[REFERRAL_STATUS.IN_PROGRESS]: "info",
+	[REFERRAL_STATUS.ON_HOLD]: "warning",
+	[REFERRAL_STATUS.COMPLETED]: "success",
+	[REFERRAL_STATUS.REJECTED]: "error",
+	[REFERRAL_STATUS.CANCELED]: "error",
 };
 
 // Buttons describe the action, not the resulting state — "Accept" not "Accepted".
-const TRANSITION_ACTION_LABELS: Record<string, string> = {
-	pending: "Reopen",
-	accepted: "Accept",
-	in_progress: "Start Treatment",
-	on_hold: "Put on hold",
-	completed: "Complete",
-	rejected: "Reject",
-	canceled: "Cancel",
+const TRANSITION_ACTION_LABELS: Record<ReferralStatus, string> = {
+	[REFERRAL_STATUS.PENDING]: "Reopen",
+	[REFERRAL_STATUS.ACCEPTED]: "Accept",
+	[REFERRAL_STATUS.IN_PROGRESS]: "Start Treatment",
+	[REFERRAL_STATUS.ON_HOLD]: "Put on hold",
+	[REFERRAL_STATUS.COMPLETED]: "Complete",
+	[REFERRAL_STATUS.REJECTED]: "Reject",
+	[REFERRAL_STATUS.CANCELED]: "Cancel",
 };
 
 // No reason required moving into these — accepting/starting needs no explanation.

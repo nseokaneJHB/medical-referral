@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyPluginAsync } from "fastify";
 
 import {
 	ROLES,
+	API_PATHS,
 	usersQuerySchema,
 	userParamsSchema,
 	globalResponseSchema,
@@ -23,7 +24,7 @@ export const route: FastifyPluginAsync = async (
 ): Promise<void> => {
 	app.route({
 		method: "GET",
-		url: "/",
+		url: API_PATHS.USER_LIST,
 		handler: users,
 		preHandler: [
 			app.event(EVENT_NAMES.USER_LIST),
@@ -42,7 +43,7 @@ export const route: FastifyPluginAsync = async (
 
 	app.route({
 		method: "GET",
-		url: "/:id",
+		url: API_PATHS.USER_BY_ID,
 		handler: user,
 		preHandler: [
 			app.event(EVENT_NAMES.USER_GET),
@@ -62,7 +63,7 @@ export const route: FastifyPluginAsync = async (
 
 	app.route({
 		method: "GET",
-		url: "/:id/history",
+		url: API_PATHS.USER_HISTORY,
 		handler: userHistory,
 		preHandler: [
 			app.event(EVENT_NAMES.USER_HISTORY),

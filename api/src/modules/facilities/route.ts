@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyPluginAsync } from "fastify";
 
 import {
 	ROLES,
+	API_PATHS,
 	UpdateFacilitySchema,
 	facilitiesQuerySchema,
 	globalResponseSchema,
@@ -32,7 +33,7 @@ export const route: FastifyPluginAsync = async (
 ): Promise<void> => {
 	app.route({
 		method: "GET",
-		url: "/",
+		url: API_PATHS.FACILITY_LIST,
 		handler: facilities,
 		preHandler: [app.event(EVENT_NAMES.FACILITY_LIST)],
 		schema: {
@@ -45,7 +46,7 @@ export const route: FastifyPluginAsync = async (
 
 	app.route({
 		method: "GET",
-		url: "/:id",
+		url: API_PATHS.FACILITY_BY_ID,
 		handler: facility,
 		preHandler: [
 			app.event(EVENT_NAMES.FACILITY_GET),
@@ -65,7 +66,7 @@ export const route: FastifyPluginAsync = async (
 
 	app.route({
 		method: "GET",
-		url: "/:id/history",
+		url: API_PATHS.FACILITY_HISTORY,
 		handler: facilityHistory,
 		preHandler: [
 			app.event(EVENT_NAMES.FACILITY_HISTORY),
@@ -85,7 +86,7 @@ export const route: FastifyPluginAsync = async (
 
 	app.route({
 		method: "PATCH",
-		url: "/:id",
+		url: API_PATHS.FACILITY_BY_ID,
 		handler: facilityUpdate,
 		preHandler: [
 			app.event(EVENT_NAMES.FACILITY_UPDATE),

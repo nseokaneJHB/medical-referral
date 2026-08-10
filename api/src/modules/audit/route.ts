@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyPluginAsync } from "fastify";
 
 import {
 	ROLES,
+	API_PATHS,
 	globalResponseSchema,
 	loginsListResponseSchema,
 } from "@referral-tracking/shared";
@@ -15,7 +16,7 @@ export const route: FastifyPluginAsync = async (
 ): Promise<void> => {
 	app.route({
 		method: "GET",
-		url: "/logins",
+		url: API_PATHS.AUDIT_LOGINS,
 		handler: logins,
 		preHandler: [
 			app.event(EVENT_NAMES.AUDIT_LOGINS),
