@@ -7,6 +7,7 @@ import type {
 	ReferralResponse,
 	CreateReferralBody,
 	UpdateReferralBody,
+	RedirectReferralBody,
 	ReferralListResponse,
 	TimelineListResponse,
 	UpdateReferralStatusBody,
@@ -30,6 +31,12 @@ export interface ReferralUpdateRequest extends RouteGenericInterface {
 
 export interface ReferralAssignRequest extends RouteGenericInterface {
 	Params: ReferralParams;
+	Reply: ReferralResponse | GlobalResponse;
+}
+
+export interface ReferralRedirectRequest extends RouteGenericInterface {
+	Params: ReferralParams;
+	Body: RedirectReferralBody;
 	Reply: ReferralResponse | GlobalResponse;
 }
 

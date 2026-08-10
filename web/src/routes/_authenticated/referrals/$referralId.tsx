@@ -6,7 +6,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
-import { SaveIcon, UserCheckIcon } from "lucide-react";
+import { SaveIcon, UserCheckIcon, SignpostIcon } from "lucide-react";
 
 import {
 	ROLES,
@@ -28,6 +28,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+	Dialog,
+	DialogTitle,
+	DialogFooter,
+	DialogHeader,
+	DialogContent,
+	DialogDescription,
+} from "@/components/ui/dialog";
 
 import { Link } from "@/components/custom/link";
 import { TextArea } from "@/components/custom/text-area";
@@ -46,6 +54,7 @@ import {
 	referralRequest,
 	updateReferral,
 	assignReferral,
+	redirectReferral,
 	updateReferralStatus,
 	referralHistoryRequest,
 } from "@/api/referrals";
@@ -95,6 +104,109 @@ const REASON_NOT_REQUIRED_TARGETS = new Set<ReferralStatus>([
 	REFERRAL_STATUS.IN_PROGRESS,
 ]);
 
+/**
+ * Doctor-only. Server enforces the destination must be `APPROVED` and a
+ * facility this referral hasn't already been at — this dialog only
+ * excludes the current destination from the picker (a trivially-always-
+ * invalid choice); it doesn't pre-filter the rest of the visited history,
+ * so a rejected pick surfaces as a toast error, same as any other conflict.
+ */
+const RedirectReferralAction = ({
+	referralId,
+	currentDestinationId,
+	facilityItems,
+	onChanged,
+}: {
+	referralId: string;
+	currentDestinationId: string;
+	facilityItems: { value: string; label: string }[];
+	onChanged: () => Promise<void>;
+}) => {
+	const [open, setOpen] = useState(false);
+	const [destinationId, setDestinationId] = useState<string>();
+	const [reason, setReason] = useState("");
+
+	const redirectMutation = useMutation<
+		ReferralResponse,
+		Error,
+		{ destination_facility_id: string; notes: string }
+	>({
+		mutationFn: (payload) => redirectReferral(referralId, payload),
+	});
+
+	const onConfirm = async () =>
+		useToastMutation({
+			loading: "Redirecting referral...",
+			promise: redirectMutation.mutateAsync({
+				destination_facility_id: destinationId!,
+				notes: reason,
+			}),
+			onSuccess: async () => {
+				setOpen(false);
+				setDestinationId(undefined);
+				setReason("");
+				await onChanged();
+			},
+		});
+
+	const pickableFacilities = facilityItems.filter(
+		(item) => item.value !== currentDestinationId,
+	);
+
+	return (
+		<Dialog open={open} onOpenChange={setOpen}>
+			<Button
+				type="button"
+				variant="outline"
+				title="Redirect referral"
+				onClick={() => setOpen(true)}
+			>
+				<SignpostIcon />
+				<span>Redirect</span>
+			</Button>
+			<DialogContent>
+				<DialogHeader>
+					<DialogTitle>Redirect this referral</DialogTitle>
+					<DialogDescription>
+						Sends it to a different facility, unassigned and pending —
+						the new facility triages it fresh.
+					</DialogDescription>
+				</DialogHeader>
+				<SelectInput
+					searchable
+					label="New destination facility"
+					items={pickableFacilities}
+					placeholder="Select a facility"
+					value={destinationId}
+					onChange={setDestinationId}
+				/>
+				<TextArea
+					required
+					name="reason"
+					label="Reason"
+					value={reason}
+					onChange={(event) => setReason(event.target.value)}
+				/>
+				<DialogFooter>
+					<Button
+						type="button"
+						title="Confirm redirect"
+						disabled={
+							redirectMutation.isPending ||
+							!destinationId ||
+							reason.trim().length === 0
+						}
+						onClick={onConfirm}
+					>
+						{redirectMutation.isPending ? <Spinner /> : null}
+						<span>Redirect</span>
+					</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
+	);
+};
+
 const ReferralDetailPage = () => {
 	const router = useRouter();
 	const { user, queryClient } = Route.useRouteContext();
@@ -133,6 +245,13 @@ const ReferralDetailPage = () => {
 		!isTerminal &&
 		user.facility_id === referral.destination_facility.id;
 
+	const canRedirect =
+		isDoctor &&
+		!isTerminal &&
+		(referral.assignedDoctor?.id === user.id ||
+			(!referral.assignedDoctor &&
+				user.facility_id === referral.destination_facility.id));
+
 	const legalNextStates = STATUS_TRANSITIONS[referral.status] ?? [];
 	const roleTargets =
 		user.role === ROLES.NURSE
@@ -146,12 +265,12 @@ const ReferralDetailPage = () => {
 			: legalNextStates
 		: [];
 
-	// Only fetched for editors — display uses the referral response's own
-	// nested facility/doctor objects, not a separate lookup call.
+	// Only fetched for editors/redirecters — display uses the referral
+	// response's own nested facility/doctor objects, not a separate lookup call.
 	const { data: facilities } = useQuery({
 		queryKey: [...QUERY_KEYS.FACILITIES, "picker"],
 		queryFn: () => facilitiesRequest({ data: { page: "1", limit: "100" } }),
-		enabled: canEditFull,
+		enabled: canEditFull || canRedirect,
 	});
 
 	const facilityItems =
@@ -418,18 +537,28 @@ const ReferralDetailPage = () => {
 						</form>
 					)}
 
-					{canSelfAssign && (
-						<Button
-							type="button"
-							variant="outline"
-							title="Assign to me"
-							disabled={isSelfAssigning}
-							onClick={handleSelfAssign}
-						>
-							{isSelfAssigning ? <Spinner /> : <UserCheckIcon />}
-							<span>Assign to me</span>
-						</Button>
-					)}
+					<div className="flex flex-wrap gap-2">
+						{canSelfAssign && (
+							<Button
+								type="button"
+								variant="outline"
+								title="Assign to me"
+								disabled={isSelfAssigning}
+								onClick={handleSelfAssign}
+							>
+								{isSelfAssigning ? <Spinner /> : <UserCheckIcon />}
+								<span>Assign to me</span>
+							</Button>
+						)}
+						{canRedirect && (
+							<RedirectReferralAction
+								referralId={referral.id}
+								currentDestinationId={referral.destination_facility.id}
+								facilityItems={facilityItems}
+								onChanged={invalidateReferral}
+							/>
+						)}
+					</div>
 				</CardContent>
 			</Card>
 

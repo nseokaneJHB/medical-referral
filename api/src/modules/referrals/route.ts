@@ -9,6 +9,7 @@ import {
 	globalResponseSchema,
 	referralParamsSchema,
 	referralResponseSchema,
+	redirectReferralSchema,
 	UpdateReferralStatusSchema,
 	referralListResponseSchema,
 	timelineListResponseSchema,
@@ -21,6 +22,7 @@ import {
 	referralUpdate,
 	referralAssign,
 	referralHistory,
+	referralRedirect,
 	referralStatusUpdate,
 } from "./service";
 
@@ -152,6 +154,29 @@ export const route: FastifyPluginAsync = async (
 				403: globalResponseSchema,
 				404: globalResponseSchema,
 				409: globalResponseSchema,
+			},
+		},
+	});
+
+	app.route({
+		method: "PATCH",
+		url: API_PATHS.REFERRAL_REDIRECT,
+		handler: referralRedirect,
+		preHandler: [
+			app.event(EVENT_NAMES.REFERRAL_REDIRECT),
+			app.authenticate,
+			app.authorize([ROLES.DOCTOR]),
+		],
+		schema: {
+			params: referralParamsSchema,
+			body: redirectReferralSchema,
+			response: {
+				200: referralResponseSchema,
+				401: globalResponseSchema,
+				403: globalResponseSchema,
+				404: globalResponseSchema,
+				409: globalResponseSchema,
+				422: globalResponseSchema,
 			},
 		},
 	});

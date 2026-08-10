@@ -136,6 +136,23 @@ export const canViewReferral = (
 };
 
 /**
+ * Doctor-only. Deliberately broader than `canActOnReferral`'s "must already
+ * be assigned" rule, same as `canViewReferral` — redirect is "this isn't
+ * for us," which a Doctor should be able to decide before formally
+ * accepting an unassigned referral sent to their facility, not only after.
+ */
+export const canRedirectReferral = (
+	role: Role,
+	userId: string,
+	userFacilityId: string | null,
+	referral: Pick<ReferralModelSelect, "doctor" | "destination_facility_id">,
+): boolean =>
+	role === ROLES.DOCTOR &&
+	(referral.doctor === userId ||
+		(referral.doctor === null &&
+			referral.destination_facility_id === userFacilityId));
+
+/**
  * Nurse/Doctor see a patient if it's their own facility's, or their
  * facility has an active referral for that patient (origin or destination).
  */

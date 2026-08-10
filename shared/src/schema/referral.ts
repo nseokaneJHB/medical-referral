@@ -84,6 +84,12 @@ export const UpdateReferralStatusSchema = z
 		}
 	});
 
+/** `PATCH /referrals/:id/redirect` — Doctor-only, always requires a reason. */
+export const redirectReferralSchema = z.object({
+	destination_facility_id: uuidSchema.describe("New receiving facility"),
+	notes: stringSchema.min(1, "A reason is required."),
+});
+
 /**
  * `status`/`priority` accept comma-separated lists (e.g. `?status=pending,on_hold`)
  * — parsed server-side via `parseEnumList`. `search` matches origin/

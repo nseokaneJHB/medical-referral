@@ -227,6 +227,7 @@ export const API_PATHS = {
 	REFERRAL_BY_ID: "/:id",
 	REFERRAL_STATUS_UPDATE: "/:id/status",
 	REFERRAL_ASSIGN: "/:id/assign",
+	REFERRAL_REDIRECT: "/:id/redirect",
 	REFERRAL_HISTORY: "/:id/history",
 
 	REPORTS_REFERRALS: "/referrals",
@@ -293,18 +294,19 @@ export const TIMELINE_TYPE = {
 
 /**
  * `DISABLED`/`DEPARTED` only ever apply to `type: USER`; `SUSPENDED` only
- * to `type: FACILITY`; `STATUS_CHANGE`/`DOCTOR_ASSIGNED` only to
- * `type: REFERRAL` (this pass). `APPROVED`/`REJECTED`/`FLAGGED`/
- * `UNFLAGGED`/`APPEAL_*` apply to both USER and FACILITY. None of this is
- * enforced at the DB level — it's
- * the same trust boundary as `entity` itself, upheld by the handlers that
- * write these rows, not a constraint. `UNFLAGGED` is defined but nothing
- * writes it this pass — a flag is only ever reversed via an approved
- * appeal (`APPEAL_APPROVED`), there's no standalone unflag action yet.
+ * to `type: FACILITY`; `STATUS_CHANGE`/`DOCTOR_ASSIGNED`/`REDIRECTED` only
+ * to `type: REFERRAL`. `APPROVED`/`REJECTED`/`APPEAL_*` apply to USER and
+ * FACILITY; `FLAGGED`/`UNFLAGGED` apply to USER, FACILITY, *and* PATIENT
+ * (patient flags are a direct, appeal-free action — see
+ * `modules/patients/service.ts` — unlike User/Facility, where a flag is
+ * only ever reversed via an approved appeal). None of this is enforced at
+ * the DB level — it's the same trust boundary as `entity` itself, upheld
+ * by the handlers that write these rows, not a constraint.
  */
 export const TIMELINE_ACTION = {
 	STATUS_CHANGE: "STATUS_CHANGE",
 	DOCTOR_ASSIGNED: "DOCTOR_ASSIGNED",
+	REDIRECTED: "REDIRECTED",
 	APPROVED: "APPROVED",
 	REJECTED: "REJECTED",
 	DISABLED: "DISABLED",

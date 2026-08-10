@@ -10,6 +10,7 @@ import {
 	referralParamsSchema,
 	referralsQuerySchema,
 	referralResponseSchema,
+	redirectReferralSchema,
 	referralListResponseSchema,
 	UpdateReferralStatusSchema,
 	ReferralsReportSchema,
@@ -27,6 +28,7 @@ export type UpdateReferralBody = z.infer<typeof UpdateReferralSchema>;
 export type UpdateReferralStatusBody = z.infer<
 	typeof UpdateReferralStatusSchema
 >;
+export type RedirectReferralBody = z.infer<typeof redirectReferralSchema>;
 export type ReferralParams = z.infer<typeof referralParamsSchema>;
 export type ReferralsQuery = z.infer<typeof referralsQuerySchema>;
 export type ReferralResponse = z.infer<typeof referralResponseSchema>;

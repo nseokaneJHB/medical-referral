@@ -35,6 +35,7 @@ export const EVENT_NAMES = {
 	REFERRAL_STATUS_UPDATE: "REFERRAL_STATUS_UPDATE",
 	REFERRAL_HISTORY: "REFERRAL_HISTORY",
 	REFERRAL_ASSIGN: "REFERRAL_ASSIGN",
+	REFERRAL_REDIRECT: "REFERRAL_REDIRECT",
 
 	// No FACILITY_CREATE — `POST /facilities` is removed (see
 	// `modules/facilities/route.ts`): the creation-time invariant means a

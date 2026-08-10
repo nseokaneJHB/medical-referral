@@ -4,6 +4,7 @@ import {
 	ROLES,
 	TIMELINE_TYPE,
 	TIMELINE_ACTION,
+	FACILITY_STATUS,
 	REFERRAL_STATUS,
 	STATUS_TRANSITIONS,
 	NURSE_STATUS_TARGETS,
@@ -22,7 +23,11 @@ import {
 
 import { generateUuid } from "../../lib/util";
 import { parseEnumList, parseSortList } from "../../lib/validator";
-import { canActOnReferral, canViewReferral } from "../../lib/permission";
+import {
+	canActOnReferral,
+	canViewReferral,
+	canRedirectReferral,
+} from "../../lib/permission";
 
 import { ReferralModel, type ReferralModelSelect } from "../../drizzle/schema";
 
@@ -39,6 +44,7 @@ import type {
 	ReferralCreateRequest,
 	ReferralUpdateRequest,
 	ReferralHistoryRequest,
+	ReferralRedirectRequest,
 	ReferralStatusUpdateRequest,
 } from "./type";
 
@@ -465,6 +471,148 @@ export const referralAssign = async (
 		.send({
 			code,
 			message: "Referral assigned.",
+			data: referral as unknown as ReferralResponse["data"],
+		});
+};
+
+/**
+ * Doctor-only. Resets the referral to `PENDING` and clears `doctor` at the
+ * new destination, so that facility's Manager/Doctor triages it fresh —
+ * matching how a normal new referral is picked up (see
+ * `docs/roles-permissions.md`). Refuses any facility this referral has
+ * already been at (origin, current destination, or any prior redirect's
+ * destination) — closes the ping-pong/loop risk without an arbitrary hop
+ * limit — and any facility that isn't currently `APPROVED`.
+ */
+export const referralRedirect = async (
+	request: FastifyRequest<ReferralRedirectRequest>,
+	reply: FastifyReply<ReferralRedirectRequest>,
+): Promise<void> => {
+	const { core } = request.server;
+
+	const existing = await core.referral.one({
+		where: { id: request.params.id },
+		select: {
+			id: true,
+			status: true,
+			doctor: true,
+			origin_facility_id: true,
+			destination_facility_id: true,
+		},
+	});
+
+	if (!existing) {
+		const { status, code } = HTTP_RESPONSE_CODE.NOT_FOUND;
+		return reply.status(status).send({ code, message: "Referral not found." });
+	}
+
+	const role = request.user!.role as Role;
+	if (
+		!canRedirectReferral(
+			role,
+			request.user!.id,
+			request.user!.facility_id,
+			existing,
+		)
+	) {
+		const { status, code } = HTTP_RESPONSE_CODE.FORBIDDEN;
+		return reply.status(status).send({
+			code,
+			message:
+				"You may only redirect a referral assigned to you, or unassigned and sent to your facility.",
+		});
+	}
+
+	if (isTerminal(existing.status)) {
+		const { status, code } = HTTP_RESPONSE_CODE.CONFLICT;
+		return reply.status(status).send({
+			code,
+			message: `This referral has already reached a terminal status ("${stringToTitleCase(existing.status)}").`,
+		});
+	}
+
+	const { destination_facility_id: newDestinationId, notes } = request.body;
+
+	const destination = await core.facility.one({
+		where: { id: newDestinationId },
+		select: { id: true, status: true },
+	});
+
+	if (!destination || destination.status !== FACILITY_STATUS.APPROVED) {
+		const { status, code } = HTTP_RESPONSE_CODE.CONFLICT;
+		return reply.status(status).send({
+			code,
+			message: "The destination facility isn't currently available.",
+		});
+	}
+
+	const priorRedirects = await core.timeline.many({
+		page: 1,
+		limit: 1000,
+		where: {
+			type: TIMELINE_TYPE.REFERRAL,
+			entity: existing.id,
+			action: TIMELINE_ACTION.REDIRECTED,
+		},
+		select: { previous: true, next: true },
+	});
+
+	const visitedFacilityIds = new Set<string>([
+		existing.origin_facility_id,
+		existing.destination_facility_id,
+		...priorRedirects.data.flatMap((row) =>
+			[row.previous, row.next].filter((id): id is string => id !== null),
+		),
+	]);
+
+	if (visitedFacilityIds.has(newDestinationId)) {
+		const { status, code } = HTTP_RESPONSE_CODE.CONFLICT;
+		return reply.status(status).send({
+			code,
+			message: "This referral has already been at that facility.",
+		});
+	}
+
+	await core.connection.transaction(async (tx) => {
+		const txCore = core.withTransaction(tx);
+
+		await txCore.referral.update({
+			where: { id: existing.id },
+			data: {
+				doctor: null,
+				status: REFERRAL_STATUS.PENDING,
+				destination_facility_id: newDestinationId,
+			},
+			select: { id: true },
+		});
+
+		await txCore.timeline.create({
+			data: {
+				id: generateUuid(),
+				type: TIMELINE_TYPE.REFERRAL,
+				entity: existing.id,
+				action: TIMELINE_ACTION.REDIRECTED,
+				previous: existing.destination_facility_id,
+				next: newDestinationId,
+				changer_id: request.user!.id,
+				notes,
+			},
+			select: { id: true },
+		});
+	});
+
+	const referral = await core.referral.one({
+		where: { id: existing.id },
+		select: REFERRAL_FIELDS,
+		include: REFERRAL_INCLUDE,
+	});
+
+	const { status, code } = HTTP_RESPONSE_CODE.OK;
+	reply
+		.status(status)
+		.send({
+			code,
+			message: "Referral redirected.",
 			data: referral as unknown as ReferralResponse["data"],
 		});
 };

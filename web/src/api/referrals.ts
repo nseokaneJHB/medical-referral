@@ -10,6 +10,7 @@ import {
 	type CreateReferralBody,
 	type UpdateReferralBody,
 	type ReferralResponse,
+	type RedirectReferralBody,
 	type ReferralListResponse,
 	type TimelineListResponse,
 	type UpdateReferralStatusBody,
@@ -97,6 +98,17 @@ export const assignReferral = async (id: string): Promise<ReferralResponse> => {
 	const { data } = await api.patch<ReferralResponse>(
 		`${baseUrl}${buildUrlWithParams(API_PATHS.REFERRAL_ASSIGN, { id })}`,
 		null,
+	);
+	return data;
+};
+
+export const redirectReferral = async (
+	id: string,
+	payload: RedirectReferralBody,
+): Promise<ReferralResponse> => {
+	const { data } = await api.patch<ReferralResponse>(
+		`${baseUrl}${buildUrlWithParams(API_PATHS.REFERRAL_REDIRECT, { id })}`,
+		payload,
 	);
 	return data;
 };
