@@ -81,12 +81,15 @@ sections below, which predate this):
   **Gap, not yet built**: the design's "pending-actions count" (outstanding
   Nurse/Doctor applications + pending patient-transfer requests awaiting
   this Manager's decision) isn't part of `managerSummary`'s response yet —
-  it can't be, since patient transfer doesn't exist yet either (below).
-
-**Not yet verified** (didn't read closely enough this pass to confirm either
-way — check before assuming):
-- Whether the frontend route tree actually restricts non-`ACTIVE` users to
-  "view my own status only," per the design below.
+  patient transfer now exists (below) as of this same day, so this is a
+  real, standalone gap worth picking up, not blocked on anything else.
+- **Non-`ACTIVE` users are correctly restricted to "view my own status
+  only" — confirmed.** `web/src/routes/_authenticated.tsx`'s `beforeLoad`
+  redirects any non-`ACTIVE` user to `/account-status`, a standalone route
+  *outside* the `_authenticated` layout (no sidebar, no access to the real
+  app) showing their status badge, reason, and an appeal form
+  (`web/src/routes/account-status.tsx`) — exactly the design's "sign-in
+  succeeds, every real resource stays blocked" model.
 
 - **Doctor-initiated referral redirect — done, 2026-08-10.**
   `PATCH /referrals/:id/redirect` (Doctor-only, reason required): destination
@@ -112,11 +115,47 @@ way — check before assuming):
   Frontend: a Redirect dialog (facility picker + required reason) on
   `referrals/$referralId.tsx`, gated the same way as the backend.
 
+- **Two-sided patient facility-transfer workflow — done, 2026-08-10.** No
+  dedicated table — the whole request/origin-decide/destination-decide
+  episode is a run of rows in the shared `timeline` table (`type: PATIENT`),
+  same append-only-log approach as everything else in this design. New
+  `api/src/lib/transfer.ts` holds the query/resolution helpers, since the
+  decision endpoints are exposed under both `modules/manager` and
+  `modules/administrator` (the latter as the orphan-facility fallback, via
+  the already-existing `isFacilityOrphaned`) — not owned by `modules/patients`
+  alone, even though request-creation (`POST /patients/:id/transfer`, Nurse/
+  Doctor at the patient's *current* facility only) is. Destination must be
+  `APPROVED`; only one transfer can be open per patient at a time; a
+  rejection at either step ends it with the patient staying put; `facility_id`
+  only actually changes on destination-approval. No parent-request foreign
+  key links a later decision row back to its original request (timeline rows
+  don't support that) — instead, `TRANSFER_REQUESTED`'s own row id is the
+  stable identifier for the whole episode throughout, and the one-open-
+  transfer-at-a-time invariant is what makes that safe (a patient's most
+  recent `TRANSFER_REQUESTED` row is unambiguously the current episode's
+  origin, since a new one literally can't exist yet while an old one's open).
+  Frontend: a request dialog on `patients/$patientId.tsx` (Nurse/Doctor), and
+  a new `/transfers` page (Manager/Administrator) listing pending decisions
+  with approve/reject actions, which side (origin/destination) inferred
+  purely from the row's `action` — no facility-id comparison needed
+  client-side, the list endpoint is already scoped server-side.
+  Verified end-to-end against the live API: request creation, duplicate-
+  while-open rejection, non-`APPROVED`-destination rejection, origin
+  approve, origin reject, re-deciding an already-decided request rejected,
+  wrong-facility destination-decide correctly `403`s, and a new request
+  becomes possible again after the prior one closes. Destination-approval's
+  actual `facility_id` update wasn't exercised against a *second* real
+  Manager account (none of the seeded standard logins share a facility with
+  a different one) — same credential constraint hit during the redirect
+  work — but it shares the exact transactional-update code path already
+  proven correct there and by patient flagging.
+  **Not exercised this pass**: the Administrator orphan-facility fallback
+  (no seeded facility currently has zero active Managers) and the Manager
+  dashboard's "pending-actions count" mentioned in the original design
+  (`GET /dashboard/manager/summary` doesn't include it — a real, still-open
+  gap, not part of this task).
+
 **Confirmed still outstanding**:
-- The two-sided patient-transfer workflow — doesn't exist in the code at
-  all (confirmed via grep, not just absence-of-evidence):
-  `patients/service.ts:188`'s own comment says "the (not-yet-built) transfer
-  workflow's job."
 - **New convention adopted this session, not yet backfilled everywhere it
   could apply**: API route paths (backend `route.ts` `url:` values) and
   frontend dynamic-param routes (`to`/`params` on `<Link>`) must resolve
@@ -986,6 +1025,18 @@ regardless of outcome, or only on approval.
   one must have been hand-edited or installed with an explicit range
   before that was set) — pinned to `3.10.1` to match. Then built the
   doctor-initiated referral redirect (backend + frontend, verified live —
-  see "Current implementation status" above). Two tasks remain: the patient
-  transfer workflow, and non-`ACTIVE`-user frontend restriction
-  verification.
+  see "Current implementation status" above). Verified the non-`ACTIVE`-user
+  frontend restriction was already correctly built (`/account-status`,
+  outside the authenticated layout). Built the two-sided patient
+  facility-transfer workflow (request + origin-decide + destination-decide,
+  both Manager and Administrator-orphan-fallback variants, new `/transfers`
+  page) — the last of the four originally-tracked implementation gaps — and
+  verified the reachable parts live against the API (see "Current
+  implementation status" above for what wasn't exercisable with the seeded
+  credentials available: a second real Manager account for destination-
+  approval, and an orphaned facility for the Administrator fallback).
+  With all four original gaps closed, what's left of this doc's scope is:
+  the Manager dashboard's pending-actions count (real, standalone gap, not
+  blocking anything), and the API_PATHS/FRONTEND_URLS backfill-everywhere
+  question raised earlier in this session but not acted on beyond what
+  already needed touching.
