@@ -1,0 +1,242 @@
+@import 'tailwindcss';
+
+@import 'tw-animate-css';
+
+@import "tw-animate-css";
+
+@import "@fontsource-variable/inter";
+
+@custom-variant dark (&:is(.dark *));
+
+body {
+	@apply m-0;
+	font-family:
+		-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu',
+		'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+code {
+	font-family:
+		source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+}
+
+:root {
+	color-scheme: light;
+
+	/* Custom colors */
+	--color-root-red: #A33E1D;
+	--color-night-ink: #1B1B1F;
+	--color-clay-gray: #A9A39A;
+	--color-sky-indigo: #3F5BA8;
+	--color-ubuntu-gray: #EFE4D8;
+	--color-ubuntu-black: #131313;
+	--color-ubuntu-white: #FCF7F2;
+	--color-baobab-green: #3B6E57;
+	--color-ubuntu-brown: #4B2E2B;
+	--color-heritage-gold: #D9A441;
+	--color-savannah-beige: #F5E9DD;
+	--color-sunrise-orange: #F26B1D;
+
+	/* Semantic color mapping - Light Mode */
+	--background: var(--color-savannah-beige);
+	--foreground: var(--color-night-ink);
+	--card: var(--color-ubuntu-white);
+	--card-foreground: var(--color-night-ink);
+	--popover: var(--color-ubuntu-white);
+	--popover-foreground: var(--color-night-ink);
+	--primary: var(--color-root-red);
+	--primary-foreground: var(--color-ubuntu-white);
+	--secondary: var(--color-baobab-green);
+	--secondary-foreground: var(--color-ubuntu-white);
+	--muted: var(--color-ubuntu-gray);
+	--muted-foreground: var(--color-clay-gray);
+	--accent: var(--color-heritage-gold);
+	--accent-foreground: var(--color-night-ink);
+	--destructive: #EF4444;
+	--destructive-foreground: var(--color-ubuntu-white);
+	--input: var(--color-clay-gray);
+	--ring: var(--color-root-red);
+	--border: color-mix(in srgb, var(--color-clay-gray), transparent 60%);
+
+	/* Status colors */
+	--color-info: #3B82F6;
+	--color-error: #EF4444;
+	--color-success: #22C55E;
+	--color-warning: #FACC15;
+	--color-light-info: #DBEAFE;
+	--color-light-error: #FEE2E2;
+	--color-light-success: #DCFCE7;
+	--color-light-warning: #FEF9C3;
+
+	/* Radius */
+	--radius: 0.5rem;
+}
+
+.dark {
+	color-scheme: dark;
+
+	/* Dark Mode */
+	--background: var(--color-ubuntu-black);
+	--foreground: var(--color-ubuntu-white);
+	--card: var(--color-night-ink);
+	--card-foreground: var(--color-ubuntu-white);
+	--popover: var(--color-night-ink);
+	--popover-foreground: var(--color-ubuntu-white);
+	--primary: var(--color-sunrise-orange);
+	--primary-foreground: var(--color-ubuntu-white);
+	--secondary: var(--color-baobab-green);
+	--secondary-foreground: var(--color-ubuntu-white);
+	--muted: var(--color-ubuntu-brown);
+	--muted-foreground: var(--color-clay-gray);
+	--accent: var(--color-heritage-gold);
+	--accent-foreground: var(--color-night-ink);
+	--destructive: #DC2626;
+	--destructive-foreground: var(--color-ubuntu-white);
+	--input: var(--color-ubuntu-brown);
+	--ring: var(--color-sunrise-orange);
+	--border: color-mix(in srgb, var(--color-clay-gray), transparent 80%);
+}
+
+@theme inline {
+	/* Font families */
+	--font-family-serif: 'Cormorant Garamond', serif;
+	--font-family-sans: 'Quicksand', ui-sans-serif, system-ui, sans-serif;
+
+	/* Custom color classes */
+	--color-root-red: #A33E1D;
+	--color-night-ink: #1B1B1F;
+	--color-clay-gray: #A9A39A;
+	--color-sky-indigo: #3F5BA8;
+	--color-ubuntu-gray: #F3F4F6;
+	--color-ubuntu-black: #131313;
+	--color-ubuntu-white: #FFFFFF;
+	--color-baobab-green: #3B6E57;
+	--color-ubuntu-brown: #4B2E2B;
+	--color-heritage-gold: #D9A441;
+	--color-savannah-beige: #F5E9DD;
+	--color-sunrise-orange: #F26B1D;
+
+	/* Semantic colors */
+	--color-background: var(--background);
+	--color-foreground: var(--foreground);
+	--color-card: var(--card);
+	--color-card-foreground: var(--card-foreground);
+	--color-popover: var(--popover);
+	--color-popover-foreground: var(--popover-foreground);
+	--color-primary: var(--primary);
+	--color-primary-foreground: var(--primary-foreground);
+	--color-secondary: var(--secondary);
+	--color-secondary-foreground: var(--secondary-foreground);
+	--color-muted: var(--muted);
+	--color-muted-foreground: var(--muted-foreground);
+	--color-accent: var(--accent);
+	--color-accent-foreground: var(--accent-foreground);
+	--color-destructive: var(--destructive);
+	--color-destructive-foreground: var(--destructive-foreground);
+	--color-border: var(--border);
+	--color-input: var(--input);
+	--color-ring: var(--ring);
+
+	/* Status colors */
+	--color-info: #3B82F6;
+	--color-error: #EF4444;
+	--color-success: #22C55E;
+	--color-warning: #FACC15;
+	--color-light-info: #DBEAFE;
+	--color-light-error: #FEE2E2;
+	--color-light-success: #DCFCE7;
+	--color-light-warning: #FEF9C3;
+
+	/* Radius */
+	--radius-sm: calc(0.5rem - 4px);
+	--radius-md: calc(0.5rem - 2px);
+	--radius-lg: 0.5rem;
+	--radius-xl: calc(0.5rem + 4px);
+
+	/* Background images */
+	--background-image-hero-gradient: var(--hero-gradient);
+}
+
+@layer base {
+	* {
+		@apply p-0 m-0 border-border outline-ring/50;
+		scrollbar-width: thin;
+		scrollbar-color: color-mix(in srgb, var(--muted-foreground), transparent 40%) transparent;
+	}
+
+	body {
+		@apply font-sans min-h-screen flex flex-col overflow-hidden bg-background text-foreground;
+	}
+
+	h1,
+	h2,
+	h3,
+	h4,
+	h5,
+	h6 {
+		@apply font-serif;
+	}
+
+	input,
+	select,
+	button,
+	textarea {
+		@apply font-sans rounded-lg outline-none focus:outline-none;
+	}
+
+	[data-sonner-toast] [data-close-button="true"] {
+		top: 14px !important;
+		left: auto !important;
+		right: 0px !important;
+	}
+
+	html {
+		@apply font-sans;
+	}
+
+	::-webkit-scrollbar {
+		width: 8px;
+		height: 8px;
+	}
+
+	::-webkit-scrollbar-track {
+		background: transparent;
+	}
+
+	::-webkit-scrollbar-thumb {
+		background-color: color-mix(in srgb, var(--muted-foreground), transparent 40%);
+		border: 2px solid transparent;
+		border-radius: var(--radius-lg);
+		background-clip: content-box;
+	}
+
+	::-webkit-scrollbar-thumb:hover {
+		background-color: var(--accent);
+	}
+}
+
+@layer utilities {
+	@keyframes bounce-dot {
+
+		0%,
+		100% {
+			transform: translateY(0);
+		}
+
+		50% {
+			transform: translateY(-10px);
+		}
+	}
+
+	.animate-bounce-dot {
+		animation: bounce-dot 1s ease-in-out infinite;
+	}
+}
+
+[cmdk-item]:hover,
+[cmdk-item][data-selected="true"] {
+	color: var(--foreground);
+	background-color: color-mix(in srgb, var(--accent), transparent 50%);
+}

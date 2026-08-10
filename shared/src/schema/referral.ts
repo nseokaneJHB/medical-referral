@@ -1,0 +1,177 @@
+import { z } from "zod";
+
+import {
+	uuidSchema,
+	stringSchema,
+	integerSchema,
+	userRefSchema,
+	patientRefSchema,
+	facilityRefSchema,
+} from "./field";
+
+import {
+	globalResponseSchema,
+	paginatedGlobalResponseSchema,
+	paginationSortAndSearchQuerySchema,
+} from "./global";
+
+import { PRIORITY, LOGIN_STATUS, REFERRAL_STATUS } from "../constant";
+
+export const ReferralStatusEnum = z
+	.enum(REFERRAL_STATUS)
+	.describe("Referral lifecycle status");
+
+export const PriorityEnum = z.enum(PRIORITY).describe("Referral priority");
+
+export const LoginStatusEnum = z
+	.enum(LOGIN_STATUS)
+	.describe("Login attempt outcome");
+
+/**
+ * Base fields shared by create/update. `priority` has no default here —
+ * `.default()` resolves before `.partial()`'s `.optional()` ever sees a
+ * missing key, so an update schema built by partializing a defaulted
+ * `CreateReferralSchema` would silently reset `priority` to MEDIUM on every
+ * partial `PATCH` that omits it. `CreateReferralSchema` below layers the
+ * default on top for creation only.
+ *
+ * `origin_facility_id` is deliberately absent here — it's never client-
+ * settable, always derived server-side from the referred patient's
+ * `facility_id` at creation time (same "read-only, server-derived" pattern
+ * as `referrer_id`). Only `destination_facility_id` — the facility the
+ * referrer picks to refer the patient to — is part of create/update.
+ */
+const ReferralBaseSchema = z.object({
+	patient_id: uuidSchema,
+	destination_facility_id: uuidSchema.describe("Receiving facility"),
+	visit_reason: stringSchema
+		.min(1)
+		.describe("Why the patient is at the facility"),
+	referral_reason: stringSchema
+		.min(1)
+		.describe("Reason for referring to a different facility"),
+	priority: PriorityEnum,
+	doctor: uuidSchema.optional().describe("Assigned doctor's user id"),
+});
+
+export const CreateReferralSchema = ReferralBaseSchema.extend({
+	priority: PriorityEnum.default(PRIORITY.MEDIUM),
+});
+
+export const UpdateReferralSchema = ReferralBaseSchema.partial();
+
+/**
+ * A reason isn't required moving into `accepted`/`in_progress` (accepting
+ * a referral or starting treatment needs no explanation) — every other
+ * transition (hold/complete/reject/cancel) still requires one.
+ */
+const REASON_NOT_REQUIRED_TARGETS: (typeof REFERRAL_STATUS)[keyof typeof REFERRAL_STATUS][] =
+	[REFERRAL_STATUS.ACCEPTED, REFERRAL_STATUS.IN_PROGRESS];
+
+export const UpdateReferralStatusSchema = z
+	.object({
+		next: ReferralStatusEnum,
+		notes: stringSchema.optional(),
+	})
+	.superRefine((data, ctx) => {
+		if (REASON_NOT_REQUIRED_TARGETS.includes(data.next)) return;
+		if (!data.notes?.trim()) {
+			ctx.addIssue({
+				code: "custom",
+				path: ["notes"],
+				message: "A reason is required for this status change.",
+			});
+		}
+	});
+
+/**
+ * `status`/`priority` accept comma-separated lists (e.g. `?status=pending,on_hold`)
+ * — parsed server-side via `parseEnumList`. `search` matches origin/
+ * destination facility and the reason; `sort` any real column.
+ */
+export const referralsQuerySchema =
+	paginationSortAndSearchQuerySchema.safeExtend({
+		status: stringSchema.optional(),
+		priority: stringSchema.optional(),
+		patient_id: uuidSchema
+			.optional()
+			.describe(
+				"Filter to one patient's referrals — e.g. checking for an existing active one before creating another.",
+			),
+	});
+
+/**
+ * A referral row as returned by the API. `created_at`/`updated_at` are typed
+ * as `z.date()` since that's what Drizzle hands back for a MySQL `timestamp`
+ * column — Fastify's JSON serialization converts them to ISO strings on the
+ * wire the same way `JSON.stringify` always has for `Date` values.
+ */
+export const ReferralSchema = z.object({
+	id: uuidSchema,
+	patient: patientRefSchema,
+	origin_facility: facilityRefSchema,
+	destination_facility: facilityRefSchema,
+	visit_reason: stringSchema,
+	referral_reason: stringSchema,
+	priority: PriorityEnum,
+	status: ReferralStatusEnum,
+	referrer: userRefSchema,
+	assignedDoctor: userRefSchema.nullable(),
+	created_at: z.date(),
+	updated_at: z.date(),
+});
+
+export const referralResponseSchema = globalResponseSchema.extend({
+	data: ReferralSchema,
+});
+
+export const referralListResponseSchema = paginatedGlobalResponseSchema.extend({
+	data: z.array(ReferralSchema),
+});
+
+export const referralParamsSchema = z.object({
+	id: uuidSchema,
+});
+
+/**
+ * `GET /reports/referrals` — role-scoped per build-spec.md's Phase 7 table
+ * (Admin full, Doctor clinical stats on assigned referrals, Nurse referral
+ * stats on created referrals). `from`/`to` filter on `created`.
+ */
+export const referralsReportQuerySchema = z
+	.object({
+		to: stringSchema.optional().describe("End date for filtering results"),
+		from: stringSchema.optional().describe("Start date for filtering results"),
+	})
+	.refine(
+		(data) =>
+			!data.from || !data.to || new Date(data.from) <= new Date(data.to),
+		"`from` must be before or equal to `to`",
+	);
+
+const referralStatusCountsSchema = z.object({
+	pending: integerSchema,
+	accepted: integerSchema,
+	in_progress: integerSchema,
+	on_hold: integerSchema,
+	completed: integerSchema,
+	rejected: integerSchema,
+	canceled: integerSchema,
+});
+
+const referralPriorityCountsSchema = z.object({
+	low: integerSchema,
+	medium: integerSchema,
+	high: integerSchema,
+	urgent: integerSchema,
+});
+
+export const ReferralsReportSchema = z.object({
+	total: integerSchema,
+	by_status: referralStatusCountsSchema,
+	by_priority: referralPriorityCountsSchema,
+});
+
+export const referralsReportResponseSchema = globalResponseSchema.extend({
+	data: ReferralsReportSchema,
+});

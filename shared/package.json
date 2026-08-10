@@ -1,0 +1,23 @@
+{
+	"private": true,
+	"type": "module",
+	"version": "0.0.1",
+	"name": "@referral-tracking/shared",
+	"exports": {
+		".": {
+			"import": "./src/index.ts",
+			"default": "./src/index.ts"
+		}
+	},
+	"scripts": {
+		"typecheck": "tsc --noEmit",
+		"clean": "rm -rf node_modules dist"
+	},
+	"devDependencies": {
+		"tsx": "4.21.0",
+		"typescript": "6.0.3"
+	},
+	"dependencies": {
+		"zod": "4.4.3"
+	}
+}

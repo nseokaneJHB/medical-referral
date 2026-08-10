@@ -1,0 +1,17 @@
+{
+	"exclude": ["node_modules", "dist", "build"],
+	"compilerOptions": {
+		"strict": true,
+		"lib": ["ES2022"],
+		"sourceMap": true,
+		"target": "ES2022",
+		"declaration": true,
+		"module": "Preserve",
+		"skipLibCheck": true,
+		"declarationMap": true,
+		"esModuleInterop": true,
+		"strictNullChecks": true,
+		"resolveJsonModule": true,
+		"moduleResolution": "Bundler"
+	}
+}

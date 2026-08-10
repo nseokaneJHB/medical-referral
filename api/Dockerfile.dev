@@ -1,0 +1,49 @@
+# =========================
+# BASE
+# =========================
+FROM node:24-alpine AS base
+
+# Enables pnpm/yarn via Corepack and Locks pnpm version for reproducibility
+ENV COREPACK_ENABLE_STRICT=0
+ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+RUN corepack enable || npm install -g pnpm@11.5.0 && corepack prepare pnpm@11.5.0 --activate
+
+# Sets monorepo root inside container
+WORKDIR /workspace
+
+# Give node ownership of the workspace before switching to it
+RUN chown -R node:node /workspace
+
+# =========================
+# DEPENDENCIES
+# =========================
+FROM base AS deps
+
+# Copies root and package-specific manifest files for dependency installation
+COPY --chown=node:node package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json prettier.config.js ./
+COPY --chown=node:node api/package.json ./api/
+COPY --chown=node:node shared/package.json ./shared/
+
+# Switch to non-root user before installing — pnpm should not run as root
+USER node
+
+# This prevents pnpm interactive prompts entirely, ensuring a smooth CI/CD experience
+ENV CI=true
+
+# Installs all workspace dependencies
+RUN pnpm install --frozen-lockfile
+
+# =========================
+# DEVELOPMENT
+# =========================
+FROM deps AS dev
+
+# Copies Source code for API and shared packages (required for local package resolution)
+COPY --chown=node:node api ./api
+COPY --chown=node:node shared ./shared
+
+# Exposes API port inside container
+EXPOSE 8080 
+
+# Starts API in dev mode via workspace filter
+CMD ["pnpm", "--filter", "@referral-tracking/api", "dev", "--host", "0.0.0.0"]

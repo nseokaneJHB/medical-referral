@@ -1,0 +1,73 @@
+# =========================
+# Dependencies
+# =========================
+node_modules
+*/node_modules
+.pnpm-store
+
+# =========================
+# Turbo / Build cache
+# =========================
+.turbo
+dist
+build
+coverage
+
+# =========================
+# Frontend build artifacts
+# =========================
+.next
+.vite
+.vinxi
+
+# =========================
+# TypeScript
+# =========================
+*.tsbuildinfo
+
+# =========================
+# Git
+# =========================
+.git
+.gitignore
+
+# =========================
+# Editors
+# =========================
+.vscode
+.idea
+
+# =========================
+# OS junk
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# Docker
+# =========================
+docker-commands.txt
+
+# =========================
+# Environment files
+# =========================
+.env
+env/**/.env*
+
+# Keep examples if you make them later
+!env/**/.env.example
+
+# =========================
+# Logs
+# =========================
+*.log
+
+# =========================
+# Devcontainer
+# =========================
+.devcontainer
+
+# =========================
+# Documentation
+# =========================
+fullstack_gitops_learning_path.md

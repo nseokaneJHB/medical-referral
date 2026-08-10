@@ -1,0 +1,130 @@
+# =========================
+# 🗄️ MySQL DATABASE
+# =========================
+services:
+  referral-tracking-database:
+    image: mysql:8.4 # Official MySQL LTS image
+    restart: unless-stopped # Automatically restart unless manually stopped
+
+    env_file:
+      - ./env/${ENV:-development}/.env.database # Load environment variables
+
+    ports:
+      - "3306:3306" # Exposes database to host machine (dev only)
+
+    volumes:
+      - referral-tracking-mysql_data:/var/lib/mysql # Persists DB data across restarts
+
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$$MYSQL_ROOT_PASSWORD"] # Checks DB readiness using env vars
+      interval: 5s # Healthcheck frequency
+      timeout: 5s # Timeout per check
+      retries: 5 # Fail after 5 unsuccessful checks
+
+    networks:
+      - referral-tracking # Shared internal Docker network
+
+  # =========================
+  # 🚀 BACKEND API SERVICE
+  # =========================
+  referral-tracking-api:
+    build:
+      context: . # Root of monorepo (required for pnpm workspaces)
+      dockerfile: api/Dockerfile.dev # API-specific build instructions
+
+    restart: unless-stopped # Restart unless manually stopped
+
+    env_file:
+      - ./env/${ENV:-development}/.env.api # Load environment variables
+
+    ports:
+      - "8080:8080" # Exposes API to host machine
+
+    depends_on:
+      referral-tracking-database:
+        condition: service_healthy # Ensures DB is ready before API starts
+
+    working_dir: /workspace # Ensures pnpm + TS resolve from monorepo root
+
+    volumes:
+      - .:/workspace # Mount full repo into container for live reload
+      # Prevents overwriting node_modules with host's (which may not work in Linux containers)
+      - referral-tracking-node_modules:/workspace/node_modules
+      - referral-tracking-api-node_modules:/workspace/api/node_modules
+      - referral-tracking-shared-node_modules:/workspace/shared/node_modules
+
+    environment:
+      DEV_MODE: "true" # Toggle dev vs production behavior inside apps
+      CHOKIDAR_USEPOLLING: "true" # Enables file watching in Docker
+      WATCHPACK_POLLING: "true" # Ensures Vite/Webpack reactivity
+      CHOKIDAR_INTERVAL: "100" # Reduces file watch latency
+
+    healthcheck:
+      # Checks API health using liveness endpoint
+      test:
+        [
+          "CMD-SHELL",
+          'node -e "fetch(''http://localhost:8080/k8/livez'').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"',
+        ]
+      interval: 5s # Check API health every 30 seconds
+      timeout: 3s # API should respond within 3 seconds
+      retries: 3 # Fails if API doesn't respond successfully after 3 attempts
+      start_period: 10s # Gives API extra time to start before health checks begin
+
+    networks:
+      - referral-tracking # Shared network
+
+  # =========================
+  # 🌐 FRONTEND WEB SERVICE
+  # =========================
+  referral-tracking-web:
+    build:
+      context: . # Root monorepo context (required for shared package resolution)
+      dockerfile: web/Dockerfile.dev # Frontend build file
+
+    restart: unless-stopped # Restart policy
+
+    env_file:
+      - ./env/${ENV:-development}/.env.web # Load environment variables
+
+    ports:
+      - "3000:3000" # Exposes Vite dev server
+
+    depends_on:
+      referral-tracking-api:
+        condition: service_healthy # Ensures API is ready before frontend starts
+
+    working_dir: /workspace # Aligns with monorepo root
+
+    volumes:
+      - .:/workspace # Mount full repo into container for live reload
+      # Prevents overwriting node_modules with host's (which may not work in Linux containers)
+      - referral-tracking-node_modules:/workspace/node_modules
+      - referral-tracking-web-node_modules:/workspace/web/node_modules
+      - referral-tracking-shared-node_modules:/workspace/shared/node_modules
+
+    environment:
+      DEV_MODE: "true" # Toggle dev vs production behavior inside apps
+      CHOKIDAR_USEPOLLING: "true" # Enables file watching inside container
+      WATCHPACK_POLLING: "true" # Improves frontend hot reload reliability
+      CHOKIDAR_INTERVAL: "100" # Low latency file change detection
+
+    networks:
+      - referral-tracking # Shared network
+
+# =========================
+# 📦 NAMED VOLUMES
+# =========================
+volumes:
+  referral-tracking-mysql_data: # Persistent storage for MySQL data
+  referral-tracking-node_modules:
+  referral-tracking-api-node_modules:
+  referral-tracking-web-node_modules:
+  referral-tracking-shared-node_modules:
+
+# =========================
+# 🌐 SHARED NETWORK
+# =========================
+networks:
+  referral-tracking:
+    driver: bridge # Default isolated Docker network
