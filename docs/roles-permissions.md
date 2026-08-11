@@ -155,11 +155,42 @@ sections below, which predate this):
   and the new manager's pending-transfers queue correctly emptied
   afterward. The full two-sided loop is now independently live-verified
   end to end, not just sharing a code path with something else that was.
-  **Still not exercised**: the Administrator orphan-facility fallback (no
-  seeded facility currently has zero active Managers) and the Manager
-  dashboard's "pending-actions count" mentioned in the original design
-  (`GET /dashboard/manager/summary` doesn't include it — a real, still-open
-  gap, not part of this task).
+- **Manager dashboard pending-actions count — done, 2026-08-11.**
+  `GET /dashboard/manager/summary` gained `pending_staff_applications`
+  (outstanding Nurse/Doctor applications at this Manager's facility) and
+  `pending_transfers` (open transfer requests awaiting this Manager's
+  decision, either side) — the count the original design called for as
+  "a surface" pointing at the approval-chain queues this whole redesign
+  built. `getPendingTransfersForFacility` (`api/src/lib/transfer.ts`) was
+  factored out of the `/manager/transfers` list endpoint so both reuse the
+  identical filtering logic. Frontend: two more stat cards on the Manager
+  dashboard, highlighted and clickable through to `/users`/`/transfers`
+  when non-zero. Verified live: counts matched the real
+  `/manager/transfers` list total and a real pending Doctor application.
+  **Known pre-existing gap, not created by this addition**: clicking
+  through for staff applications lands on `/users`, which has no
+  approve/reject UI — the backend moderation actions
+  (`staffApprove`/`staffReject`/etc.) have never had a frontend caller,
+  a gap from before this session, out of scope here.
+- **Administrator orphan-facility fallback for transfers — verified live,
+  2026-08-11.** No seeded facility had zero active Managers, so the user
+  had me manufacture the scenario directly: disabled a real facility's
+  only active Manager (Administrator action, reversed via direct DB write
+  afterward since it was purely a test artifact — no clean "undo" action
+  exists for a `DISABLE`, by design, short of a real appeal), confirming
+  both directions on an already-open, already-origin-approved request:
+  Administrator's `/administrator/transfers` queue correctly picked up the
+  now-orphaned destination facility's pending decision; the destination-
+  approve succeeded and the patient's `facility_id` genuinely moved
+  (confirmed via direct query); and, as a negative-case check, Administrator
+  attempting to decide a *different* transfer whose relevant facility still
+  had an active Manager was correctly `403`'d — the fallback only fires
+  when it's supposed to, not as a blanket override.
+
+With both of these closed, everything called out as open in this doc as of
+2026-08-10/11 is now either done or explicitly named as a pre-existing,
+separate gap (the staff-application moderation frontend, and the
+API_PATHS/FRONTEND_URLS backfill-everywhere question).
 
 **Confirmed still outstanding**:
 - **New convention adopted this session, not yet backfilled everywhere it
