@@ -143,14 +143,20 @@ sections below, which predate this):
   while-open rejection, non-`APPROVED`-destination rejection, origin
   approve, origin reject, re-deciding an already-decided request rejected,
   wrong-facility destination-decide correctly `403`s, and a new request
-  becomes possible again after the prior one closes. Destination-approval's
-  actual `facility_id` update wasn't exercised against a *second* real
-  Manager account (none of the seeded standard logins share a facility with
-  a different one) — same credential constraint hit during the redirect
-  work — but it shares the exact transactional-update code path already
-  proven correct there and by patient flagging.
-  **Not exercised this pass**: the Administrator orphan-facility fallback
-  (no seeded facility currently has zero active Managers) and the Manager
+  becomes possible again after the prior one closes.
+  **2026-08-11 follow-up:** destination-approval's actual `facility_id`
+  update also verified live — user supplied a second Manager account
+  (`Nolan Kgotso` / `nolan.kgotso@gmail.com`), registered via public
+  sign-up joining Denesikmouth Memorial Hospital (the exact destination of
+  the still-open request from the day before), approved by Administrator,
+  then used to destination-approve that request: `action` correctly moved
+  to `TRANSFER_APPROVED_DESTINATION`, the patient's `facility_id` in the DB
+  actually changed (confirmed via direct query, not just the API response),
+  and the new manager's pending-transfers queue correctly emptied
+  afterward. The full two-sided loop is now independently live-verified
+  end to end, not just sharing a code path with something else that was.
+  **Still not exercised**: the Administrator orphan-facility fallback (no
+  seeded facility currently has zero active Managers) and the Manager
   dashboard's "pending-actions count" mentioned in the original design
   (`GET /dashboard/manager/summary` doesn't include it — a real, still-open
   gap, not part of this task).
@@ -1040,3 +1046,13 @@ regardless of outcome, or only on approval.
   blocking anything), and the API_PATHS/FRONTEND_URLS backfill-everywhere
   question raised earlier in this session but not acted on beyond what
   already needed touching.
+- **2026-08-11:** user supplied credentials for a second Manager account
+  (`Nolan Kgotso`) specifically to close the one remaining live-verification
+  gap from the day before — see "Current implementation status" above for
+  what that confirmed. Note for future sessions: this account was created
+  through the real public sign-up + Administrator-approve flow, not
+  `seed.ts` — it will *not* survive a `reset`/reseed cycle like the
+  standard `{role}@gmail.com` logins do, and would need recreating
+  (register as Manager joining Denesikmouth Memorial Hospital or any other
+  facility, then Administrator-approve) if this specific test needs
+  repeating after a schema change forces another reset.
