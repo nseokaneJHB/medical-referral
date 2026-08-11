@@ -1087,3 +1087,26 @@ regardless of outcome, or only on approval.
   (register as Manager joining Denesikmouth Memorial Hospital or any other
   facility, then Administrator-approve) if this specific test needs
   repeating after a schema change forces another reset.
+- **2026-08-11 (continued):** separate from this doc's feature scope, user
+  caught an architecture violation while reviewing the dashboard code: three
+  `modules/*/service.ts` files (`dashboard`, `reports`, `users`) were
+  building raw Drizzle queries directly against `*Model` table objects
+  instead of going through the `core/*.ts` repository layer, which is
+  supposed to be the only place that knows about Drizzle. Fixed by adding
+  one generic `count(where?, groupBy?)` method to `core/helpers.ts` and to
+  every repository class (`User`, `Patient`, `Facility`, `Referral`),
+  replacing raw `connection.select(...).from(Model)...groupBy(...)` calls
+  in all three service files. Along the way, user rejected a first attempt
+  that added per-column named methods (`countByStatus`/`countByPriority`)
+  — "it has to be consistent and be named count as well, because I could
+  count by anything" — so those were consolidated into the single generic
+  method instead, typed with a conditional `CountResult<TGroupBy>` return
+  (flat number with no `groupBy`, `Record<string, number>` with one). Also
+  corrected `zeroFillCounts` (`api/src/lib/util.ts`) to accept the enum
+  object itself and compute `Object.values()` internally, rather than
+  making every call site pre-compute and pass the keys array. Verified via
+  typecheck, lint, and live curl requests against the running API
+  (dashboard summaries, reports, doctor stats) — all matched pre-refactor
+  output. Committed as `7d874f1`. Purely a code-quality/architecture fix,
+  not a new feature — doesn't change anything in "Current implementation
+  status" above, which is why it's recorded only here.
