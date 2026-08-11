@@ -7,6 +7,7 @@ import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import {
 	ROLES,
 	LOGIN_STATUS,
+	FRONTEND_URLS,
 	getRelativeTime,
 	stringToTitleCase,
 	DEFAULT_PAGE_LIMIT,
@@ -161,7 +162,7 @@ export const Route = createFileRoute("/_authenticated/audit/")({
 	loaderDeps: ({ search }) => search,
 	beforeLoad: ({ context }) => {
 		if (context.user.role !== ROLES.ADMINISTRATOR) {
-			throw redirect({ to: "/" });
+			throw redirect({ to: FRONTEND_URLS.HOME });
 		}
 	},
 	loader: async ({ context, deps }) => {

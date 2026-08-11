@@ -29,7 +29,7 @@ export const Route = createFileRoute("/_authenticated")({
 		}
 
 		if (user.status !== USER_STATUS.ACTIVE) {
-			throw redirect({ to: "/account-status" });
+			throw redirect({ to: FRONTEND_URLS.ACCOUNT_STATUS });
 		}
 
 		return { user };

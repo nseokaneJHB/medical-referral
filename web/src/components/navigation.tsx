@@ -2,6 +2,8 @@ import type { ComponentType } from "react";
 
 import { LinkProps } from "@tanstack/react-router";
 
+import { FRONTEND_URLS } from "@referral-tracking/shared";
+
 import { Link } from "@/components/custom/link";
 import { ThemeToggle } from "@/components/custom/theme-toggle";
 
@@ -19,7 +21,7 @@ export const Navigation = () => {
 		<div className="bg-background sticky top-0 z-50 shrink border-b px-8 py-4 shadow-sm">
 			<nav className="flex items-center justify-between">
 				<Link
-					to="/"
+					to={FRONTEND_URLS.HOME}
 					title="Home"
 					variant="link"
 					buttonClassName="hover:no-underline p-0"

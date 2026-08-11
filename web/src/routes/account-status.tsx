@@ -7,6 +7,7 @@ import { AlertTriangleIcon } from "lucide-react";
 
 import {
 	USER_STATUS,
+	FRONTEND_URLS,
 	stringToTitleCase,
 	type AppealBody,
 	type TimelineResponse,
@@ -137,8 +138,9 @@ const AccountStatusPage = () => {
 export const Route = createFileRoute("/account-status")({
 	component: AccountStatusPage,
 	beforeLoad: ({ context }) => {
-		if (!context.user) throw redirect({ to: "/sign-in" });
-		if (context.user.status === USER_STATUS.ACTIVE) throw redirect({ to: "/" });
+		if (!context.user) throw redirect({ to: FRONTEND_URLS.SIGN_IN });
+		if (context.user.status === USER_STATUS.ACTIVE)
+			throw redirect({ to: FRONTEND_URLS.HOME });
 	},
 	loader: async ({ context }) => {
 		const response = await context.queryClient.ensureQueryData({

@@ -27,6 +27,7 @@ export const FRONTEND_URLS = {
 	FACILITIES: "/facilities",
 	FACILITY: "/facilities/$facilityId",
 	TRANSFERS: "/transfers",
+	ACCOUNT_STATUS: "/account-status",
 } as const;
 
 export type FrontendRedirectUrlPaths = typeof FRONTEND_URLS;

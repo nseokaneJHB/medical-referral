@@ -7,7 +7,11 @@ import { useMutation } from "@tanstack/react-query";
 
 import { LogOutIcon } from "lucide-react";
 
-import { HTTP_CODE, type GlobalResponse } from "@referral-tracking/shared";
+import {
+	HTTP_CODE,
+	FRONTEND_URLS,
+	type GlobalResponse,
+} from "@referral-tracking/shared";
 
 import { Button } from "@/components/ui/button";
 
@@ -42,7 +46,7 @@ export const SignOutButton = () => {
 				}
 
 				await router.invalidate();
-				navigate({ to: "/sign-in", replace: true });
+				navigate({ to: FRONTEND_URLS.SIGN_IN, replace: true });
 			},
 		});
 

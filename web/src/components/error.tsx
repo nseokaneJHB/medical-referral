@@ -16,7 +16,7 @@ import { isApiErrorResponse, CLIENT_ERROR } from "@/api";
 
 import { Link } from "@/components/custom/link";
 import { Button } from "@/components/ui/button";
-import { stringToTitleCase } from "@referral-tracking/shared";
+import { FRONTEND_URLS, stringToTitleCase } from "@referral-tracking/shared";
 
 export const Error = ({ error }: ErrorComponentProps) => {
 	const router = useRouter();
@@ -39,7 +39,7 @@ export const Error = ({ error }: ErrorComponentProps) => {
 				<div className="relative inline-block">
 					<div className="bg-background absolute inset-0 animate-pulse rounded-full opacity-30 blur-3xl" />
 					<Link
-						to="/"
+						to={FRONTEND_URLS.HOME}
 						title="Home"
 						variant="link"
 						buttonClassName="hover:no-underline relative h-72 w-fit rounded-full"
@@ -72,7 +72,7 @@ export const Error = ({ error }: ErrorComponentProps) => {
 				</Button>
 
 				{isRoot ? (
-					<Link title="Home" size="lg" to="/" variant="default">
+					<Link title="Home" size="lg" to={FRONTEND_URLS.HOME} variant="default">
 						<HomeIcon className="h-5 w-5 transition-transform group-hover:scale-110" />
 						<span>Home</span>
 					</Link>

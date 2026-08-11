@@ -135,7 +135,7 @@ export const SideBar = () => {
 					<SidebarMenuItem className="items-center">
 						<SidebarMenuButton size="lg" className="self-center" asChild>
 							<Link
-								to="/"
+								to={FRONTEND_URLS.HOME}
 								title="Home"
 								variant="link"
 								buttonClassName="hover:no-underline"
