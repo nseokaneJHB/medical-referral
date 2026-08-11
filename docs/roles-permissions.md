@@ -167,11 +167,9 @@ sections below, which predate this):
   dashboard, highlighted and clickable through to `/users`/`/transfers`
   when non-zero. Verified live: counts matched the real
   `/manager/transfers` list total and a real pending Doctor application.
-  **Known pre-existing gap, not created by this addition**: clicking
-  through for staff applications lands on `/users`, which has no
-  approve/reject UI — the backend moderation actions
-  (`staffApprove`/`staffReject`/etc.) have never had a frontend caller,
-  a gap from before this session, out of scope here.
+  **Gap noted here was closed 2026-08-12** — see "Both remaining gaps
+  closed" below; clicking through for staff applications now lands on a
+  `/users` that actually has approve/reject UI.
 - **Administrator orphan-facility fallback for transfers — verified live,
   2026-08-11.** No seeded facility had zero active Managers, so the user
   had me manufacture the scenario directly: disabled a real facility's
@@ -192,22 +190,56 @@ With both of these closed, everything called out as open in this doc as of
 separate gap (the staff-application moderation frontend, and the
 API_PATHS/FRONTEND_URLS backfill-everywhere question).
 
-**Confirmed still outstanding**:
-- **New convention adopted this session, not yet backfilled everywhere it
-  could apply**: API route paths (backend `route.ts` `url:` values) and
-  frontend dynamic-param routes (`to`/`params` on `<Link>`) must resolve
-  through named constants — `API_PATHS`/`FRONTEND_URLS` in
-  `shared/src/constant.ts` — never a literal string at the call site.
-  Backend: every module's `route.ts` now does this (was previously literal
-  strings everywhere except `authentication/route.ts`). Frontend: every
-  `web/src/api/*.ts` file now builds URLs via `API_PATHS` +
-  `buildUrlWithParams` (`shared/src/util.ts` — existed, unused, until this
-  session) instead of raw template-literal interpolation; `FRONTEND_URLS`
-  gained `PATIENT`/`REFERRAL`/`USER`/`FACILITY`/`NEW_PATIENT`/`NEW_REFERRAL`
-  for the parameterized routes that were previously hardcoded at each
-  `<Link>` call site. This was user-driven (pointed at their other project,
-  `ubuntu-stories`, as the reference convention), not something already
-  decided in this doc before today.
+**Both remaining gaps closed, 2026-08-12:**
+- **Staff/manager moderation frontend — done.** `GET /users` (Manager and
+  Administrator) now has real row actions instead of just "View":
+  Approve/Reject on `PENDING` rows, Flag/Disable on `ACTIVE`, Disable-only
+  on `FLAGGED` — matching each backend action's own status precondition.
+  `resolveModerationFns` in `users/index.tsx` picks the right endpoint set
+  per row: `*Manager` (Administrator-only, target role `MANAGER`) or
+  `*Staff` (both `/manager/staff/*` and, as the orphan-facility fallback,
+  `/administrator/staff/*`, target role `NURSE`/`DOCTOR`) — a Manager
+  viewing another Manager, or anyone viewing an Administrator, gets no
+  action buttons at all. New `web/src/api/users.ts` write functions:
+  `approveStaff`/`rejectStaff`/`flagStaff`/`disableStaff` (namespaced like
+  `api/transfers.ts`) and `approveManager`/`rejectManager`/`flagManager`/
+  `disableManager`. Verified live for every action, both roles, via
+  disposable public-sign-up test accounts (cleaned up after) — this closes
+  the dashboard's "pending staff applications" card, which previously
+  linked to a page with nothing to click.
+  - **Found and fixed a real, unrelated bug while wiring this up**:
+    `queryClient.invalidateQueries()` followed by `router.invalidate()`
+    (even passing `{ sync: true }`) does not reliably re-render
+    `Route.useLoaderData()` after an in-place mutation on this TanStack
+    Router version — a moderation action would toast success but the row
+    would keep showing its old status until an unrelated navigation. The
+    `transfers` page had the identical latent bug (introduced when it was
+    built, never caught because live-testing that page apparently always
+    happened via full page reloads rather than in-app clicks). Root-caused
+    via reverse-engineering `@tanstack/router-core`'s `load-matches.js`
+    (`shouldSkipLoader`/dehydration and the `invalid`/`sync` branches in
+    `handleLoader`) rather than guessed at. Real fix: both pages now read
+    their table data via `useSuspenseQuery` (keyed identically to the
+    loader's `ensureQueryData` call, so no extra fetch) instead of
+    `useLoaderData()` — a live query-cache subscription, which
+    `invalidateQueries` alone is enough to refresh. Left a smaller,
+    lower-risk version of the same `sync: true` mitigation on the three
+    single-record detail pages (`facilities/$facilityId.tsx`,
+    `patients/$patientId.tsx`, `referrals/$referralId.tsx`) that also call
+    `router.invalidate()` after a save — not reworked to `useSuspenseQuery`
+    this pass, flagged here as the same class of bug if it turns out to
+    still manifest there.
+- **`API_PATHS`/`FRONTEND_URLS` backfill — done.** Swept both `web/src`
+  and `api/src` for any literal route string that should have resolved
+  through a named constant and hadn't. Backend was already fully clean.
+  Frontend had several stragglers, all in shared chrome rather than
+  feature pages: `redirect({ to: "/sign-in" })`/`"/"`/`"/account-status"`
+  in route guards (`account-status.tsx`, `_authenticated.tsx`,
+  `audit/index.tsx`), and `to="/"` home links in `side-bar.tsx`,
+  `not-found.tsx`, `error.tsx`, `navigation.tsx`, and the sign-out
+  redirect in `sign-out-button.tsx`. Added `FRONTEND_URLS.ACCOUNT_STATUS`,
+  which hadn't existed. No behavior change — every literal was replaced
+  with the constant already holding that exact string.
 
 ## Repo now under git (2026-08-10)
 
@@ -1110,3 +1142,13 @@ regardless of outcome, or only on approval.
   output. Committed as `7d874f1`. Purely a code-quality/architecture fix,
   not a new feature — doesn't change anything in "Current implementation
   status" above, which is why it's recorded only here.
+- **2026-08-12:** user asked to pick up the two remaining named gaps —
+  see "Both remaining gaps closed, 2026-08-12" above for what shipped
+  (staff/manager moderation UI on `/users`, and the route-constants
+  backfill sweep). Also fixed a real, previously-unnoticed bug found
+  while building the moderation UI: `router.invalidate()` wasn't actually
+  refreshing `useLoaderData()`-backed pages after an in-place mutation on
+  this router version, which the `transfers` page had been silently
+  affected by since it was built. Both commits (`c850126`, `43cf238`) are
+  typechecked, linted, and verified live in a real browser session
+  (manager@gmail.com and administrator@gmail.com), not just against curl.
