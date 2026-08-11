@@ -3,11 +3,14 @@ import * as schema from "../drizzle/schema";
 import {
 	oneRecord,
 	manyRecords,
+	countRecords,
 	createRecords,
 	updateRecords,
 	deleteRecords,
 	type Executor,
 	type Pagination,
+	type WhereClause,
+	type CountResult,
 	type CreateOptions,
 	type UpdateOptions,
 	type DeleteOptions,
@@ -169,6 +172,32 @@ export class Referral {
 			Pick<schema.ReferralModelSelect, TSelect>,
 			TOptions
 		> | null;
+	};
+
+	/**
+	 * `COUNT(*)` of `referrals` rows matching `where` (or the whole table if
+	 * omitted) — for dashboard-style totals that don't need rows back. Pass
+	 * `groupBy` (any column name, e.g. `"status"`/`"priority"`) for a
+	 * `COUNT(*) ... GROUP BY` breakdown instead of a flat total — only
+	 * groups that actually have rows come back, so callers zero-fill any
+	 * value (e.g. a `REFERRAL_STATUS`) that returned none.
+	 *
+	 * @param where - Optional filter, same shape as `many()`'s.
+	 * @param groupBy - Optional column to group by.
+	 * @returns A flat count, or one count per distinct `groupBy` value.
+	 */
+	count = async <
+		TGroupBy extends keyof schema.ReferralModelSelect & string = never,
+	>(
+		where?: WhereClause<schema.ReferralModelSelect>,
+		groupBy?: TGroupBy,
+	): Promise<CountResult<TGroupBy>> => {
+		return await countRecords(
+			this.executor,
+			schema.ReferralModel,
+			where,
+			groupBy,
+		);
 	};
 
 	/**

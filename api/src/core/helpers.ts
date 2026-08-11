@@ -740,6 +740,60 @@ export const manyRecords = async <TModel>(
 	};
 };
 
+/**
+ * `count()`'s return type depends on whether `groupBy` was passed — a plain
+ * `number` without it, a `Record<string, number>` (one entry per distinct
+ * value actually present — callers zero-fill any values that returned no
+ * rows) with it. Same "shape depends on the options passed" idiom as
+ * `WithCount` above.
+ */
+export type CountResult<TGroupBy> = TGroupBy extends string
+	? Record<string, number>
+	: number;
+
+/**
+ * `COUNT(*)` matching `where` (or the whole table if omitted), optionally
+ * `GROUP BY` a single column — one generic primitive for both a flat
+ * dashboard total and a per-status/per-priority breakdown, rather than a
+ * separate named method per grouped column.
+ */
+export const countRecords = async <
+	TModel,
+	TGroupBy extends keyof TModel & string = never,
+>(
+	executor: Executor,
+	table: MySqlTable,
+	where?: WhereClause<TModel>,
+	groupBy?: TGroupBy,
+): Promise<CountResult<TGroupBy>> => {
+	const condition = buildWhere(table, where);
+
+	if (!groupBy) {
+		const result = await executor
+			.select({ count: sql<number>`count(*)` })
+			.from(table)
+			.where(condition);
+
+		return extractCount(result) as CountResult<TGroupBy>;
+	}
+
+	const column = table[groupBy as keyof typeof table] as MySqlColumn;
+	if (!column) throw new Error(`Invalid column: ${groupBy}`);
+
+	const rows = await executor
+		.select({ key: column, count: sql<number>`count(*)` })
+		.from(table)
+		.where(condition)
+		.groupBy(column);
+
+	const counts: Record<string, number> = {};
+	for (const row of rows as { key: unknown; count: number }[]) {
+		counts[String(row.key)] = Number(row.count);
+	}
+
+	return counts as CountResult<TGroupBy>;
+};
+
 export const oneRecord = async <TModel, TRelations = unknown>(
 	executor: Executor,
 	table: MySqlTable,

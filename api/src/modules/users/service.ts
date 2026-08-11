@@ -1,7 +1,5 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 
-import { eq, sql } from "drizzle-orm";
-
 import {
 	ROLES,
 	roleSchema,
@@ -16,16 +14,15 @@ import {
 	type UserDetailResponse,
 } from "@referral-tracking/shared";
 
+import { zeroFillCounts } from "../../lib/util";
 import { parseEnumList, parseSortList } from "../../lib/validator";
 import { canViewUser } from "../../lib/permission";
 
-import {
-	ReferralModel,
-	UserModel,
-	type UserModelSelect,
-} from "../../drizzle/schema";
+import { UserModel, type UserModelSelect } from "../../drizzle/schema";
 
-import type { Database, OrderClause, WhereClause } from "../../core/helpers";
+import type { CoreService } from "../../core";
+
+import type { OrderClause, WhereClause } from "../../core/helpers";
 
 import type { UsersRequest, UserRequest, UserHistoryRequest } from "./type";
 
@@ -123,19 +120,16 @@ export const users = async (
  */
 
 const doctorStats = async (
-	connection: Database,
+	core: Pick<CoreService, "referral">,
 	doctorId: string,
 ): Promise<UserDetailResponse["data"]["stats"]> => {
-	const rows = await connection
-		.select({ status: ReferralModel.status, count: sql<number>`count(*)` })
-		.from(ReferralModel)
-		.where(eq(ReferralModel.doctor, doctorId))
-		.groupBy(ReferralModel.status);
-
-	const total = rows.reduce((sum, row) => sum + Number(row.count), 0);
-	const completed = Number(
-		rows.find((row) => row.status === REFERRAL_STATUS.COMPLETED)?.count ?? 0,
+	const counts = zeroFillCounts(
+		await core.referral.count({ doctor: doctorId }, "status"),
+		REFERRAL_STATUS,
 	);
+
+	const total = Object.values(counts).reduce((a, b) => a + b, 0);
+	const completed = counts[REFERRAL_STATUS.COMPLETED];
 
 	return {
 		total_referrals: total,
@@ -163,7 +157,7 @@ export const user = async (
 
 	const stats =
 		user.role === ROLES.DOCTOR
-			? await doctorStats(request.server.core.connection, user.id)
+			? await doctorStats(request.server.core, user.id)
 			: undefined;
 
 	const { status, code } = HTTP_RESPONSE_CODE.OK;

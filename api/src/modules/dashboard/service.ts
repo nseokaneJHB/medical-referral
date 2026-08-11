@@ -1,7 +1,5 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 
-import { sql, eq, and, or, inArray, type SQL } from "drizzle-orm";
-
 import {
 	ROLES,
 	USER_STATUS,
@@ -9,16 +7,8 @@ import {
 	HTTP_RESPONSE_CODE,
 } from "@referral-tracking/shared";
 
+import { zeroFillCounts } from "../../lib/util";
 import { getPendingTransfersForFacility } from "../../lib/transfer";
-
-import {
-	UserModel,
-	PatientModel,
-	FacilityModel,
-	ReferralModel,
-} from "../../drizzle/schema";
-
-import type { Database } from "../../core/helpers";
 
 import type {
 	NurseSummaryRequest,
@@ -28,42 +18,6 @@ import type {
 } from "./type";
 
 /**
- * Grouped `COUNT(*) ... GROUP BY status` for referrals, zero-filled so every
- * status key is always present regardless of whether any rows exist in it.
- */
-const countReferralsByStatus = async (
-	connection: Database,
-	where?: SQL<unknown>,
-): Promise<Record<string, number>> => {
-	const rows = await connection
-		.select({ status: ReferralModel.status, count: sql<number>`count(*)` })
-		.from(ReferralModel)
-		.where(where)
-		.groupBy(ReferralModel.status);
-
-	const counts = Object.fromEntries(
-		Object.values(REFERRAL_STATUS).map((status) => [status, 0]),
-	);
-
-	for (const row of rows) counts[row.status] = Number(row.count);
-
-	return counts;
-};
-
-const totalCount = async (
-	connection: Database,
-	table: typeof UserModel | typeof PatientModel | typeof FacilityModel,
-	where?: SQL<unknown>,
-): Promise<number> => {
-	const [row] = await connection
-		.select({ count: sql<number>`count(*)` })
-		.from(table)
-		.where(where);
-
-	return Number(row?.count ?? 0);
-};
-
-/**
  * PDF Nurse Dashboard widgets: "Referrals Created, Pending Referrals,
  * Canceled Referrals, Referrals on hold".
  */
@@ -71,11 +25,11 @@ export const nurseSummary = async (
 	request: FastifyRequest<NurseSummaryRequest>,
 	reply: FastifyReply<NurseSummaryRequest>,
 ): Promise<void> => {
-	const { connection } = request.server.core;
+	const { core } = request.server;
 
-	const counts = await countReferralsByStatus(
-		connection,
-		eq(ReferralModel.referrer_id, request.user!.id),
+	const counts = zeroFillCounts(
+		await core.referral.count({ referrer_id: request.user!.id }, "status"),
+		REFERRAL_STATUS,
 	);
 
 	const referralsCreated = Object.values(counts).reduce((a, b) => a + b, 0);
@@ -101,11 +55,11 @@ export const doctorSummary = async (
 	request: FastifyRequest<DoctorSummaryRequest>,
 	reply: FastifyReply<DoctorSummaryRequest>,
 ): Promise<void> => {
-	const { connection } = request.server.core;
+	const { core } = request.server;
 
-	const counts = await countReferralsByStatus(
-		connection,
-		eq(ReferralModel.doctor, request.user!.id),
+	const counts = zeroFillCounts(
+		await core.referral.count({ doctor: request.user!.id }, "status"),
+		REFERRAL_STATUS,
 	);
 
 	const myReferrals = Object.values(counts).reduce((a, b) => a + b, 0);
@@ -130,16 +84,17 @@ export const adminSummary = async (
 	request: FastifyRequest<AdminSummaryRequest>,
 	reply: FastifyReply<AdminSummaryRequest>,
 ): Promise<void> => {
-	const { connection } = request.server.core;
+	const { core } = request.server;
 
-	const [totalUsers, totalPatients, totalFacilities, counts] =
+	const [totalUsers, totalPatients, totalFacilities, statusCounts] =
 		await Promise.all([
-			totalCount(connection, UserModel),
-			totalCount(connection, PatientModel),
-			totalCount(connection, FacilityModel),
-			countReferralsByStatus(connection),
+			core.user.count(),
+			core.patient.count(),
+			core.facility.count(),
+			core.referral.count(undefined, "status"),
 		]);
 
+	const counts = zeroFillCounts(statusCounts, REFERRAL_STATUS);
 	const totalReferrals = Object.values(counts).reduce((a, b) => a + b, 0);
 
 	const { status, code } = HTTP_RESPONSE_CODE.OK;
@@ -171,37 +126,32 @@ export const managerSummary = async (
 	reply: FastifyReply<ManagerSummaryRequest>,
 ): Promise<void> => {
 	const { core } = request.server;
-	const { connection } = core;
 	const facilityId = request.user!.facility_id!;
 
-	const referralWhere = or(
-		eq(ReferralModel.origin_facility_id, facilityId),
-		eq(ReferralModel.destination_facility_id, facilityId),
-	);
-
-	const [totalStaff, totalPatients, counts, pendingStaffApplications, pendingTransfers] =
+	const [totalStaff, totalPatients, statusCounts, pendingStaffApplications, pendingTransfers] =
 		await Promise.all([
-			totalCount(connection, UserModel, eq(UserModel.facility_id, facilityId)),
-			totalCount(
-				connection,
-				PatientModel,
-				eq(PatientModel.facility_id, facilityId),
+			core.user.count({ facility_id: facilityId }),
+			core.patient.count({ facility_id: facilityId }),
+			core.referral.count(
+				{
+					OR: [
+						{ origin_facility_id: facilityId },
+						{ destination_facility_id: facilityId },
+					],
+				},
+				"status",
 			),
-			countReferralsByStatus(connection, referralWhere),
-			totalCount(
-				connection,
-				UserModel,
-				and(
-					eq(UserModel.facility_id, facilityId),
-					inArray(UserModel.role, [ROLES.NURSE, ROLES.DOCTOR]),
-					eq(UserModel.status, USER_STATUS.PENDING),
-				),
-			),
+			core.user.count({
+				facility_id: facilityId,
+				role: { in: [ROLES.NURSE, ROLES.DOCTOR] },
+				status: USER_STATUS.PENDING,
+			}),
 			getPendingTransfersForFacility(core, facilityId).then(
 				(rows) => rows.length,
 			),
 		]);
 
+	const counts = zeroFillCounts(statusCounts, REFERRAL_STATUS);
 	const totalReferrals = Object.values(counts).reduce((a, b) => a + b, 0);
 
 	const { status, code } = HTTP_RESPONSE_CODE.OK;

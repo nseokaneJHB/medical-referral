@@ -11,6 +11,35 @@ import { v7 as uuidv7 } from "uuid";
 export const generateUuid = (): string => uuidv7();
 
 /**
+ * `core.X.count(where, groupBy)` only returns entries for values that
+ * actually have matching rows — zero-fills every value of `enumObject`
+ * (e.g. `REFERRAL_STATUS`, `PRIORITY`) that came back missing, so a
+ * dashboard/report breakdown always has a consistent, complete shape
+ * regardless of what data exists.
+ *
+ * @example
+ * zeroFillCounts(await core.referral.count(where, "status"), REFERRAL_STATUS)
+ * // { PENDING: 3, ACCEPTED: 0, ... } — every status present, not just PENDING
+ */
+export const zeroFillCounts = <T extends Record<string, string>>(
+	counts: Record<string, number>,
+	enumObject: T,
+): Record<T[keyof T], number> => {
+	const keys = Object.values(enumObject) as T[keyof T][];
+
+	const filled = Object.fromEntries(keys.map((key) => [key, 0])) as Record<
+		T[keyof T],
+		number
+	>;
+
+	for (const key of keys) {
+		if (counts[key] !== undefined) filled[key] = counts[key];
+	}
+
+	return filled;
+};
+
+/**
  * Generates a one-time password for accounts an Administrator creates
  * directly (`POST /administrator/users`) or for `bootstrap-admin.ts`'s
  * first-run Administrator — no email infrastructure exists yet, so this is

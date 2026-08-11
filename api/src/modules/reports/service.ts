@@ -1,39 +1,20 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 
-import { sql, eq, or, and, gte, lt, type SQL } from "drizzle-orm";
-
 import {
 	ROLES,
 	PRIORITY,
 	REFERRAL_STATUS,
 	HTTP_RESPONSE_CODE,
 	type Role,
-	type ReferralsReportResponse,
 } from "@referral-tracking/shared";
 
-import { ReferralModel } from "../../drizzle/schema";
+import { zeroFillCounts } from "../../lib/util";
 
-import type { Database } from "../../core/helpers";
+import type { WhereClause } from "../../core/helpers";
+
+import type { ReferralModelSelect } from "../../drizzle/schema";
 
 import type { ReferralsReportRequest } from "./type";
-
-const groupCount = async (
-	connection: Database,
-	column: typeof ReferralModel.status | typeof ReferralModel.priority,
-	where: SQL<unknown> | undefined,
-	values: string[],
-): Promise<Record<string, number>> => {
-	const rows = await connection
-		.select({ key: column, count: sql<number>`count(*)` })
-		.from(ReferralModel)
-		.where(where)
-		.groupBy(column);
-
-	const counts = Object.fromEntries(values.map((value) => [value, 0]));
-	for (const row of rows) counts[row.key] = Number(row.count);
-
-	return counts;
-};
 
 /**
  * Role-scoped per build-spec.md's Phase 7 table: Admin sees every referral,
@@ -45,62 +26,45 @@ export const referralsReport = async (
 	request: FastifyRequest<ReferralsReportRequest>,
 	reply: FastifyReply<ReferralsReportRequest>,
 ): Promise<void> => {
-	const { connection } = request.server.core;
+	const { core } = request.server;
 	const role = request.user!.role as Role;
 
-	const conditions: SQL<unknown>[] = [];
+	const where: WhereClause<ReferralModelSelect> = {};
 
-	if (role === ROLES.NURSE) {
-		conditions.push(eq(ReferralModel.referrer_id, request.user!.id));
-	}
-	if (role === ROLES.DOCTOR) {
-		conditions.push(eq(ReferralModel.doctor, request.user!.id));
-	}
+	if (role === ROLES.NURSE) where.referrer_id = request.user!.id;
+	if (role === ROLES.DOCTOR) where.doctor = request.user!.id;
 	if (role === ROLES.MANAGER) {
 		const facilityId = request.user!.facility_id!;
-		conditions.push(
-			or(
-				eq(ReferralModel.origin_facility_id, facilityId),
-				eq(ReferralModel.destination_facility_id, facilityId),
-			)!,
-		);
+		where.OR = [
+			{ origin_facility_id: facilityId },
+			{ destination_facility_id: facilityId },
+		];
 	}
 
 	if (request.query.from) {
-		conditions.push(
-			gte(
-				ReferralModel.created_at,
-				new Date(`${request.query.from}T00:00:00.000Z`),
-			),
-		);
+		where.created_at = {
+			...where.created_at,
+			gte: new Date(`${request.query.from}T00:00:00.000Z`),
+		};
 	}
 	if (request.query.to) {
 		const end = new Date(`${request.query.to}T00:00:00.000Z`);
 		end.setUTCDate(end.getUTCDate() + 1);
-		conditions.push(lt(ReferralModel.created_at, end));
+		where.created_at = { ...where.created_at, lt: end };
 	}
 
-	const where = conditions.length > 0 ? and(...conditions) : undefined;
-
-	const [statusCounts, byPriority] = await Promise.all([
-		groupCount(
-			connection,
-			ReferralModel.status,
-			where,
-			Object.values(REFERRAL_STATUS),
-		),
-		groupCount(
-			connection,
-			ReferralModel.priority,
-			where,
-			Object.values(PRIORITY),
-		) as unknown as Promise<ReferralsReportResponse["data"]["by_priority"]>,
+	const [rawStatusCounts, rawPriorityCounts] = await Promise.all([
+		core.referral.count(where, "status"),
+		core.referral.count(where, "priority"),
 	]);
+
+	const statusCounts = zeroFillCounts(rawStatusCounts, REFERRAL_STATUS);
+	const priorityCounts = zeroFillCounts(rawPriorityCounts, PRIORITY);
 
 	// Field names here are the report's own stable shape, decoupled from
 	// `REFERRAL_STATUS`'s casing — same remap `dashboard/service.ts` already
 	// does for its per-status counts.
-	const byStatus: ReferralsReportResponse["data"]["by_status"] = {
+	const byStatus = {
 		pending: statusCounts[REFERRAL_STATUS.PENDING],
 		accepted: statusCounts[REFERRAL_STATUS.ACCEPTED],
 		in_progress: statusCounts[REFERRAL_STATUS.IN_PROGRESS],
@@ -108,6 +72,12 @@ export const referralsReport = async (
 		completed: statusCounts[REFERRAL_STATUS.COMPLETED],
 		rejected: statusCounts[REFERRAL_STATUS.REJECTED],
 		canceled: statusCounts[REFERRAL_STATUS.CANCELED],
+	};
+	const byPriority = {
+		low: priorityCounts[PRIORITY.LOW],
+		medium: priorityCounts[PRIORITY.MEDIUM],
+		high: priorityCounts[PRIORITY.HIGH],
+		urgent: priorityCounts[PRIORITY.URGENT],
 	};
 
 	const total = Object.values(byStatus).reduce((a, b) => a + b, 0);

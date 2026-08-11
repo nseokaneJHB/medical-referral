@@ -3,10 +3,13 @@ import * as schema from "../drizzle/schema";
 import {
 	oneRecord,
 	manyRecords,
+	countRecords,
 	createRecords,
 	updateRecords,
 	type Executor,
 	type Pagination,
+	type WhereClause,
+	type CountResult,
 	type CreateOptions,
 	type UpdateOptions,
 	type FindAllOptions,
@@ -67,6 +70,30 @@ export class Facility {
 			schema.FacilityModel,
 			options,
 		)) as Pick<schema.FacilityModelSelect, TSelect> | null;
+	};
+
+	/**
+	 * `COUNT(*)` of `facilities` rows matching `where` (or the whole table
+	 * if omitted) — for dashboard-style totals that don't need rows back.
+	 * Pass `groupBy` (any column name) for a `COUNT(*) ... GROUP BY`
+	 * breakdown instead of a flat total.
+	 *
+	 * @param where - Optional filter, same shape as `many()`'s.
+	 * @param groupBy - Optional column to group by.
+	 * @returns A flat count, or one count per distinct `groupBy` value.
+	 */
+	count = async <
+		TGroupBy extends keyof schema.FacilityModelSelect & string = never,
+	>(
+		where?: WhereClause<schema.FacilityModelSelect>,
+		groupBy?: TGroupBy,
+	): Promise<CountResult<TGroupBy>> => {
+		return await countRecords(
+			this.executor,
+			schema.FacilityModel,
+			where,
+			groupBy,
+		);
 	};
 
 	/**
