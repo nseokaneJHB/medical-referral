@@ -47,6 +47,12 @@ export const AdminSummarySchema = z.object({
 /**
  * Facility-scoped version of `AdminSummarySchema` — a Manager's own staff/
  * patients/referrals instead of system-wide totals.
+ *
+ * `pending_staff_applications`/`pending_transfers` are the "pending-actions
+ * count" from `docs/roles-permissions.md`'s Dashboard section — outstanding
+ * Nurse/Doctor applications at this Manager's facility, and open patient
+ * transfer requests awaiting *this* Manager's decision on either side
+ * (`GET /manager/transfers` is the actual queue; this is just the count).
  */
 export const ManagerSummarySchema = z.object({
 	total_staff: integerSchema,
@@ -59,6 +65,8 @@ export const ManagerSummarySchema = z.object({
 	completed: integerSchema,
 	rejected: integerSchema,
 	canceled: integerSchema,
+	pending_staff_applications: integerSchema,
+	pending_transfers: integerSchema,
 });
 
 export const nurseSummaryResponseSchema = globalResponseSchema.extend({

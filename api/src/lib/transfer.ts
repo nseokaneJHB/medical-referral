@@ -169,6 +169,42 @@ export const getLatestTransferRequestsByPatient = async (
 };
 
 /**
+ * All currently-open transfer requests where `facilityId` needs to decide
+ * either side (origin's `TRANSFER_REQUESTED` rows, or destination's
+ * `TRANSFER_APPROVED_ORIGIN` rows) — the same "confirm each candidate is
+ * still current" filtering the pending-transfers list endpoint needs,
+ * factored out so the Manager dashboard's pending-actions count can reuse
+ * it without duplicating the logic.
+ */
+export const getPendingTransfersForFacility = async (
+	core: TransferCore,
+	facilityId: string,
+): Promise<TransferRow[]> => {
+	const rows = await core.timeline.many({
+		page: 1,
+		limit: 1000,
+		where: {
+			type: TIMELINE_TYPE.PATIENT,
+			OR: [
+				{ action: TIMELINE_ACTION.TRANSFER_REQUESTED, previous: facilityId },
+				{ action: TIMELINE_ACTION.TRANSFER_APPROVED_ORIGIN, next: facilityId },
+			],
+		},
+		order: { changed_at: "desc" },
+		select: TRANSFER_ROW_FIELDS,
+	});
+
+	const latestByPatient = await getLatestTransferActionsByPatient(
+		core,
+		rows.data.map((row) => row.entity),
+	);
+
+	return rows.data.filter(
+		(row) => latestByPatient.get(row.entity)?.id === row.id,
+	);
+};
+
+/**
  * Resolves a transfer request by its stable id (the original
  * `TRANSFER_REQUESTED` row) to that row plus the patient's *current* latest
  * transfer action — which is either the request row itself (still awaiting

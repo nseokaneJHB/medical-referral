@@ -1,8 +1,15 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 
-import { sql, eq, or, type SQL } from "drizzle-orm";
+import { sql, eq, and, or, inArray, type SQL } from "drizzle-orm";
 
-import { REFERRAL_STATUS, HTTP_RESPONSE_CODE } from "@referral-tracking/shared";
+import {
+	ROLES,
+	USER_STATUS,
+	REFERRAL_STATUS,
+	HTTP_RESPONSE_CODE,
+} from "@referral-tracking/shared";
+
+import { getPendingTransfersForFacility } from "../../lib/transfer";
 
 import {
 	UserModel,
@@ -163,7 +170,8 @@ export const managerSummary = async (
 	request: FastifyRequest<ManagerSummaryRequest>,
 	reply: FastifyReply<ManagerSummaryRequest>,
 ): Promise<void> => {
-	const { connection } = request.server.core;
+	const { core } = request.server;
+	const { connection } = core;
 	const facilityId = request.user!.facility_id!;
 
 	const referralWhere = or(
@@ -171,15 +179,28 @@ export const managerSummary = async (
 		eq(ReferralModel.destination_facility_id, facilityId),
 	);
 
-	const [totalStaff, totalPatients, counts] = await Promise.all([
-		totalCount(connection, UserModel, eq(UserModel.facility_id, facilityId)),
-		totalCount(
-			connection,
-			PatientModel,
-			eq(PatientModel.facility_id, facilityId),
-		),
-		countReferralsByStatus(connection, referralWhere),
-	]);
+	const [totalStaff, totalPatients, counts, pendingStaffApplications, pendingTransfers] =
+		await Promise.all([
+			totalCount(connection, UserModel, eq(UserModel.facility_id, facilityId)),
+			totalCount(
+				connection,
+				PatientModel,
+				eq(PatientModel.facility_id, facilityId),
+			),
+			countReferralsByStatus(connection, referralWhere),
+			totalCount(
+				connection,
+				UserModel,
+				and(
+					eq(UserModel.facility_id, facilityId),
+					inArray(UserModel.role, [ROLES.NURSE, ROLES.DOCTOR]),
+					eq(UserModel.status, USER_STATUS.PENDING),
+				),
+			),
+			getPendingTransfersForFacility(core, facilityId).then(
+				(rows) => rows.length,
+			),
+		]);
 
 	const totalReferrals = Object.values(counts).reduce((a, b) => a + b, 0);
 
@@ -198,6 +219,8 @@ export const managerSummary = async (
 			completed: counts[REFERRAL_STATUS.COMPLETED],
 			rejected: counts[REFERRAL_STATUS.REJECTED],
 			canceled: counts[REFERRAL_STATUS.CANCELED],
+			pending_staff_applications: pendingStaffApplications,
+			pending_transfers: pendingTransfers,
 		},
 	});
 };

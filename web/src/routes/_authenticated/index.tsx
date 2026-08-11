@@ -9,6 +9,7 @@ import {
 import {
 	ClockIcon,
 	UsersIcon,
+	RepeatIcon,
 	UserPlusIcon,
 	HistoryIcon,
 	XCircleIcon,
@@ -184,7 +185,10 @@ const ReportsSection = ({ report }: { report: ReferralsReport }) => {
 						<CardTitle className="text-base">By priority</CardTitle>
 					</CardHeader>
 					<CardContent>
-						<BreakdownChart data={priorityData} config={PRIORITY_CHART_CONFIG} />
+						<BreakdownChart
+							data={priorityData}
+							config={PRIORITY_CHART_CONFIG}
+						/>
 					</CardContent>
 				</Card>
 			</div>
@@ -450,64 +454,99 @@ const ManagerDashboard = ({
 	report: ReferralsReport;
 	recentPatients: RecentItem[];
 	recentReferrals: RecentItem[];
-}) => (
-	<div className="space-y-4">
-		<div className="grid grid-cols-2 gap-4 md:grid-cols-3">
-			<StatCard
-				icon={UsersIcon}
-				label="Total Staff"
-				value={summary.total_staff.toString()}
-			/>
-			<StatCard
-				icon={ClipboardListIcon}
-				label="Total Patients"
-				value={summary.total_patients.toString()}
-			/>
-			<StatCard
-				icon={ArrowLeftRightIcon}
-				label="Total Referrals"
-				value={summary.total_referrals.toString()}
+}) => {
+	const navigate = useNavigate();
+
+	const hasPendingActions =
+		summary.pending_staff_applications > 0 || summary.pending_transfers > 0;
+
+	return (
+		<div className="space-y-4">
+			<div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+				<StatCard
+					icon={UsersIcon}
+					label="Total Staff"
+					value={summary.total_staff.toString()}
+				/>
+				<StatCard
+					icon={ClipboardListIcon}
+					label="Total Patients"
+					value={summary.total_patients.toString()}
+				/>
+				<StatCard
+					icon={ArrowLeftRightIcon}
+					label="Total Referrals"
+					value={summary.total_referrals.toString()}
+				/>
+				<StatCard
+					icon={UserPlusIcon}
+					label="Pending Applications"
+					value={summary.pending_staff_applications.toString()}
+					className={
+						summary.pending_staff_applications > 0
+							? "border-warning cursor-pointer"
+							: undefined
+					}
+					onClick={() => navigate({ to: FRONTEND_URLS.USERS })}
+				/>
+				<StatCard
+					icon={RepeatIcon}
+					label="Pending Transfers"
+					value={summary.pending_transfers.toString()}
+					className={
+						summary.pending_transfers > 0
+							? "border-warning cursor-pointer"
+							: undefined
+					}
+					onClick={() => navigate({ to: FRONTEND_URLS.TRANSFERS })}
+				/>
+			</div>
+
+			{hasPendingActions && (
+				<div className="border-warning bg-warning/10 text-warning rounded-md border p-3 text-sm">
+					You have pending actions awaiting your decision.
+				</div>
+			)}
+
+			<ReportsSection report={report} />
+
+			<div className="grid gap-4 md:grid-cols-2">
+				<RecentActivityCard
+					title="Recent patients"
+					to={FRONTEND_URLS.PATIENTS}
+					items={recentPatients}
+				/>
+				<RecentActivityCard
+					title="Recent referrals"
+					to={FRONTEND_URLS.REFERRALS}
+					items={recentReferrals}
+				/>
+			</div>
+
+			<ActionBar
+				actions={[
+					{
+						to: FRONTEND_URLS.PATIENTS,
+						label: "View Patients",
+						icon: ClipboardListIcon,
+					},
+					{
+						to: FRONTEND_URLS.REFERRALS,
+						label: "View Referrals",
+						icon: ArrowLeftRightIcon,
+					},
+					{ to: FRONTEND_URLS.USERS, label: "Manage Staff", icon: UsersIcon },
+					{
+						label: "My Facility",
+						icon: Building2Icon,
+						to: FRONTEND_URLS.FACILITY,
+						params: { facilityId },
+					},
+				]}
 			/>
 		</div>
-
-		<ReportsSection report={report} />
-
-		<div className="grid gap-4 md:grid-cols-2">
-			<RecentActivityCard
-				title="Recent patients"
-				to={FRONTEND_URLS.PATIENTS}
-				items={recentPatients}
-			/>
-			<RecentActivityCard
-				title="Recent referrals"
-				to={FRONTEND_URLS.REFERRALS}
-				items={recentReferrals}
-			/>
-		</div>
-
-		<ActionBar
-			actions={[
-				{
-					to: FRONTEND_URLS.PATIENTS,
-					label: "View Patients",
-					icon: ClipboardListIcon,
-				},
-				{
-					to: FRONTEND_URLS.REFERRALS,
-					label: "View Referrals",
-					icon: ArrowLeftRightIcon,
-				},
-				{ to: FRONTEND_URLS.USERS, label: "Manage Staff", icon: UsersIcon },
-				{
-					label: "My Facility",
-					icon: Building2Icon,
-					to: FRONTEND_URLS.FACILITY,
-					params: { facilityId },
-				},
-			]}
-		/>
-	</div>
-);
+	);
+};
 
 const DashboardPage = () => {
 	const { user } = Route.useRouteContext();

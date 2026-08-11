@@ -25,6 +25,7 @@ import {
 	getLatestTransferAction,
 	getLatestTransferActionsByPatient,
 	getLatestTransferRequestsByPatient,
+	getPendingTransfersForFacility,
 } from "../../lib/transfer";
 
 import type { CoreService } from "../../core";
@@ -330,53 +331,39 @@ export const transfers = async (
 		});
 	};
 
-	if (role === ROLES.MANAGER && !userFacilityId) return empty();
+	let current: TransferRow[];
 
-	const where =
-		role === ROLES.MANAGER
-			? {
-					type: TIMELINE_TYPE.PATIENT,
-					OR: [
-						{
-							action: TIMELINE_ACTION.TRANSFER_REQUESTED,
-							previous: userFacilityId!,
-						},
-						{
-							action: TIMELINE_ACTION.TRANSFER_APPROVED_ORIGIN,
-							next: userFacilityId!,
-						},
+	if (role === ROLES.MANAGER) {
+		if (!userFacilityId) return empty();
+		current = await getPendingTransfersForFacility(core, userFacilityId);
+	} else {
+		const rows = await core.timeline.many({
+			page: 1,
+			limit: 1000,
+			where: {
+				type: TIMELINE_TYPE.PATIENT,
+				action: {
+					in: [
+						TIMELINE_ACTION.TRANSFER_REQUESTED,
+						TIMELINE_ACTION.TRANSFER_APPROVED_ORIGIN,
 					],
-				}
-			: {
-					type: TIMELINE_TYPE.PATIENT,
-					action: {
-						in: [
-							TIMELINE_ACTION.TRANSFER_REQUESTED,
-							TIMELINE_ACTION.TRANSFER_APPROVED_ORIGIN,
-						],
-					},
-				};
+				},
+			},
+			order: { changed_at: "desc" },
+			select: TRANSFER_ROW_FIELDS,
+		});
 
-	const rows = await core.timeline.many({
-		page: 1,
-		limit: 1000,
-		where,
-		order: { changed_at: "desc" },
-		select: TRANSFER_ROW_FIELDS,
-	});
+		const latestByPatient = await getLatestTransferActionsByPatient(
+			core,
+			rows.data.map((row) => row.entity),
+		);
 
-	const latestByPatient = await getLatestTransferActionsByPatient(
-		core,
-		rows.data.map((row) => row.entity),
-	);
+		const candidates = rows.data.filter(
+			(row) => latestByPatient.get(row.entity)?.id === row.id,
+		);
 
-	let current = rows.data.filter(
-		(row) => latestByPatient.get(row.entity)?.id === row.id,
-	);
-
-	if (role === ROLES.ADMINISTRATOR) {
 		const orphaned = await Promise.all(
-			current.map((row) => {
+			candidates.map((row) => {
 				const facilityId =
 					row.action === TIMELINE_ACTION.TRANSFER_REQUESTED
 						? row.previous!
@@ -384,7 +371,7 @@ export const transfers = async (
 				return isFacilityOrphaned(core, facilityId);
 			}),
 		);
-		current = current.filter((_, index) => orphaned[index]);
+		current = candidates.filter((_, index) => orphaned[index]);
 	}
 
 	const total = current.length;
