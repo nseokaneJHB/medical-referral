@@ -5,6 +5,7 @@ import {
 	TIMELINE_TYPE,
 	TIMELINE_ACTION,
 	FACILITY_STATUS,
+	USER_STATUS,
 	DEFAULT_PAGE_LIMIT,
 	DEFAULT_PAGE_NUMBER,
 	HTTP_RESPONSE_CODE,
@@ -23,7 +24,7 @@ import type {
 	TransferApproveRequest,
 	TransferRejectRequest,
 	TransferRequestRequest,
-} from "./transfer-type";
+} from "./type";
 
 type TransferHydrationCore = Pick<CoreService, "patient" | "facility" | "user">;
 
@@ -212,7 +213,11 @@ const decideTransferSide = async (
 	const role = request.user!.role as Role;
 	const isOrphaned =
 		role === ROLES.ADMINISTRATOR
-			? await core.facility.isOrphaned(facilityId)
+			? (await core.user.count({
+					facility_id: facilityId,
+					role: ROLES.MANAGER,
+					status: USER_STATUS.ACTIVE,
+				})) === 0
 			: false;
 	if (
 		!canDecideTransfer(role, request.user!.facility_id, facilityId, isOrphaned)
@@ -368,7 +373,13 @@ export const transfers = async (
 					row.action === TIMELINE_ACTION.TRANSFER_REQUESTED
 						? row.previous!
 						: row.next!;
-				return core.facility.isOrphaned(facilityId);
+				return core.user
+					.count({
+						facility_id: facilityId,
+						role: ROLES.MANAGER,
+						status: USER_STATUS.ACTIVE,
+					})
+					.then((count) => count === 0);
 			}),
 		);
 		current = candidates.filter((_, index) => orphaned[index]);

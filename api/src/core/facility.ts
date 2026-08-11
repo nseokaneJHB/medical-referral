@@ -1,5 +1,3 @@
-import { ROLES, USER_STATUS } from "@referral-tracking/shared";
-
 import * as schema from "../drizzle/schema";
 
 import {
@@ -34,6 +32,30 @@ export class Facility {
 	constructor(executor: Executor) {
 		this.executor = executor;
 	}
+
+	/**
+	 * `COUNT(*)` of `facilities` rows matching `where` (or the whole table
+	 * if omitted) — for dashboard-style totals that don't need rows back.
+	 * Pass `groupBy` (any column name) for a `COUNT(*) ... GROUP BY`
+	 * breakdown instead of a flat total.
+	 *
+	 * @param where - Optional filter, same shape as `many()`'s.
+	 * @param groupBy - Optional column to group by.
+	 * @returns A flat count, or one count per distinct `groupBy` value.
+	 */
+	count = async <
+		TGroupBy extends keyof schema.FacilityModelSelect & string = never,
+	>(
+		where?: WhereClause<schema.FacilityModelSelect>,
+		groupBy?: TGroupBy,
+	): Promise<CountResult<TGroupBy>> => {
+		return await countRecords(
+			this.executor,
+			schema.FacilityModel,
+			where,
+			groupBy,
+		);
+	};
 
 	/**
 	 * Find multiple `facilities` rows with pagination, filtering, and ordering.
@@ -75,30 +97,6 @@ export class Facility {
 	};
 
 	/**
-	 * `COUNT(*)` of `facilities` rows matching `where` (or the whole table
-	 * if omitted) — for dashboard-style totals that don't need rows back.
-	 * Pass `groupBy` (any column name) for a `COUNT(*) ... GROUP BY`
-	 * breakdown instead of a flat total.
-	 *
-	 * @param where - Optional filter, same shape as `many()`'s.
-	 * @param groupBy - Optional column to group by.
-	 * @returns A flat count, or one count per distinct `groupBy` value.
-	 */
-	count = async <
-		TGroupBy extends keyof schema.FacilityModelSelect & string = never,
-	>(
-		where?: WhereClause<schema.FacilityModelSelect>,
-		groupBy?: TGroupBy,
-	): Promise<CountResult<TGroupBy>> => {
-		return await countRecords(
-			this.executor,
-			schema.FacilityModel,
-			where,
-			groupBy,
-		);
-	};
-
-	/**
 	 * Create a new `facilities` row.
 	 *
 	 * @param options - `data`/`select` for the insert.
@@ -128,24 +126,5 @@ export class Facility {
 		>,
 	): Promise<Pick<schema.FacilityModelSelect, TSelect>[]> => {
 		return await updateRecords(this.executor, schema.FacilityModel, options);
-	};
-
-	/**
-	 * `true` when a facility currently has no `ACTIVE` Manager — the trigger
-	 * for Administrator's orphan-facility fallback (deciding staff
-	 * applications/transfers there instead of the facility's own Manager).
-	 * Queries `UserModel` directly (via the generic `countRecords` helper,
-	 * same as every other cross-table check in this layer) rather than
-	 * `facilities` — "orphaned" is a fact about a facility, but it's derived
-	 * from user data.
-	 */
-	isOrphaned = async (facilityId: string): Promise<boolean> => {
-		const count = await countRecords(this.executor, schema.UserModel, {
-			facility_id: facilityId,
-			role: ROLES.MANAGER,
-			status: USER_STATUS.ACTIVE,
-		} as WhereClause<schema.UserModelSelect>);
-
-		return count === 0;
 	};
 }

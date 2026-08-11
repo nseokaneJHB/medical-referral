@@ -24,7 +24,7 @@ import {
 	patientUnflag,
 	patientUpdate,
 } from "./service";
-import { transferRequest } from "./transfer-service";
+import { transferRequest } from "../transfers/service";
 
 import { EVENT_NAMES } from "../../lib/constant";
 

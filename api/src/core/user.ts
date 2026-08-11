@@ -81,6 +81,23 @@ export class User {
 	}
 
 	/**
+	 * `COUNT(*)` of `user` rows matching `where` (or the whole table if
+	 * omitted) — for dashboard-style totals that don't need rows back.
+	 * Pass `groupBy` (any column name) for a `COUNT(*) ... GROUP BY`
+	 * breakdown instead of a flat total — e.g. `count(where, "role")`.
+	 *
+	 * @param where - Optional filter, same shape as `many()`'s.
+	 * @param groupBy - Optional column to group by.
+	 * @returns A flat count, or one count per distinct `groupBy` value.
+	 */
+	count = async <TGroupBy extends keyof schema.UserModelSelect & string = never>(
+		where?: WhereClause<schema.UserModelSelect>,
+		groupBy?: TGroupBy,
+	): Promise<CountResult<TGroupBy>> => {
+		return await countRecords(this.executor, schema.UserModel, where, groupBy);
+	};
+
+	/**
 	 * Find multiple `user` rows with pagination, filtering, and ordering.
 	 *
 	 * @param options - `where`/`order`/`select`/`page`/`limit` for the query.
@@ -134,23 +151,6 @@ export class User {
 			Pick<schema.UserModelSelect, TSelect>,
 			TOptions
 		> | null;
-	};
-
-	/**
-	 * `COUNT(*)` of `user` rows matching `where` (or the whole table if
-	 * omitted) — for dashboard-style totals that don't need rows back.
-	 * Pass `groupBy` (any column name) for a `COUNT(*) ... GROUP BY`
-	 * breakdown instead of a flat total — e.g. `count(where, "role")`.
-	 *
-	 * @param where - Optional filter, same shape as `many()`'s.
-	 * @param groupBy - Optional column to group by.
-	 * @returns A flat count, or one count per distinct `groupBy` value.
-	 */
-	count = async <TGroupBy extends keyof schema.UserModelSelect & string = never>(
-		where?: WhereClause<schema.UserModelSelect>,
-		groupBy?: TGroupBy,
-	): Promise<CountResult<TGroupBy>> => {
-		return await countRecords(this.executor, schema.UserModel, where, groupBy);
 	};
 
 	/**

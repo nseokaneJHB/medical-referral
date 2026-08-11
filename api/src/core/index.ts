@@ -9,9 +9,7 @@ import { Session } from "./session";
 import { Timeline } from "./timeline";
 import { Specialty } from "./specialty";
 import { Verification } from "./verification";
-import { UserSpecialty } from "./user-specialty";
 import { BetterAuth } from "./authentication";
-import { FacilitySpecialty } from "./facility-specialty";
 
 import { auth as betterAuth } from "../lib/auth";
 
@@ -31,8 +29,6 @@ type TransactableCore = Pick<
 	| "logins"
 	| "verification"
 	| "specialty"
-	| "facilitySpecialty"
-	| "userSpecialty"
 >;
 
 export class CoreService {
@@ -46,8 +42,6 @@ export class CoreService {
 	public betterAuth: BetterAuth;
 	public verification: Verification;
 	public specialty: Specialty;
-	public facilitySpecialty: FacilitySpecialty;
-	public userSpecialty: UserSpecialty;
 
 	constructor(db: Database, auth: typeof betterAuth) {
 		this.user = new User(db);
@@ -60,8 +54,6 @@ export class CoreService {
 		this.betterAuth = new BetterAuth(auth);
 		this.verification = new Verification(db);
 		this.specialty = new Specialty(db);
-		this.facilitySpecialty = new FacilitySpecialty(db);
-		this.userSpecialty = new UserSpecialty(db);
 	}
 
 	/**
@@ -84,7 +76,5 @@ export class CoreService {
 		logins: new Logins(tx),
 		verification: new Verification(tx),
 		specialty: new Specialty(tx),
-		facilitySpecialty: new FacilitySpecialty(tx),
-		userSpecialty: new UserSpecialty(tx),
 	});
 }

@@ -1,5 +1,3 @@
-import { TERMINAL_REFERRAL_STATUSES } from "@referral-tracking/shared";
-
 import * as schema from "../drizzle/schema";
 
 import {
@@ -115,6 +113,32 @@ export class Referral {
 	}
 
 	/**
+	 * `COUNT(*)` of `referrals` rows matching `where` (or the whole table if
+	 * omitted) — for dashboard-style totals that don't need rows back. Pass
+	 * `groupBy` (any column name, e.g. `"status"`/`"priority"`) for a
+	 * `COUNT(*) ... GROUP BY` breakdown instead of a flat total — only
+	 * groups that actually have rows come back, so callers zero-fill any
+	 * value (e.g. a `REFERRAL_STATUS`) that returned none.
+	 *
+	 * @param where - Optional filter, same shape as `many()`'s.
+	 * @param groupBy - Optional column to group by.
+	 * @returns A flat count, or one count per distinct `groupBy` value.
+	 */
+	count = async <
+		TGroupBy extends keyof schema.ReferralModelSelect & string = never,
+	>(
+		where?: WhereClause<schema.ReferralModelSelect>,
+		groupBy?: TGroupBy,
+	): Promise<CountResult<TGroupBy>> => {
+		return await countRecords(
+			this.executor,
+			schema.ReferralModel,
+			where,
+			groupBy,
+		);
+	};
+
+	/**
 	 * Find multiple `referrals` rows with pagination, filtering, and ordering.
 	 *
 	 * @param options - `where`/`order`/`select`/`page`/`limit` for the query.
@@ -174,54 +198,6 @@ export class Referral {
 			Pick<schema.ReferralModelSelect, TSelect>,
 			TOptions
 		> | null;
-	};
-
-	/**
-	 * `COUNT(*)` of `referrals` rows matching `where` (or the whole table if
-	 * omitted) — for dashboard-style totals that don't need rows back. Pass
-	 * `groupBy` (any column name, e.g. `"status"`/`"priority"`) for a
-	 * `COUNT(*) ... GROUP BY` breakdown instead of a flat total — only
-	 * groups that actually have rows come back, so callers zero-fill any
-	 * value (e.g. a `REFERRAL_STATUS`) that returned none.
-	 *
-	 * @param where - Optional filter, same shape as `many()`'s.
-	 * @param groupBy - Optional column to group by.
-	 * @returns A flat count, or one count per distinct `groupBy` value.
-	 */
-	count = async <
-		TGroupBy extends keyof schema.ReferralModelSelect & string = never,
-	>(
-		where?: WhereClause<schema.ReferralModelSelect>,
-		groupBy?: TGroupBy,
-	): Promise<CountResult<TGroupBy>> => {
-		return await countRecords(
-			this.executor,
-			schema.ReferralModel,
-			where,
-			groupBy,
-		);
-	};
-
-	/**
-	 * `true` if `patientId` has a non-terminal referral touching
-	 * `facilityId` (as either origin or destination) — the DB check behind
-	 * a Nurse/Doctor seeing a patient outside their own facility (their
-	 * facility has an active referral for that patient).
-	 */
-	hasActiveFor = async (
-		patientId: string,
-		facilityId: string,
-	): Promise<boolean> => {
-		const count = await countRecords(this.executor, schema.ReferralModel, {
-			patient_id: patientId,
-			status: { notIn: TERMINAL_REFERRAL_STATUSES },
-			OR: [
-				{ origin_facility_id: facilityId },
-				{ destination_facility_id: facilityId },
-			],
-		} as WhereClause<schema.ReferralModelSelect>);
-
-		return count > 0;
 	};
 
 	/**

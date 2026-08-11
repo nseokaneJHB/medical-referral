@@ -21,9 +21,9 @@ import type {
  *
  * Deliberately DB-free — every function here is a pure predicate over
  * already-fetched data. A check that needs a DB read (e.g. "does this
- * facility have an active Manager") lives as a `core/*.ts` method instead
- * (see `Facility.isOrphaned`, `Referral.hasActiveFor`) and the caller
- * fetches that boolean before calling in here.
+ * facility have an active Manager") is a `core.*.count(...)` call the
+ * caller makes before calling in here, not something modeled by these
+ * functions.
  */
 
 const UNUSABLE_USER_STATUSES: ReadonlyArray<UserModelSelect["status"]> = [
@@ -143,7 +143,7 @@ export const canRedirectReferral = (
  * Nurse/Doctor see a patient if it's their own facility's, or their
  * facility has an active referral for that patient (origin or
  * destination) — `hasActiveReferral` is the caller's pre-fetched answer
- * to that (see `Referral.hasActiveFor`), not computed in here.
+ * to that (a `core.referral.count(...)` call), not computed in here.
  */
 export const canAccessPatient = (
 	userFacilityId: string | null,
@@ -170,9 +170,9 @@ export const canRequestTransfer = (
  * Whether `role` may decide the origin or destination side of a patient
  * transfer for `facilityId` — that facility's own Manager, or
  * Administrator as the orphan-facility fallback (no currently-active
- * Manager there, per the caller's pre-fetched `isOrphaned` — see
- * `Facility.isOrphaned`), same fallback rule as Nurse/Doctor account
- * approvals.
+ * Manager there, per the caller's pre-fetched `isOrphaned`, a
+ * `core.user.count(...)` check), same fallback rule as Nurse/Doctor
+ * account approvals.
  */
 export const canDecideTransfer = (
 	role: Role,

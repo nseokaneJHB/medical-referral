@@ -295,7 +295,13 @@ export const staffApprove = async (
 			.status(status)
 			.send({ code, message: "Only a pending application can be approved." });
 	}
-	if (!(await request.server.core.facility.isOrphaned(target.facility_id))) {
+	const hasActiveManager =
+		(await request.server.core.user.count({
+			facility_id: target.facility_id,
+			role: ROLES.MANAGER,
+			status: USER_STATUS.ACTIVE,
+		})) > 0;
+	if (hasActiveManager) {
 		const { status, code } = HTTP_RESPONSE_CODE.FORBIDDEN;
 		return reply.status(status).send({
 			code,
@@ -346,7 +352,13 @@ export const staffReject = async (
 			.status(status)
 			.send({ code, message: "Only a pending application can be rejected." });
 	}
-	if (!(await request.server.core.facility.isOrphaned(target.facility_id))) {
+	const hasActiveManager =
+		(await request.server.core.user.count({
+			facility_id: target.facility_id,
+			role: ROLES.MANAGER,
+			status: USER_STATUS.ACTIVE,
+		})) > 0;
+	if (hasActiveManager) {
 		const { status, code } = HTTP_RESPONSE_CODE.FORBIDDEN;
 		return reply.status(status).send({
 			code,
@@ -397,7 +409,13 @@ export const staffFlag = async (
 			.status(status)
 			.send({ code, message: "Only an active staff member can be flagged." });
 	}
-	if (!(await request.server.core.facility.isOrphaned(target.facility_id))) {
+	const hasActiveManager =
+		(await request.server.core.user.count({
+			facility_id: target.facility_id,
+			role: ROLES.MANAGER,
+			status: USER_STATUS.ACTIVE,
+		})) > 0;
+	if (hasActiveManager) {
 		const { status, code } = HTTP_RESPONSE_CODE.FORBIDDEN;
 		return reply.status(status).send({
 			code,

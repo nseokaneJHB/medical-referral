@@ -8,6 +8,7 @@ import {
 	HTTP_RESPONSE_CODE,
 	orderDirectionSchema,
 	CreatePatientSchema,
+	TERMINAL_REFERRAL_STATUSES,
 	type Role,
 	type PatientResponse,
 } from "@referral-tracking/shared";
@@ -106,7 +107,7 @@ const getPatientFlagStatuses = async (
 const UNFLAGGED_STATUS: FlagStatus = { flagged: false, flag_reason: null };
 
 /**
- * Composes the DB read (`Referral.hasActiveFor`) with the pure
+ * Composes the DB read (`Referral.count`) with the pure
  * `canAccessPatient` predicate — `lib/permission.ts` stays DB-free, so
  * this glue lives here instead, module-specific rather than shared.
  * Short-circuits before the query when `patient` is already the caller's
@@ -120,12 +121,16 @@ const canAccessPatientRecord = async (
 	if (patient.facility_id === userFacilityId) return true;
 	if (!userFacilityId) return false;
 
-	const hasActiveReferral = await core.referral.hasActiveFor(
-		patient.id,
-		userFacilityId,
-	);
+	const activeReferralCount = await core.referral.count({
+		patient_id: patient.id,
+		status: { notIn: TERMINAL_REFERRAL_STATUSES },
+		OR: [
+			{ origin_facility_id: userFacilityId },
+			{ destination_facility_id: userFacilityId },
+		],
+	});
 
-	return canAccessPatient(userFacilityId, patient, hasActiveReferral);
+	return canAccessPatient(userFacilityId, patient, activeReferralCount > 0);
 };
 
 /**

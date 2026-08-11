@@ -45,7 +45,7 @@ import {
 	transferOriginApprove,
 	transferDestinationReject,
 	transferDestinationApprove,
-} from "../patients/transfer-service";
+} from "../transfers/service";
 
 import { EVENT_NAMES } from "../../lib/constant";
 

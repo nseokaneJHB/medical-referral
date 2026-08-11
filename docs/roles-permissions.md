@@ -1174,3 +1174,53 @@ regardless of outcome, or only on approval.
   affected by since it was built. Both commits (`c850126`, `43cf238`) are
   typechecked, linted, and verified live in a real browser session
   (manager@gmail.com and administrator@gmail.com), not just against curl.
+- **2026-08-12 (continued):** appeals review queue built (backend `AppealManager`
+  + `/appeals` page), which surfaced a real scalability problem — the append-only
+  `timeline` table never marks an `APPEAL_SUBMITTED` row as decided, so a naive
+  list query kept returning already-decided appeals. User rejected an app-level
+  fetch-then-filter fix and asked for a genuine DB-level answer instead: added
+  `WhereClause.NOT_SUPERSEDED_BY` / `buildSupersededCondition` (a generic
+  correlated `NOT EXISTS` self-join, via Drizzle's `alias()`) to `core/helpers.ts`,
+  consumed through `Timeline.many({ supersededBy: [...] })` — no appeal-specific
+  logic in the `core` layer. While reviewing this, user caught a broader
+  layering violation: DB-touching code had crept into `lib/moderation.ts`,
+  `lib/transfer.ts`, `lib/session.ts` (a brand-new `lib/` rule: only
+  `database.ts`/`auth.ts` may touch the DB, everything else in `lib/` must be a
+  pure predicate). Fixed by introducing a new `api/src/management/` layer
+  (`ModerationManager`, `AppealManager`, `TransferManager`, `SessionManager`) —
+  cross-repo business workflows that compose `core.*` calls only, registered as
+  a Fastify plugin (`request.server.management`) right after `core`. Also
+  tightened `core/*.ts` itself: raw `drizzle-orm` operator imports (`sql`,
+  `and`, `eq`, `alias`, etc.) are only allowed in `core/helpers.ts` — individual
+  table files call generic helpers exclusively.
+- **2026-08-12 (continued further):** three more corrections/cleanups in the
+  same session, all API-only: (1) `Facility.isOrphaned`/`Referral.hasActiveFor`
+  were removed entirely — user pointed out they were redundant wrappers around
+  the repository's own `count()` method; every call site (`administrator/service.ts`
+  ×3, `patients/service.ts`, `patients/transfer-service.ts` ×2) now calls
+  `core.user.count(...)`/`core.referral.count(...)` directly. Established (and
+  applied across every `core/*.ts` repo) a fixed method order —
+  `count → many → one → create → update → delete` — count first, since it's
+  the cheapest/most foundational query. (2) Moved `patients/transfer-service.ts`
+  + `transfer-type.ts` into their own `modules/transfers/{service,type}.ts` —
+  it was imported by three different modules' `route.ts` (patients, manager,
+  administrator), not just patients; route registrations themselves didn't move.
+  (3) Deduped `core/user-specialty.ts`/`core/facility-specialty.ts`. First
+  pass extracted a generic `createLinkTableRepository(table, relationConfigs,
+  countConfigs)` factory (`core/link-table.ts`); pushback that the name
+  overclaimed genericity — a repo-wide check confirmed `user_specialties`/
+  `facility_specialties` are the *only* two link tables in the schema, so
+  "any join table" isn't a real pattern yet. Landed instead on folding both
+  link tables directly into `core/specialty.ts` itself: `UserSpecialty` and
+  `FacilitySpecialty` are gone as standalone `core/*.ts` classes (and off
+  `CoreService`/`TransactableCore`), replaced by `owner`-parameterized
+  `linkMany`/`linkCreate`/`linkDelete` methods (`owner: "user" | "facility"`)
+  on `Specialty`, since `specialties` is the reference table both link tables
+  exist only to attach to. Verified via `tsc --noEmit`/`eslint` on the full
+  `api` package — clean except the one pre-existing, unrelated `relations.ts`
+  lint error noted earlier in this log.
+  *(Correction, same day: an earlier version of this entry claimed the
+  abstraction was fully reverted back to two independent hand-written
+  classes. That was written before a VS Code crash interrupted the session;
+  the revert never actually landed on disk. What's above reflects the code
+  as it actually exists.)*
