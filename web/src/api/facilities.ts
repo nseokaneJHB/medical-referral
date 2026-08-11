@@ -7,8 +7,10 @@ import {
 	buildUrlWithParams,
 	type FacilityParams,
 	type FacilitiesQuery,
+	type ApproveActionBody,
 	type UpdateFacilityBody,
 	type FacilityResponse,
+	type ModerationReasonBody,
 	type FacilityListResponse,
 	type TimelineListResponse,
 } from "@referral-tracking/shared";
@@ -68,6 +70,53 @@ export const updateFacility = async (
 ): Promise<FacilityResponse> => {
 	const { data } = await api.patch<FacilityResponse>(
 		`${baseUrl}${buildUrlWithParams(API_PATHS.FACILITY_BY_ID, { id })}`,
+		payload,
+	);
+	return data;
+};
+
+// Moderation (Administrator only, client-side)
+const administratorBaseUrl = () => API_URLS(env.VITE_API_VERSION).ADMINISTRATOR;
+
+export const approveFacility = async (
+	id: string,
+	payload: ApproveActionBody,
+): Promise<FacilityResponse> => {
+	const { data } = await api.patch<FacilityResponse>(
+		`${administratorBaseUrl()}${buildUrlWithParams(API_PATHS.ADMINISTRATOR_FACILITY_APPROVE, { id })}`,
+		payload,
+	);
+	return data;
+};
+
+export const rejectFacility = async (
+	id: string,
+	payload: ModerationReasonBody,
+): Promise<FacilityResponse> => {
+	const { data } = await api.patch<FacilityResponse>(
+		`${administratorBaseUrl()}${buildUrlWithParams(API_PATHS.ADMINISTRATOR_FACILITY_REJECT, { id })}`,
+		payload,
+	);
+	return data;
+};
+
+export const flagFacility = async (
+	id: string,
+	payload: ModerationReasonBody,
+): Promise<FacilityResponse> => {
+	const { data } = await api.patch<FacilityResponse>(
+		`${administratorBaseUrl()}${buildUrlWithParams(API_PATHS.ADMINISTRATOR_FACILITY_FLAG, { id })}`,
+		payload,
+	);
+	return data;
+};
+
+export const suspendFacility = async (
+	id: string,
+	payload: ModerationReasonBody,
+): Promise<FacilityResponse> => {
+	const { data } = await api.patch<FacilityResponse>(
+		`${administratorBaseUrl()}${buildUrlWithParams(API_PATHS.ADMINISTRATOR_FACILITY_SUSPEND, { id })}`,
 		payload,
 	);
 	return data;

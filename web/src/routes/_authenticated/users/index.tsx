@@ -1,4 +1,4 @@
-import { useState, type ComponentType } from "react";
+import { useState } from "react";
 
 import { createFileRoute, useNavigate, redirect } from "@tanstack/react-router";
 import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
@@ -49,19 +49,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-	Dialog,
-	DialogTitle,
-	DialogFooter,
-	DialogHeader,
-	DialogContent,
-	DialogDescription,
-} from "@/components/ui/dialog";
 
 import { Link } from "@/components/custom/link";
 import { Loader } from "@/components/custom/loader";
-import { TextArea } from "@/components/custom/text-area";
 import { SelectInput } from "@/components/custom/select-input";
+import { ReasonActionButton } from "@/components/custom/reason-action-button";
 
 import { useToastMutation } from "@/hooks/use-toast-mutation";
 
@@ -118,80 +110,6 @@ const resolveModerationFns = (
 	}
 
 	return null;
-};
-
-/** A punitive action (reject/flag/disable) behind a required-reason confirm dialog. */
-const ReasonActionButton = ({
-	label,
-	title,
-	variant,
-	icon: Icon,
-	description,
-	mutationFn,
-	onChanged,
-}: {
-	label: string;
-	title: string;
-	variant: "warning-outline" | "error-outline";
-	icon: ComponentType<{ className?: string }>;
-	description: string;
-	mutationFn: (reason: string) => Promise<UserResponse>;
-	onChanged: () => Promise<void>;
-}) => {
-	const [open, setOpen] = useState(false);
-	const [reason, setReason] = useState("");
-
-	const mutation = useMutation<UserResponse, Error, string>({ mutationFn });
-
-	const onConfirm = async () =>
-		useToastMutation({
-			loading: `${label}ing...`,
-			promise: mutation.mutateAsync(reason),
-			onSuccess: async () => {
-				setOpen(false);
-				setReason("");
-				await onChanged();
-			},
-		});
-
-	return (
-		<Dialog open={open} onOpenChange={setOpen}>
-			<Button
-				type="button"
-				variant={variant}
-				title={title}
-				size="sm"
-				onClick={() => setOpen(true)}
-			>
-				<Icon />
-				<span>{label}</span>
-			</Button>
-			<DialogContent>
-				<DialogHeader>
-					<DialogTitle>{title}?</DialogTitle>
-					<DialogDescription>{description}</DialogDescription>
-				</DialogHeader>
-				<TextArea
-					required
-					name="reason"
-					label="Reason"
-					value={reason}
-					onChange={(event) => setReason(event.target.value)}
-				/>
-				<DialogFooter>
-					<Button
-						type="button"
-						variant="error"
-						title={`Confirm ${label.toLowerCase()}`}
-						disabled={mutation.isPending || reason.trim().length === 0}
-						onClick={onConfirm}
-					>
-						<span>{label}</span>
-					</Button>
-				</DialogFooter>
-			</DialogContent>
-		</Dialog>
-	);
 };
 
 /** Row moderation actions — which buttons show depends on the target's current status. */

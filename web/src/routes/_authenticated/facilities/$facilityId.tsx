@@ -1,10 +1,10 @@
-import { createFileRoute, redirect, useRouter } from "@tanstack/react-router";
-import { useMutation } from "@tanstack/react-query";
+import { createFileRoute, redirect } from "@tanstack/react-router";
+import { useMutation, useQuery, useSuspenseQuery } from "@tanstack/react-query";
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
-import { SaveIcon } from "lucide-react";
+import { SaveIcon, CheckIcon, XIcon, FlagIcon, BanIcon } from "lucide-react";
 
 import {
 	ROLES,
@@ -24,12 +24,22 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/custom/input";
 import { TextArea } from "@/components/custom/text-area";
 import { BackLink } from "@/components/custom/back-link";
+import { TimelineList } from "@/components/custom/timeline-list";
+import { ReasonActionButton } from "@/components/custom/reason-action-button";
 
 import { useFormField } from "@/hooks/use-form-field";
 import { useToastMutation } from "@/hooks/use-toast-mutation";
 
 import { QUERY_KEYS } from "@/api/constant";
-import { facilityRequest, updateFacility } from "@/api/facilities";
+import {
+	flagFacility,
+	updateFacility,
+	rejectFacility,
+	approveFacility,
+	facilityRequest,
+	suspendFacility,
+	facilityHistoryRequest,
+} from "@/api/facilities";
 
 const STATUS_VARIANT: Record<
 	string,
@@ -42,11 +52,117 @@ const STATUS_VARIANT: Record<
 	[FACILITY_STATUS.SUSPENDED]: "error",
 };
 
+/** Administrator-only moderation actions — which buttons show depends on the facility's current status. */
+const FacilityModerationActions = ({
+	facilityId,
+	status,
+	onChanged,
+}: {
+	facilityId: string;
+	status: string;
+	onChanged: () => Promise<void>;
+}) => {
+	const approveMutation = useMutation<FacilityResponse, Error, void>({
+		mutationFn: () => approveFacility(facilityId, {}),
+	});
+
+	const onApprove = async () =>
+		useToastMutation({
+			loading: "Approving...",
+			promise: approveMutation.mutateAsync(),
+			onSuccess: onChanged,
+		});
+
+	if (status === FACILITY_STATUS.PENDING) {
+		return (
+			<div className="flex gap-2">
+				<Button
+					type="button"
+					variant="success-outline"
+					title="Approve"
+					size="sm"
+					disabled={approveMutation.isPending}
+					onClick={onApprove}
+				>
+					<CheckIcon />
+					<span>Approve</span>
+				</Button>
+				<ReasonActionButton
+					label="Reject"
+					title="Reject this facility"
+					variant="error-outline"
+					icon={XIcon}
+					description="This facility's registration will be rejected — a reason is required."
+					mutationFn={(reason) => rejectFacility(facilityId, { reason })}
+					onChanged={onChanged}
+				/>
+			</div>
+		);
+	}
+
+	if (status === FACILITY_STATUS.APPROVED) {
+		return (
+			<div className="flex gap-2">
+				<ReasonActionButton
+					label="Flag"
+					title="Flag this facility"
+					variant="warning-outline"
+					icon={FlagIcon}
+					description="Flagging restricts this facility to exit-only actions until it's cleared — a reason is required."
+					mutationFn={(reason) => flagFacility(facilityId, { reason })}
+					onChanged={onChanged}
+				/>
+				<ReasonActionButton
+					label="Suspend"
+					title="Suspend this facility"
+					variant="error-outline"
+					icon={BanIcon}
+					description="Suspending fully freezes this facility — a reason is required."
+					mutationFn={(reason) => suspendFacility(facilityId, { reason })}
+					onChanged={onChanged}
+				/>
+			</div>
+		);
+	}
+
+	if (status === FACILITY_STATUS.FLAGGED) {
+		return (
+			<ReasonActionButton
+				label="Suspend"
+				title="Suspend this facility"
+				variant="error-outline"
+				icon={BanIcon}
+				description="Suspending fully freezes this facility — a reason is required."
+				mutationFn={(reason) => suspendFacility(facilityId, { reason })}
+				onChanged={onChanged}
+			/>
+		);
+	}
+
+	return null;
+};
+
 const FacilityDetailPage = () => {
-	const router = useRouter();
-	const { queryClient } = Route.useRouteContext();
-	const response = Route.useLoaderData();
+	const { user, queryClient } = Route.useRouteContext();
+	const { facilityId } = Route.useParams();
+
+	/**
+	 * `useSuspenseQuery` (not `Route.useLoaderData()`) deliberately — the
+	 * loader's `ensureQueryData` primes this exact cache entry, so this
+	 * doesn't cost an extra fetch, but unlike `useLoaderData` it's a live
+	 * subscription: `invalidateQueries` below is enough on its own to make
+	 * this page re-render with a fresh status after a moderation action.
+	 */
+	const { data: response } = useSuspenseQuery({
+		queryKey: [...QUERY_KEYS.FACILITY, facilityId],
+		queryFn: () => facilityRequest({ data: { id: facilityId } }),
+	});
 	const facility = response.data;
+
+	const { data: historyResponse } = useQuery({
+		queryKey: [...QUERY_KEYS.FACILITY_HISTORY, facility.id],
+		queryFn: () => facilityHistoryRequest({ data: { id: facility.id } }),
+	});
 
 	const { control, handleSubmit } = useForm<UpdateFacilityBody>({
 		mode: "onChange",
@@ -68,24 +184,21 @@ const FacilityDetailPage = () => {
 		mutationFn: (payload) => updateFacility(facility.id, payload),
 	});
 
+	const onChanged = async () => {
+		await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.FACILITIES });
+		await queryClient.invalidateQueries({
+			queryKey: [...QUERY_KEYS.FACILITY, facility.id],
+		});
+		await queryClient.invalidateQueries({
+			queryKey: [...QUERY_KEYS.FACILITY_HISTORY, facility.id],
+		});
+	};
+
 	const onSubmit = async (payload: UpdateFacilityBody) =>
 		useToastMutation({
 			loading: "Saving facility...",
 			promise: updateFacilityMutation.mutateAsync(payload),
-			onSuccess: async () => {
-				await queryClient.invalidateQueries({
-					queryKey: QUERY_KEYS.FACILITIES,
-				});
-				await queryClient.invalidateQueries({
-					queryKey: [...QUERY_KEYS.FACILITY, facility.id],
-				});
-				/**
-				 * Without `sync: true`, `router.invalidate()` reloads in the
-				 * background rather than blocking — `await`ing it would resolve
-				 * before the refetch actually lands, leaving the page stale.
-				 */
-				await router.invalidate({ sync: true });
-			},
+			onSuccess: onChanged,
 			onError: async (error) => {
 				if (error.errors) {
 					for (const field of error.errors) {
@@ -98,6 +211,7 @@ const FacilityDetailPage = () => {
 		});
 
 	const isSaving = updateFacilityMutation.isPending;
+	const isAdministrator = user.role === ROLES.ADMINISTRATOR;
 
 	return (
 		<div className="space-y-4">
@@ -110,9 +224,18 @@ const FacilityDetailPage = () => {
 				<Card>
 					<CardHeader className="flex items-center justify-between">
 						<CardTitle className="text-xl">{facility.name}</CardTitle>
-						<Badge variant={STATUS_VARIANT[facility.status]}>
-							{stringToTitleCase(facility.status)}
-						</Badge>
+						<div className="flex items-center gap-3">
+							<Badge variant={STATUS_VARIANT[facility.status]}>
+								{stringToTitleCase(facility.status)}
+							</Badge>
+							{isAdministrator && (
+								<FacilityModerationActions
+									facilityId={facility.id}
+									status={facility.status}
+									onChanged={onChanged}
+								/>
+							)}
+						</div>
 					</CardHeader>
 					<CardContent className="space-y-4">
 						<Input
@@ -148,6 +271,12 @@ const FacilityDetailPage = () => {
 					</CardContent>
 				</Card>
 			</form>
+
+			<TimelineList
+				title="Facility history"
+				entries={historyResponse?.data ?? []}
+				emptyMessage="No history yet."
+			/>
 		</div>
 	);
 };
