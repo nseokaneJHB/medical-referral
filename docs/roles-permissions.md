@@ -241,6 +241,28 @@ API_PATHS/FRONTEND_URLS backfill-everywhere question).
   which hadn't existed. No behavior change — every literal was replaced
   with the constant already holding that exact string.
 
+**Four more gaps found 2026-08-12, via a systematic sweep** (every
+`API_PATHS` entry cross-checked against actual frontend callers, prompted
+by "anything left outstanding?") — all backend-complete, zero frontend
+callers, none previously named in this doc:
+- **Facility moderation** — `ADMINISTRATOR_FACILITY_APPROVE/REJECT/FLAG/
+  SUSPEND`. No page lets an Administrator flag or suspend a facility, or
+  approve/reject one standalone — approval currently only happens as a side
+  effect of approving the Manager who registered it (`managerApprove`'s
+  transaction).
+- **Appeals review queue** — `ADMINISTRATOR_APPEAL_APPROVE/DENY/LIST` and
+  `MANAGER_APPEAL_APPROVE/DENY/LIST`. The appeal *submission* form exists
+  (`account-status.tsx`), but nothing lets an Administrator or Manager see
+  and decide pending appeals.
+- **Manager filing a facility appeal** — `MANAGER_FACILITY_APPEAL`. A
+  Manager whose facility gets flagged/suspended has no button to file the
+  appeal (only their own personal-account appeal is wired up).
+- **Administrator-created user accounts** — `ADMINISTRATOR_USER_CREATE`.
+  No form for the temp-password admin-create flow; only public sign-up
+  exists on the frontend.
+
+Picking all four up now.
+
 ## Repo now under git (2026-08-10)
 
 The project had no git repository until today — a VS Code crash mid-session
