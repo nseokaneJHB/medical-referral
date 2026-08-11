@@ -7,8 +7,11 @@ import {
 	buildUrlWithParams,
 	type UsersQuery,
 	type UserParams,
+	type UserResponse,
 	type UserListResponse,
+	type ApproveActionBody,
 	type UserDetailResponse,
+	type ModerationReasonBody,
 	type TimelineListResponse,
 } from "@referral-tracking/shared";
 
@@ -59,3 +62,126 @@ export const userHistoryRequest = createServerFn({ method: "GET" })
 		);
 		return data;
 	});
+
+// Write (client-side)
+
+/**
+ * Staff (Nurse/Doctor) moderation is exposed identically under both
+ * `/manager/staff/:id/*` and `/administrator/staff/:id/*` (the latter is the
+ * orphan-facility fallback — see `docs/roles-permissions.md`) — same shapes,
+ * different base URL, so one parameterized set of functions here instead of
+ * two near-duplicate ones, mirroring `api/transfers.ts`'s `namespace`
+ * pattern.
+ */
+type StaffModerationNamespace = "MANAGER" | "ADMINISTRATOR";
+
+const STAFF_PATHS = {
+	MANAGER: {
+		APPROVE: API_PATHS.MANAGER_STAFF_APPROVE,
+		REJECT: API_PATHS.MANAGER_STAFF_REJECT,
+		FLAG: API_PATHS.MANAGER_STAFF_FLAG,
+		DISABLE: API_PATHS.MANAGER_STAFF_DISABLE,
+	},
+	ADMINISTRATOR: {
+		APPROVE: API_PATHS.ADMINISTRATOR_STAFF_APPROVE,
+		REJECT: API_PATHS.ADMINISTRATOR_STAFF_REJECT,
+		FLAG: API_PATHS.ADMINISTRATOR_STAFF_FLAG,
+		DISABLE: API_PATHS.ADMINISTRATOR_STAFF_DISABLE,
+	},
+} as const;
+
+const staffBaseUrl = (namespace: StaffModerationNamespace): string =>
+	API_URLS(env.VITE_API_VERSION)[namespace];
+
+export const approveStaff = async (
+	namespace: StaffModerationNamespace,
+	id: string,
+	payload: ApproveActionBody,
+): Promise<UserResponse> => {
+	const { data } = await api.patch<UserResponse>(
+		`${staffBaseUrl(namespace)}${buildUrlWithParams(STAFF_PATHS[namespace].APPROVE, { id })}`,
+		payload,
+	);
+	return data;
+};
+
+export const rejectStaff = async (
+	namespace: StaffModerationNamespace,
+	id: string,
+	payload: ModerationReasonBody,
+): Promise<UserResponse> => {
+	const { data } = await api.patch<UserResponse>(
+		`${staffBaseUrl(namespace)}${buildUrlWithParams(STAFF_PATHS[namespace].REJECT, { id })}`,
+		payload,
+	);
+	return data;
+};
+
+export const flagStaff = async (
+	namespace: StaffModerationNamespace,
+	id: string,
+	payload: ModerationReasonBody,
+): Promise<UserResponse> => {
+	const { data } = await api.patch<UserResponse>(
+		`${staffBaseUrl(namespace)}${buildUrlWithParams(STAFF_PATHS[namespace].FLAG, { id })}`,
+		payload,
+	);
+	return data;
+};
+
+export const disableStaff = async (
+	namespace: StaffModerationNamespace,
+	id: string,
+	payload: ModerationReasonBody,
+): Promise<UserResponse> => {
+	const { data } = await api.patch<UserResponse>(
+		`${staffBaseUrl(namespace)}${buildUrlWithParams(STAFF_PATHS[namespace].DISABLE, { id })}`,
+		payload,
+	);
+	return data;
+};
+
+/** Manager account moderation — Administrator-only, no namespace needed. */
+export const approveManager = async (
+	id: string,
+	payload: ApproveActionBody,
+): Promise<UserResponse> => {
+	const { data } = await api.patch<UserResponse>(
+		`${API_URLS(env.VITE_API_VERSION).ADMINISTRATOR}${buildUrlWithParams(API_PATHS.ADMINISTRATOR_MANAGER_APPROVE, { id })}`,
+		payload,
+	);
+	return data;
+};
+
+export const rejectManager = async (
+	id: string,
+	payload: ModerationReasonBody,
+): Promise<UserResponse> => {
+	const { data } = await api.patch<UserResponse>(
+		`${API_URLS(env.VITE_API_VERSION).ADMINISTRATOR}${buildUrlWithParams(API_PATHS.ADMINISTRATOR_MANAGER_REJECT, { id })}`,
+		payload,
+	);
+	return data;
+};
+
+export const flagManager = async (
+	id: string,
+	payload: ModerationReasonBody,
+): Promise<UserResponse> => {
+	const { data } = await api.patch<UserResponse>(
+		`${API_URLS(env.VITE_API_VERSION).ADMINISTRATOR}${buildUrlWithParams(API_PATHS.ADMINISTRATOR_MANAGER_FLAG, { id })}`,
+		payload,
+	);
+	return data;
+};
+
+export const disableManager = async (
+	id: string,
+	payload: ModerationReasonBody,
+): Promise<UserResponse> => {
+	const { data } = await api.patch<UserResponse>(
+		`${API_URLS(env.VITE_API_VERSION).ADMINISTRATOR}${buildUrlWithParams(API_PATHS.ADMINISTRATOR_MANAGER_DISABLE, { id })}`,
+		payload,
+	);
+	return data;
+};

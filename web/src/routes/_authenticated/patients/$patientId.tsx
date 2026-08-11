@@ -299,7 +299,7 @@ const PatientDetailPage = () => {
 				await queryClient.invalidateQueries({
 					queryKey: [...QUERY_KEYS.PATIENT, patient.id],
 				});
-				await router.invalidate();
+				await router.invalidate({ sync: true });
 			},
 			onError: async (error) => {
 				if (error.errors) {
@@ -319,7 +319,7 @@ const PatientDetailPage = () => {
 		await queryClient.invalidateQueries({
 			queryKey: [...QUERY_KEYS.PATIENT, patient.id],
 		});
-		await router.invalidate();
+		await router.invalidate({ sync: true });
 	};
 
 	const canRequestTransfer =

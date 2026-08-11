@@ -1,8 +1,13 @@
-import { useState } from "react";
+import { useState, type ComponentType } from "react";
 
 import { createFileRoute, useNavigate, redirect } from "@tanstack/react-router";
+import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
 
 import {
+	FlagIcon,
+	BanIcon,
+	CheckIcon,
+	XIcon,
 	SearchIcon,
 	ArrowUpIcon,
 	ArrowDownIcon,
@@ -25,7 +30,11 @@ import {
 	usersQuerySchema,
 	stringToTitleCase,
 	DEFAULT_PAGE_LIMIT,
+	type Role,
 	type User,
+	type UserResponse,
+	type ApproveActionBody,
+	type ModerationReasonBody,
 } from "@referral-tracking/shared";
 
 import { Card, CardTitle, CardHeader, CardContent } from "@/components/ui/card";
@@ -40,13 +49,246 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+	Dialog,
+	DialogTitle,
+	DialogFooter,
+	DialogHeader,
+	DialogContent,
+	DialogDescription,
+} from "@/components/ui/dialog";
 
 import { Link } from "@/components/custom/link";
 import { Loader } from "@/components/custom/loader";
+import { TextArea } from "@/components/custom/text-area";
 import { SelectInput } from "@/components/custom/select-input";
 
+import { useToastMutation } from "@/hooks/use-toast-mutation";
+
 import { QUERY_KEYS } from "@/api/constant";
-import { usersRequest } from "@/api/users";
+import {
+	flagStaff,
+	usersRequest,
+	rejectStaff,
+	flagManager,
+	approveStaff,
+	disableStaff,
+	rejectManager,
+	approveManager,
+	disableManager,
+} from "@/api/users";
+
+/**
+ * Which set of moderation endpoints applies to a given row — Manager account
+ * moderation (`*Manager`, Administrator-only) vs Nurse/Doctor moderation
+ * (`*Staff`, exposed under both `/manager/staff/*` and, as the
+ * orphan-facility fallback, `/administrator/staff/*` — see
+ * `docs/roles-permissions.md`). Returns `null` when the viewer has no
+ * moderation authority over this row at all (a Manager viewing another
+ * Manager, or anyone viewing an Administrator) — same non-enumerating
+ * philosophy as the backend's 404-not-403 on an out-of-scope target.
+ */
+const resolveModerationFns = (
+	viewerRole: Role,
+	targetRole: Role,
+): {
+	approve: (id: string, payload: ApproveActionBody) => Promise<UserResponse>;
+	reject: (id: string, payload: ModerationReasonBody) => Promise<UserResponse>;
+	flag: (id: string, payload: ModerationReasonBody) => Promise<UserResponse>;
+	disable: (id: string, payload: ModerationReasonBody) => Promise<UserResponse>;
+} | null => {
+	if (targetRole === ROLES.MANAGER) {
+		if (viewerRole !== ROLES.ADMINISTRATOR) return null;
+		return {
+			approve: approveManager,
+			reject: rejectManager,
+			flag: flagManager,
+			disable: disableManager,
+		};
+	}
+
+	if (targetRole === ROLES.NURSE || targetRole === ROLES.DOCTOR) {
+		const namespace = viewerRole === ROLES.ADMINISTRATOR ? "ADMINISTRATOR" : "MANAGER";
+		return {
+			approve: (id, payload) => approveStaff(namespace, id, payload),
+			reject: (id, payload) => rejectStaff(namespace, id, payload),
+			flag: (id, payload) => flagStaff(namespace, id, payload),
+			disable: (id, payload) => disableStaff(namespace, id, payload),
+		};
+	}
+
+	return null;
+};
+
+/** A punitive action (reject/flag/disable) behind a required-reason confirm dialog. */
+const ReasonActionButton = ({
+	label,
+	title,
+	variant,
+	icon: Icon,
+	description,
+	mutationFn,
+	onChanged,
+}: {
+	label: string;
+	title: string;
+	variant: "warning-outline" | "error-outline";
+	icon: ComponentType<{ className?: string }>;
+	description: string;
+	mutationFn: (reason: string) => Promise<UserResponse>;
+	onChanged: () => Promise<void>;
+}) => {
+	const [open, setOpen] = useState(false);
+	const [reason, setReason] = useState("");
+
+	const mutation = useMutation<UserResponse, Error, string>({ mutationFn });
+
+	const onConfirm = async () =>
+		useToastMutation({
+			loading: `${label}ing...`,
+			promise: mutation.mutateAsync(reason),
+			onSuccess: async () => {
+				setOpen(false);
+				setReason("");
+				await onChanged();
+			},
+		});
+
+	return (
+		<Dialog open={open} onOpenChange={setOpen}>
+			<Button
+				type="button"
+				variant={variant}
+				title={title}
+				size="sm"
+				onClick={() => setOpen(true)}
+			>
+				<Icon />
+				<span>{label}</span>
+			</Button>
+			<DialogContent>
+				<DialogHeader>
+					<DialogTitle>{title}?</DialogTitle>
+					<DialogDescription>{description}</DialogDescription>
+				</DialogHeader>
+				<TextArea
+					required
+					name="reason"
+					label="Reason"
+					value={reason}
+					onChange={(event) => setReason(event.target.value)}
+				/>
+				<DialogFooter>
+					<Button
+						type="button"
+						variant="error"
+						title={`Confirm ${label.toLowerCase()}`}
+						disabled={mutation.isPending || reason.trim().length === 0}
+						onClick={onConfirm}
+					>
+						<span>{label}</span>
+					</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
+	);
+};
+
+/** Row moderation actions — which buttons show depends on the target's current status. */
+const UserModerationActions = ({
+	user,
+	viewerRole,
+	onChanged,
+}: {
+	user: User;
+	viewerRole: Role;
+	onChanged: () => Promise<void>;
+}) => {
+	const fns = resolveModerationFns(viewerRole, user.role);
+
+	const approveMutation = useMutation<UserResponse, Error, void>({
+		mutationFn: () => fns!.approve(user.id, {}),
+	});
+
+	const onApprove = async () =>
+		useToastMutation({
+			loading: "Approving...",
+			promise: approveMutation.mutateAsync(),
+			onSuccess: onChanged,
+		});
+
+	if (!fns) return null;
+
+	if (user.status === USER_STATUS.PENDING) {
+		return (
+			<div className="flex justify-end gap-2">
+				<Button
+					type="button"
+					variant="success-outline"
+					title="Approve"
+					size="sm"
+					disabled={approveMutation.isPending}
+					onClick={onApprove}
+				>
+					<CheckIcon />
+					<span>Approve</span>
+				</Button>
+				<ReasonActionButton
+					label="Reject"
+					title="Reject this application"
+					variant="error-outline"
+					icon={XIcon}
+					description="This application will be rejected — a reason is required."
+					mutationFn={(reason) => fns.reject(user.id, { reason })}
+					onChanged={onChanged}
+				/>
+			</div>
+		);
+	}
+
+	if (user.status === USER_STATUS.ACTIVE) {
+		return (
+			<div className="flex justify-end gap-2">
+				<ReasonActionButton
+					label="Flag"
+					title="Flag this account"
+					variant="warning-outline"
+					icon={FlagIcon}
+					description="Flagging restricts this account until it's cleared — a reason is required."
+					mutationFn={(reason) => fns.flag(user.id, { reason })}
+					onChanged={onChanged}
+				/>
+				<ReasonActionButton
+					label="Disable"
+					title="Disable this account"
+					variant="error-outline"
+					icon={BanIcon}
+					description="Disabling fully freezes this account — a reason is required."
+					mutationFn={(reason) => fns.disable(user.id, { reason })}
+					onChanged={onChanged}
+				/>
+			</div>
+		);
+	}
+
+	if (user.status === USER_STATUS.FLAGGED) {
+		return (
+			<div className="flex justify-end gap-2">
+				<ReasonActionButton
+					label="Disable"
+					title="Disable this account"
+					variant="error-outline"
+					icon={BanIcon}
+					description="Disabling fully freezes this account — a reason is required."
+					mutationFn={(reason) => fns.disable(user.id, { reason })}
+					onChanged={onChanged}
+				/>
+			</div>
+		);
+	}
+
+	return null;
+};
 
 const columnHelper = createColumnHelper<User>();
 
@@ -89,10 +331,30 @@ const STATUS_ITEMS = Object.values(USER_STATUS).map((value) => ({
 const UsersPage = () => {
 	const navigate = useNavigate({ from: Route.fullPath });
 
+	const { user, queryClient } = Route.useRouteContext();
 	const search = Route.useSearch();
-	const response = Route.useLoaderData();
+
+	/**
+	 * `useSuspenseQuery` (not `Route.useLoaderData()`) deliberately — the
+	 * loader's `ensureQueryData` primes this exact cache entry, so this
+	 * doesn't cost an extra fetch, but unlike `useLoaderData` it's a live
+	 * subscription: a moderation action's `invalidateQueries` below is
+	 * enough on its own to make this table re-render with fresh data.
+	 * `useLoaderData` reads a snapshot from the router's own match cache,
+	 * which isn't subscribed to query-cache invalidation at all — a
+	 * moderation action would toast success but leave the row showing its
+	 * old status indefinitely.
+	 */
+	const { data: response } = useSuspenseQuery({
+		queryKey: [...QUERY_KEYS.USERS, search],
+		queryFn: () => usersRequest({ data: search }),
+	});
 
 	const [searchInput, setSearchInput] = useState(search.search ?? "");
+
+	const onChanged = async () => {
+		await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.USERS });
+	};
 
 	const table = useReactTable({
 		columns,
@@ -251,14 +513,21 @@ const UsersPage = () => {
 										</TableCell>
 									))}
 									<TableCell>
-										<Link
-											variant="outline"
-											title="View user"
-											to={FRONTEND_URLS.USER}
-											params={{ userId: row.original.id }}
-										>
-											View
-										</Link>
+										<div className="flex justify-end gap-2">
+											<UserModerationActions
+												user={row.original}
+												viewerRole={user.role}
+												onChanged={onChanged}
+											/>
+											<Link
+												variant="outline"
+												title="View user"
+												to={FRONTEND_URLS.USER}
+												params={{ userId: row.original.id }}
+											>
+												View
+											</Link>
+										</div>
 									</TableCell>
 								</TableRow>
 							))}
@@ -311,7 +580,7 @@ export const Route = createFileRoute("/_authenticated/users/")({
 			context.user.role !== ROLES.ADMINISTRATOR &&
 			context.user.role !== ROLES.MANAGER
 		) {
-			throw redirect({ to: "/" });
+			throw redirect({ to: FRONTEND_URLS.HOME });
 		}
 	},
 	loader: async ({ context, deps }) => {

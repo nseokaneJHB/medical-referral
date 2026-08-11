@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
 
 import { CheckIcon, XIcon } from "lucide-react";
 
@@ -153,9 +153,23 @@ const TransferActions = ({
 
 const TransfersPage = () => {
 	const { user, queryClient } = Route.useRouteContext();
-	const response = Route.useLoaderData();
 
 	const namespace = user.role === ROLES.ADMINISTRATOR ? "ADMINISTRATOR" : "MANAGER";
+
+	/**
+	 * `useSuspenseQuery` (not `Route.useLoaderData()`) deliberately — the
+	 * loader's `ensureQueryData` primes this exact cache entry, so this
+	 * doesn't cost an extra fetch, but unlike `useLoaderData` it's a live
+	 * subscription: `invalidateQueries` below is enough on its own to make
+	 * this table re-render with fresh data. `useLoaderData` reads a
+	 * snapshot from the router's own match cache, which isn't subscribed
+	 * to query-cache invalidation at all — a decided transfer would toast
+	 * success but stay in the pending list indefinitely.
+	 */
+	const { data: response } = useSuspenseQuery({
+		queryKey: [...QUERY_KEYS.TRANSFERS, namespace],
+		queryFn: () => transfersRequest({ data: { namespace } }),
+	});
 
 	const onChanged = async () => {
 		await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.TRANSFERS });

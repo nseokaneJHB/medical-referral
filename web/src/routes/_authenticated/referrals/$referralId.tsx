@@ -346,7 +346,7 @@ const ReferralDetailPage = () => {
 		await queryClient.invalidateQueries({
 			queryKey: [...QUERY_KEYS.REFERRAL_HISTORY, referral.id],
 		});
-		await router.invalidate();
+		await router.invalidate({ sync: true });
 	};
 
 	const onSubmit = async (payload: UpdateReferralBody) =>

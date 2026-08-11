@@ -79,7 +79,12 @@ const FacilityDetailPage = () => {
 				await queryClient.invalidateQueries({
 					queryKey: [...QUERY_KEYS.FACILITY, facility.id],
 				});
-				await router.invalidate();
+				/**
+				 * Without `sync: true`, `router.invalidate()` reloads in the
+				 * background rather than blocking — `await`ing it would resolve
+				 * before the refetch actually lands, leaving the page stale.
+				 */
+				await router.invalidate({ sync: true });
 			},
 			onError: async (error) => {
 				if (error.errors) {
