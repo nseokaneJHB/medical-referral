@@ -1,3 +1,5 @@
+import { ROLES, USER_STATUS } from "@referral-tracking/shared";
+
 import * as schema from "../drizzle/schema";
 
 import {
@@ -126,5 +128,24 @@ export class Facility {
 		>,
 	): Promise<Pick<schema.FacilityModelSelect, TSelect>[]> => {
 		return await updateRecords(this.executor, schema.FacilityModel, options);
+	};
+
+	/**
+	 * `true` when a facility currently has no `ACTIVE` Manager — the trigger
+	 * for Administrator's orphan-facility fallback (deciding staff
+	 * applications/transfers there instead of the facility's own Manager).
+	 * Queries `UserModel` directly (via the generic `countRecords` helper,
+	 * same as every other cross-table check in this layer) rather than
+	 * `facilities` — "orphaned" is a fact about a facility, but it's derived
+	 * from user data.
+	 */
+	isOrphaned = async (facilityId: string): Promise<boolean> => {
+		const count = await countRecords(this.executor, schema.UserModel, {
+			facility_id: facilityId,
+			role: ROLES.MANAGER,
+			status: USER_STATUS.ACTIVE,
+		} as WhereClause<schema.UserModelSelect>);
+
+		return count === 0;
 	};
 }

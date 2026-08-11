@@ -17,10 +17,15 @@ import {
 	inArray,
 	isNotNull,
 	type SQL,
+	getTableName,
 	getTableColumns,
 } from "drizzle-orm";
 
-import type { MySqlColumn, MySqlTable } from "drizzle-orm/mysql-core";
+import {
+	alias,
+	type MySqlColumn,
+	type MySqlTable,
+} from "drizzle-orm/mysql-core";
 
 import type { MySql2Database } from "drizzle-orm/mysql2";
 
@@ -32,8 +37,6 @@ import {
 /* ═══════════════════════════════════════════════════════════════
    EXECUTOR - db connection OR an open transaction, interchangeably
    ═══════════════════════════════════════════════════════════════ */
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type Database = MySql2Database<Record<string, any>>;
 
 // The exact type Drizzle hands you inside `db.transaction(async (tx) => ...)`.
@@ -63,11 +66,26 @@ export type WhereOperator<T> = {
 	notBetween?: T extends Date ? [Date, Date] : [T, T];
 };
 
+/**
+ * "Only rows not superseded by a later row" — for append-only tables where
+ * whether a row still applies depends on comparing it against every later
+ * row for the same group, not on the row's own columns. See
+ * `buildWhere`'s `NOT_SUPERSEDED_BY` handling and
+ * `Timeline.many()`'s `supersededBy` option, its only current caller.
+ */
+export type SupersededCondition<TModel> = {
+	groupBy: (keyof TModel & string)[];
+	orderBy: keyof TModel & string;
+	matchColumn: keyof TModel & string;
+	matchValues: string[];
+};
+
 export type WhereClause<TModel> = {
 	[K in keyof TModel]?: TModel[K] | WhereOperator<TModel[K]>;
 } & {
 	OR?: WhereClause<TModel>[];
 	AND?: WhereClause<TModel>[];
+	NOT_SUPERSEDED_BY?: SupersededCondition<TModel>;
 };
 
 export type OrderDirection = "asc" | "desc";
@@ -243,6 +261,21 @@ export const buildWhere = <TTable extends MySqlTable, TModel>(
 			continue;
 		}
 
+		// Handle "not superseded by a later row" (see `SupersededCondition`)
+		if (key === "NOT_SUPERSEDED_BY" && value) {
+			const condition = value as SupersededCondition<unknown>;
+			conditions.push(
+				buildSupersededCondition(
+					table,
+					condition.groupBy,
+					condition.orderBy,
+					condition.matchColumn,
+					condition.matchValues,
+				),
+			);
+			continue;
+		}
+
 		const column = table[key as keyof typeof table] as MySqlColumn;
 		if (!column) throw new Error(`Invalid column: ${key}`);
 
@@ -301,6 +334,56 @@ export const buildWhere = <TTable extends MySqlTable, TModel>(
 	}
 
 	return conditions.length > 0 ? and(...conditions) : undefined;
+};
+
+/**
+ * A `NOT EXISTS` correlated subquery: `true` for a row unless a *later* row
+ * (by `orderColumn`) exists on the same table, matching the same
+ * `groupColumns` values, whose `matchColumn` is one of `matchValues`. Used
+ * for append-only tables where "is this row still current" isn't a
+ * property of one row — it depends on comparing it against every later row
+ * for the same group, which the flat `WhereClause` builder above can't
+ * express (see `Timeline.many()`'s `supersededBy` option, its only current
+ * caller). Fully generic — table-agnostic, like the rest of this file;
+ * doesn't know what "current" means for any particular table, only how to
+ * ask the question.
+ *
+ * Builds a proper Drizzle table alias (`alias()`) rather than raw SQL
+ * table/column name strings, so the self-join stays tied to the real
+ * schema instead of a hand-maintained table name.
+ */
+export const buildSupersededCondition = <TTable extends MySqlTable>(
+	table: TTable,
+	groupColumns: (keyof TTable & string)[],
+	orderColumn: keyof TTable & string,
+	matchColumn: keyof TTable & string,
+	matchValues: string[],
+): SQL => {
+	const later = alias(table, "later");
+
+	const laterColumn = (name: keyof TTable & string): MySqlColumn =>
+		later[name as keyof typeof later] as MySqlColumn;
+	const outerColumn = (name: keyof TTable & string): MySqlColumn =>
+		table[name as keyof typeof table] as MySqlColumn;
+
+	const groupConditions = groupColumns.map((column) =>
+		eq(laterColumn(column), outerColumn(column)),
+	);
+
+	// `${later}` alone (interpolated directly as a `FROM` target) renders
+	// only the alias's quoted name, not `` `<table>` AS `later` `` — MySQL
+	// then has no idea what `later` refers to. `getTableName(table)` +
+	// `sql.identifier` spells the real table name out explicitly instead;
+	// `later`'s column refs (used below in the `WHERE`) still render
+	// correctly qualified by the alias regardless.
+	return sql`NOT EXISTS (
+		SELECT 1 FROM ${sql.identifier(getTableName(table))} AS later
+		WHERE ${and(
+			...groupConditions,
+			inArray(laterColumn(matchColumn), matchValues),
+			gt(laterColumn(orderColumn), outerColumn(orderColumn)),
+		)}
+	)`;
 };
 
 export const buildOrder = <TTable extends MySqlTable, TModel>(

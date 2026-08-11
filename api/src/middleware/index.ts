@@ -12,6 +12,7 @@ import { authenticate } from "./authenticate";
 import { onRequestTimerHook, onResponseLoggingHook } from "./logging";
 
 import { CoreService } from "../core";
+import { ManagementService } from "../management";
 
 import { env } from "../lib/env";
 import { auth } from "../lib/auth";
@@ -85,6 +86,9 @@ export const middlewares = async (app: FastifyInstance): Promise<void> => {
 		...new CoreService(connection, auth),
 	};
 	app.decorate("core", core);
+
+	app.log.info("Loading management...");
+	app.decorate("management", new ManagementService(core));
 
 	app.log.info("Loading authenticate...");
 	app.decorate("authenticate", authenticate);

@@ -21,6 +21,7 @@ import { Route as AuthenticatedReferralsIndexRouteImport } from './routes/_authe
 import { Route as AuthenticatedPatientsIndexRouteImport } from './routes/_authenticated/patients/index'
 import { Route as AuthenticatedFacilitiesIndexRouteImport } from './routes/_authenticated/facilities/index'
 import { Route as AuthenticatedAuditIndexRouteImport } from './routes/_authenticated/audit/index'
+import { Route as AuthenticatedAppealsIndexRouteImport } from './routes/_authenticated/appeals/index'
 import { Route as AuthenticatedUsersUserIdRouteImport } from './routes/_authenticated/users/$userId'
 import { Route as AuthenticatedReferralsNewRouteImport } from './routes/_authenticated/referrals/new'
 import { Route as AuthenticatedReferralsReferralIdRouteImport } from './routes/_authenticated/referrals/$referralId'
@@ -90,6 +91,12 @@ const AuthenticatedAuditIndexRoute = AuthenticatedAuditIndexRouteImport.update({
   path: '/audit/',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedAppealsIndexRoute =
+  AuthenticatedAppealsIndexRouteImport.update({
+    id: '/appeals/',
+    path: '/appeals/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedUsersUserIdRoute =
   AuthenticatedUsersUserIdRouteImport.update({
     id: '/users/$userId',
@@ -138,6 +145,7 @@ export interface FileRoutesByFullPath {
   '/referrals/$referralId': typeof AuthenticatedReferralsReferralIdRoute
   '/referrals/new': typeof AuthenticatedReferralsNewRoute
   '/users/$userId': typeof AuthenticatedUsersUserIdRoute
+  '/appeals/': typeof AuthenticatedAppealsIndexRoute
   '/audit/': typeof AuthenticatedAuditIndexRoute
   '/facilities/': typeof AuthenticatedFacilitiesIndexRoute
   '/patients/': typeof AuthenticatedPatientsIndexRoute
@@ -156,6 +164,7 @@ export interface FileRoutesByTo {
   '/referrals/$referralId': typeof AuthenticatedReferralsReferralIdRoute
   '/referrals/new': typeof AuthenticatedReferralsNewRoute
   '/users/$userId': typeof AuthenticatedUsersUserIdRoute
+  '/appeals': typeof AuthenticatedAppealsIndexRoute
   '/audit': typeof AuthenticatedAuditIndexRoute
   '/facilities': typeof AuthenticatedFacilitiesIndexRoute
   '/patients': typeof AuthenticatedPatientsIndexRoute
@@ -177,6 +186,7 @@ export interface FileRoutesById {
   '/_authenticated/referrals/$referralId': typeof AuthenticatedReferralsReferralIdRoute
   '/_authenticated/referrals/new': typeof AuthenticatedReferralsNewRoute
   '/_authenticated/users/$userId': typeof AuthenticatedUsersUserIdRoute
+  '/_authenticated/appeals/': typeof AuthenticatedAppealsIndexRoute
   '/_authenticated/audit/': typeof AuthenticatedAuditIndexRoute
   '/_authenticated/facilities/': typeof AuthenticatedFacilitiesIndexRoute
   '/_authenticated/patients/': typeof AuthenticatedPatientsIndexRoute
@@ -197,6 +207,7 @@ export interface FileRouteTypes {
     | '/referrals/$referralId'
     | '/referrals/new'
     | '/users/$userId'
+    | '/appeals/'
     | '/audit/'
     | '/facilities/'
     | '/patients/'
@@ -215,6 +226,7 @@ export interface FileRouteTypes {
     | '/referrals/$referralId'
     | '/referrals/new'
     | '/users/$userId'
+    | '/appeals'
     | '/audit'
     | '/facilities'
     | '/patients'
@@ -235,6 +247,7 @@ export interface FileRouteTypes {
     | '/_authenticated/referrals/$referralId'
     | '/_authenticated/referrals/new'
     | '/_authenticated/users/$userId'
+    | '/_authenticated/appeals/'
     | '/_authenticated/audit/'
     | '/_authenticated/facilities/'
     | '/_authenticated/patients/'
@@ -335,6 +348,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAuditIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/appeals/': {
+      id: '/_authenticated/appeals/'
+      path: '/appeals'
+      fullPath: '/appeals/'
+      preLoaderRoute: typeof AuthenticatedAppealsIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/users/$userId': {
       id: '/_authenticated/users/$userId'
       path: '/users/$userId'
@@ -388,6 +408,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedReferralsReferralIdRoute: typeof AuthenticatedReferralsReferralIdRoute
   AuthenticatedReferralsNewRoute: typeof AuthenticatedReferralsNewRoute
   AuthenticatedUsersUserIdRoute: typeof AuthenticatedUsersUserIdRoute
+  AuthenticatedAppealsIndexRoute: typeof AuthenticatedAppealsIndexRoute
   AuthenticatedAuditIndexRoute: typeof AuthenticatedAuditIndexRoute
   AuthenticatedFacilitiesIndexRoute: typeof AuthenticatedFacilitiesIndexRoute
   AuthenticatedPatientsIndexRoute: typeof AuthenticatedPatientsIndexRoute
@@ -405,6 +426,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedReferralsReferralIdRoute: AuthenticatedReferralsReferralIdRoute,
   AuthenticatedReferralsNewRoute: AuthenticatedReferralsNewRoute,
   AuthenticatedUsersUserIdRoute: AuthenticatedUsersUserIdRoute,
+  AuthenticatedAppealsIndexRoute: AuthenticatedAppealsIndexRoute,
   AuthenticatedAuditIndexRoute: AuthenticatedAuditIndexRoute,
   AuthenticatedFacilitiesIndexRoute: AuthenticatedFacilitiesIndexRoute,
   AuthenticatedPatientsIndexRoute: AuthenticatedPatientsIndexRoute,

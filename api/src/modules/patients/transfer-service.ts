@@ -13,20 +13,8 @@ import {
 } from "@referral-tracking/shared";
 
 import { generateUuid } from "../../lib/util";
-import {
-	canDecideTransfer,
-	canRequestTransfer,
-	isFacilityOrphaned,
-} from "../../lib/permission";
-import {
-	isTransferOpen,
-	type TransferRow,
-	resolveTransferRequest,
-	getLatestTransferAction,
-	getLatestTransferActionsByPatient,
-	getLatestTransferRequestsByPatient,
-	getPendingTransfersForFacility,
-} from "../../lib/transfer";
+import { canDecideTransfer, canRequestTransfer } from "../../lib/permission";
+import { TransferManager, type TransferRow } from "../../management/transfer";
 
 import type { CoreService } from "../../core";
 
@@ -138,8 +126,10 @@ export const transferRequest = async (
 		});
 	}
 
-	const existing = await getLatestTransferAction(core, patient.id);
-	if (existing && isTransferOpen(existing.action)) {
+	const transferManager = new TransferManager(core);
+
+	const existing = await transferManager.getLatestAction(patient.id);
+	if (existing && transferManager.isOpen(existing.action)) {
 		const { status, code } = HTTP_RESPONSE_CODE.CONFLICT;
 		return reply.status(status).send({
 			code,
@@ -188,7 +178,9 @@ const decideTransferSide = async (
 ): Promise<void> => {
 	const { core } = request.server;
 
-	const resolved = await resolveTransferRequest(core, request.params.id);
+	const resolved = await new TransferManager(core).resolveRequest(
+		request.params.id,
+	);
 	if (!resolved) {
 		const { status, code } = HTTP_RESPONSE_CODE.NOT_FOUND;
 		return reply
@@ -218,8 +210,12 @@ const decideTransferSide = async (
 		side === "origin" ? requestRow.previous! : requestRow.next!;
 
 	const role = request.user!.role as Role;
+	const isOrphaned =
+		role === ROLES.ADMINISTRATOR
+			? await core.facility.isOrphaned(facilityId)
+			: false;
 	if (
-		!(await canDecideTransfer(core, role, request.user!.facility_id, facilityId))
+		!canDecideTransfer(role, request.user!.facility_id, facilityId, isOrphaned)
 	) {
 		const { status, code } = HTTP_RESPONSE_CODE.FORBIDDEN;
 		return reply.status(status).send({
@@ -265,7 +261,10 @@ const decideTransferSide = async (
 		return created;
 	});
 
-	const data = await hydrateTransfer(core, { request: requestRow, latest: newRow });
+	const data = await hydrateTransfer(core, {
+		request: requestRow,
+		latest: newRow,
+	});
 
 	const { status, code } = HTTP_RESPONSE_CODE.OK;
 	reply.status(status).send({
@@ -331,11 +330,13 @@ export const transfers = async (
 		});
 	};
 
+	const transferManager = new TransferManager(core);
+
 	let current: TransferRow[];
 
 	if (role === ROLES.MANAGER) {
 		if (!userFacilityId) return empty();
-		current = await getPendingTransfersForFacility(core, userFacilityId);
+		current = await transferManager.getPendingForFacility(userFacilityId);
 	} else {
 		const rows = await core.timeline.many({
 			page: 1,
@@ -353,8 +354,7 @@ export const transfers = async (
 			select: TRANSFER_ROW_FIELDS,
 		});
 
-		const latestByPatient = await getLatestTransferActionsByPatient(
-			core,
+		const latestByPatient = await transferManager.getLatestActionsByPatient(
 			rows.data.map((row) => row.entity),
 		);
 
@@ -368,7 +368,7 @@ export const transfers = async (
 					row.action === TIMELINE_ACTION.TRANSFER_REQUESTED
 						? row.previous!
 						: row.next!;
-				return isFacilityOrphaned(core, facilityId);
+				return core.facility.isOrphaned(facilityId);
 			}),
 		);
 		current = candidates.filter((_, index) => orphaned[index]);
@@ -377,8 +377,7 @@ export const transfers = async (
 	const total = current.length;
 	const paged = current.slice((page - 1) * limit, (page - 1) * limit + limit);
 
-	const requestsByPatient = await getLatestTransferRequestsByPatient(
-		core,
+	const requestsByPatient = await transferManager.getLatestRequestsByPatient(
 		paged.map((row) => row.entity),
 	);
 

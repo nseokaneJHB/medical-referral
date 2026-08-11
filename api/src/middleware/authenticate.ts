@@ -9,7 +9,6 @@ import {
 } from "@referral-tracking/shared";
 
 import { auth } from "../lib/auth";
-import { mapSessionUser } from "../lib/session";
 
 import { SessionModelSelect } from "../drizzle/schema";
 
@@ -57,7 +56,7 @@ export const authenticate = async (
 		ip: userSession.session.ipAddress ?? null,
 	};
 
-	request.user = mapSessionUser(userSession.user);
+	request.user = request.server.management.session.mapUser(userSession.user);
 	request.session = session;
 
 	return;

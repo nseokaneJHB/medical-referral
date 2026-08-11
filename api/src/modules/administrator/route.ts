@@ -17,7 +17,7 @@ import {
 	timelineResponseSchema,
 	createUserByAdminSchema,
 	transferListResponseSchema,
-	timelineListResponseSchema,
+	appealListResponseSchema,
 	createUserByAdminResponseSchema,
 } from "@referral-tracking/shared";
 
@@ -260,7 +260,7 @@ export const route: FastifyPluginAsync = async (
 		preHandler: preHandler(EVENT_NAMES.ADMINISTRATOR_APPEAL_LIST),
 		schema: {
 			response: {
-				200: timelineListResponseSchema,
+				200: appealListResponseSchema,
 				401: globalResponseSchema,
 				403: globalResponseSchema,
 			},

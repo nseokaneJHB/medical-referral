@@ -13,12 +13,8 @@ import {
 
 import { auth } from "../../lib/auth";
 import { generateTemporaryPassword } from "../../lib/util";
-import { isFacilityOrphaned } from "../../lib/permission";
-import {
-	decideAppeal,
-	applyUserStatusChange,
-	applyFacilityStatusChange,
-} from "../../lib/moderation";
+import { AppealManager } from "../../management/appeal";
+import { ModerationManager } from "../../management/moderation";
 
 import type {
 	AppealsRequest,
@@ -59,21 +55,6 @@ const FACILITY_FIELDS = {
 	updated_at: true,
 } as const;
 
-const TIMELINE_FIELDS = {
-	id: true,
-	type: true,
-	entity: true,
-	action: true,
-	previous: true,
-	next: true,
-	notes: true,
-	changed_at: true,
-} as const;
-
-const TIMELINE_INCLUDE = {
-	changer: { select: { id: true, name: true } },
-} as const;
-
 /**
  * Approving a Manager whose registration included a new facility approves
  * that facility too, in the same transaction — they were paired `PENDING`
@@ -105,7 +86,7 @@ export const managerApprove = async (
 	await request.server.core.connection.transaction(async (tx) => {
 		const txCore = request.server.core.withTransaction(tx);
 
-		await applyUserStatusChange(txCore, {
+		await new ModerationManager(txCore).applyUserStatusChange({
 			userId: target.id,
 			status: USER_STATUS.ACTIVE,
 			action: TIMELINE_ACTION.APPROVED,
@@ -121,7 +102,7 @@ export const managerApprove = async (
 			});
 
 			if (facility?.status === FACILITY_STATUS.PENDING) {
-				await applyFacilityStatusChange(txCore, {
+				await new ModerationManager(txCore).applyFacilityStatusChange({
 					facilityId: target.facility_id,
 					status: FACILITY_STATUS.APPROVED,
 					action: TIMELINE_ACTION.APPROVED,
@@ -170,7 +151,7 @@ export const managerReject = async (
 	await request.server.core.connection.transaction(async (tx) => {
 		const txCore = request.server.core.withTransaction(tx);
 
-		await applyUserStatusChange(txCore, {
+		await new ModerationManager(txCore).applyUserStatusChange({
 			userId: target.id,
 			status: USER_STATUS.REJECTED,
 			action: TIMELINE_ACTION.REJECTED,
@@ -186,7 +167,7 @@ export const managerReject = async (
 			});
 
 			if (facility?.status === FACILITY_STATUS.PENDING) {
-				await applyFacilityStatusChange(txCore, {
+				await new ModerationManager(txCore).applyFacilityStatusChange({
 					facilityId: target.facility_id,
 					status: FACILITY_STATUS.REJECTED,
 					action: TIMELINE_ACTION.REJECTED,
@@ -235,7 +216,9 @@ export const managerDisable = async (
 		});
 	}
 
-	const updated = await applyUserStatusChange(request.server.core, {
+	const updated = await new ModerationManager(
+		request.server.core,
+	).applyUserStatusChange({
 		userId: target.id,
 		status: USER_STATUS.DISABLED,
 		action: TIMELINE_ACTION.DISABLED,
@@ -270,7 +253,9 @@ export const managerFlag = async (
 			.send({ code, message: "Only an active Manager can be flagged." });
 	}
 
-	const updated = await applyUserStatusChange(request.server.core, {
+	const updated = await new ModerationManager(
+		request.server.core,
+	).applyUserStatusChange({
 		userId: target.id,
 		status: USER_STATUS.FLAGGED,
 		action: TIMELINE_ACTION.FLAGGED,
@@ -310,7 +295,7 @@ export const staffApprove = async (
 			.status(status)
 			.send({ code, message: "Only a pending application can be approved." });
 	}
-	if (!(await isFacilityOrphaned(request.server.core, target.facility_id))) {
+	if (!(await request.server.core.facility.isOrphaned(target.facility_id))) {
 		const { status, code } = HTTP_RESPONSE_CODE.FORBIDDEN;
 		return reply.status(status).send({
 			code,
@@ -319,7 +304,9 @@ export const staffApprove = async (
 		});
 	}
 
-	const updated = await applyUserStatusChange(request.server.core, {
+	const updated = await new ModerationManager(
+		request.server.core,
+	).applyUserStatusChange({
 		userId: target.id,
 		status: USER_STATUS.ACTIVE,
 		action: TIMELINE_ACTION.APPROVED,
@@ -359,7 +346,7 @@ export const staffReject = async (
 			.status(status)
 			.send({ code, message: "Only a pending application can be rejected." });
 	}
-	if (!(await isFacilityOrphaned(request.server.core, target.facility_id))) {
+	if (!(await request.server.core.facility.isOrphaned(target.facility_id))) {
 		const { status, code } = HTTP_RESPONSE_CODE.FORBIDDEN;
 		return reply.status(status).send({
 			code,
@@ -368,7 +355,9 @@ export const staffReject = async (
 		});
 	}
 
-	const updated = await applyUserStatusChange(request.server.core, {
+	const updated = await new ModerationManager(
+		request.server.core,
+	).applyUserStatusChange({
 		userId: target.id,
 		status: USER_STATUS.REJECTED,
 		action: TIMELINE_ACTION.REJECTED,
@@ -408,7 +397,7 @@ export const staffFlag = async (
 			.status(status)
 			.send({ code, message: "Only an active staff member can be flagged." });
 	}
-	if (!(await isFacilityOrphaned(request.server.core, target.facility_id))) {
+	if (!(await request.server.core.facility.isOrphaned(target.facility_id))) {
 		const { status, code } = HTTP_RESPONSE_CODE.FORBIDDEN;
 		return reply.status(status).send({
 			code,
@@ -417,7 +406,9 @@ export const staffFlag = async (
 		});
 	}
 
-	const updated = await applyUserStatusChange(request.server.core, {
+	const updated = await new ModerationManager(
+		request.server.core,
+	).applyUserStatusChange({
 		userId: target.id,
 		status: USER_STATUS.FLAGGED,
 		action: TIMELINE_ACTION.FLAGGED,
@@ -467,7 +458,9 @@ export const staffDisable = async (
 		});
 	}
 
-	const updated = await applyUserStatusChange(request.server.core, {
+	const updated = await new ModerationManager(
+		request.server.core,
+	).applyUserStatusChange({
 		userId: target.id,
 		status: USER_STATUS.DISABLED,
 		action: TIMELINE_ACTION.DISABLED,
@@ -502,7 +495,9 @@ export const facilityApprove = async (
 			.send({ code, message: "Only a pending facility can be approved." });
 	}
 
-	const updated = await applyFacilityStatusChange(request.server.core, {
+	const updated = await new ModerationManager(
+		request.server.core,
+	).applyFacilityStatusChange({
 		facilityId: target.id,
 		status: FACILITY_STATUS.APPROVED,
 		action: TIMELINE_ACTION.APPROVED,
@@ -537,7 +532,9 @@ export const facilityReject = async (
 			.send({ code, message: "Only a pending facility can be rejected." });
 	}
 
-	const updated = await applyFacilityStatusChange(request.server.core, {
+	const updated = await new ModerationManager(
+		request.server.core,
+	).applyFacilityStatusChange({
 		facilityId: target.id,
 		status: FACILITY_STATUS.REJECTED,
 		action: TIMELINE_ACTION.REJECTED,
@@ -572,7 +569,9 @@ export const facilityFlag = async (
 			.send({ code, message: "Only an approved facility can be flagged." });
 	}
 
-	const updated = await applyFacilityStatusChange(request.server.core, {
+	const updated = await new ModerationManager(
+		request.server.core,
+	).applyFacilityStatusChange({
 		facilityId: target.id,
 		status: FACILITY_STATUS.FLAGGED,
 		action: TIMELINE_ACTION.FLAGGED,
@@ -613,7 +612,9 @@ export const facilitySuspend = async (
 		});
 	}
 
-	const updated = await applyFacilityStatusChange(request.server.core, {
+	const updated = await new ModerationManager(
+		request.server.core,
+	).applyFacilityStatusChange({
 		facilityId: target.id,
 		status: FACILITY_STATUS.SUSPENDED,
 		action: TIMELINE_ACTION.SUSPENDED,
@@ -689,10 +690,17 @@ const appealDecide = async (
 		return reply.status(status).send({ code, message: "Appeal not found." });
 	}
 
+	if (!(await request.server.management.appeal.isOpen(appeal))) {
+		const { status, code } = HTTP_RESPONSE_CODE.CONFLICT;
+		return reply
+			.status(status)
+			.send({ code, message: "This appeal has already been decided." });
+	}
+
 	const entry = await request.server.core.connection.transaction(async (tx) => {
 		const txCore = request.server.core.withTransaction(tx);
 
-		return decideAppeal(txCore, {
+		return new AppealManager(txCore).decide({
 			type: appeal.type as TimelineType,
 			entity: appeal.entity,
 			approve,
@@ -724,10 +732,10 @@ export const appealDeny = (
 
 /**
  * Bare-bones queue — every submitted appeal, system-wide. Administrator is
- * the universal fallback decider (see `lib/permission.ts`'s
- * `resolveAppealAuthority`), so unlike Manager's own `GET /manager/appeals`
- * this doesn't need to filter by who's actually allowed to decide each
- * one — the decide endpoints re-validate that regardless.
+ * the universal fallback decider (see `management/appeal.ts`'s
+ * `resolveAuthority`), so unlike Manager's own `GET /manager/appeals` this
+ * doesn't need to filter by who's actually allowed to decide each one —
+ * the decide endpoints re-validate that regardless.
  */
 export const appeals = async (
 	request: FastifyRequest<AppealsRequest>,
@@ -740,14 +748,7 @@ export const appeals = async (
 		? Number(request.query.limit)
 		: DEFAULT_PAGE_LIMIT;
 
-	const result = await request.server.core.timeline.many({
-		page,
-		limit,
-		where: { action: TIMELINE_ACTION.APPEAL_SUBMITTED },
-		order: { changed_at: "desc" },
-		select: TIMELINE_FIELDS,
-		include: TIMELINE_INCLUDE,
-	});
+	const result = await request.server.management.appeal.list({ page, limit });
 
 	const { status, code } = HTTP_RESPONSE_CODE.OK;
 	reply.status(status).send({

@@ -1,5 +1,4 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
-import { fromNodeHeaders } from "better-auth/node";
 
 import {
 	ROLES,
@@ -16,7 +15,6 @@ import {
 
 import { normalizeNullableFields } from "../../lib/util";
 import { parseEnumList, parseSortList } from "../../lib/validator";
-import { resolveSessionUser } from "../../lib/session";
 
 import { FacilityModel, type FacilityModelSelect } from "../../drizzle/schema";
 
@@ -74,7 +72,10 @@ export const facilities = async (
 	const page = Number(query.page);
 	const limit = Number(query.limit);
 
-	const caller = await resolveSessionUser(fromNodeHeaders(request.headers));
+	const caller =
+		await request.server.management.session.resolveUserFromNodeHeaders(
+			request.headers,
+		);
 
 	const clauses: WhereClause<FacilityModelSelect>[] = [];
 

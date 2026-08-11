@@ -27,6 +27,7 @@ export const FRONTEND_URLS = {
 	FACILITIES: "/facilities",
 	FACILITY: "/facilities/$facilityId",
 	TRANSFERS: "/transfers",
+	APPEALS: "/appeals",
 	ACCOUNT_STATUS: "/account-status",
 } as const;
 

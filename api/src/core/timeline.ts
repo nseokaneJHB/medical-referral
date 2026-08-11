@@ -1,3 +1,5 @@
+import { type TimelineAction } from "@referral-tracking/shared";
+
 import * as schema from "../drizzle/schema";
 
 import {
@@ -59,7 +61,21 @@ export class Timeline {
 	/**
 	 * Find multiple `timeline` rows with pagination, filtering, and ordering.
 	 *
-	 * @param options - `where`/`order`/`select`/`page`/`limit` for the query.
+	 * @param options - `where`/`order`/`select`/`page`/`limit` for the
+	 * query. `supersededBy`, if passed, restricts results to rows that are
+	 * still the *current* row for their `(type, entity)` — i.e. no later
+	 * row whose action is in `supersededBy` exists for the same entity.
+	 * The `timeline` table is append-only, so "is this row still current"
+	 * isn't a property of one row — it depends on comparing it against
+	 * every later row for the same entity, which the generic `WhereClause`
+	 * builder (a flat filter, no cross-row comparison) can't express on its
+	 * own; a `NOT EXISTS` subquery over the existing
+	 * `timeline_type_entity_idx` index handles it as a genuine DB-level
+	 * filter — real `LIMIT`/`OFFSET` pagination and `COUNT(*)`, not an
+	 * app-level fetch-everything-then-filter that only works by assuming
+	 * volume stays small forever. Generic (not aware of what any particular
+	 * `supersededBy` set means for a given workflow — deciding an appeal,
+	 * deciding a transfer, ...) — callers supply that meaning.
 	 * @returns A paginated result containing only the selected fields.
 	 */
 	many = async <
@@ -69,12 +85,24 @@ export class Timeline {
 			TimelineRelations
 		>,
 	>(
-		options: TOptions,
+		options: TOptions & { supersededBy?: TimelineAction[] },
 	): Promise<Pagination<Pick<schema.TimelineModelSelect, TSelect>>> => {
+		const where = options.supersededBy
+			? {
+					...options.where,
+					NOT_SUPERSEDED_BY: {
+						groupBy: ["type", "entity"],
+						orderBy: "changed_at",
+						matchColumn: "action",
+						matchValues: options.supersededBy,
+					},
+				}
+			: options.where;
+
 		return (await manyRecords(
 			this.executor,
 			schema.TimelineModel,
-			options,
+			{ ...options, where },
 			this.relationConfigs,
 			this.countConfigs,
 		)) as unknown as Pagination<Pick<schema.TimelineModelSelect, TSelect>>;

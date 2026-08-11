@@ -6,6 +6,7 @@ import type pino from "pino";
 import type { Role } from "@referral-tracking/shared";
 
 import { CoreService } from "../core";
+import { ManagementService } from "../management";
 
 import { UserModelSelect, SessionModelSelect } from "../drizzle/schema";
 
@@ -27,6 +28,7 @@ declare module "fastify" {
 		authorize: (roles: Role | Role[]) => preHandlerHookHandler;
 
 		core: Core;
+		management: ManagementService;
 	}
 
 	interface FastifyRequest {

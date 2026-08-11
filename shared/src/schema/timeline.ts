@@ -42,6 +42,21 @@ export const timelineListResponseSchema = paginatedGlobalResponseSchema.extend({
 });
 
 /**
+ * An `APPEAL_SUBMITTED` timeline row, enriched with who/what it's about —
+ * `entity` alone is just a bare UUID (a user id or a facility id depending
+ * on `type`), not enough to render a usable appeals queue. `subject` reuses
+ * `userRefSchema`'s shape (`id` + nullable `name`) for both cases; a
+ * facility's `name` is never actually null, just typed compatibly.
+ */
+export const AppealSchema = TimelineSchema.extend({
+	subject: userRefSchema,
+});
+
+export const appealListResponseSchema = paginatedGlobalResponseSchema.extend({
+	data: z.array(AppealSchema),
+});
+
+/**
  * Single-row response — used for `POST /account/appeal` (echoes the
  * created `APPEAL_SUBMITTED` row) and the appeal-decision endpoints in
  * `administrator`/`manager` (echoes the created `APPEAL_APPROVED`/

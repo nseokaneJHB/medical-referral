@@ -106,6 +106,29 @@ const getPatientFlagStatuses = async (
 const UNFLAGGED_STATUS: FlagStatus = { flagged: false, flag_reason: null };
 
 /**
+ * Composes the DB read (`Referral.hasActiveFor`) with the pure
+ * `canAccessPatient` predicate — `lib/permission.ts` stays DB-free, so
+ * this glue lives here instead, module-specific rather than shared.
+ * Short-circuits before the query when `patient` is already the caller's
+ * own facility's (the common case).
+ */
+const canAccessPatientRecord = async (
+	core: Pick<CoreService, "referral">,
+	userFacilityId: string | null,
+	patient: Pick<PatientModelSelect, "id" | "facility_id">,
+): Promise<boolean> => {
+	if (patient.facility_id === userFacilityId) return true;
+	if (!userFacilityId) return false;
+
+	const hasActiveReferral = await core.referral.hasActiveFor(
+		patient.id,
+		userFacilityId,
+	);
+
+	return canAccessPatient(userFacilityId, patient, hasActiveReferral);
+};
+
+/**
  * `facility_id` is always the Nurse's own — only Nurses register patients.
  */
 export const patientCreate = async (
@@ -229,7 +252,7 @@ export const patient = async (
 
 	if (
 		!patient ||
-		!(await canAccessPatient(
+		!(await canAccessPatientRecord(
 			request.server.core,
 			request.user!.facility_id,
 			patient,
@@ -273,7 +296,7 @@ export const patientUpdate = async (
 
 	if (
 		!existing ||
-		!(await canAccessPatient(
+		!(await canAccessPatientRecord(
 			request.server.core,
 			request.user!.facility_id,
 			existing,
@@ -341,7 +364,7 @@ export const patientFlag = async (
 
 	if (
 		!existing ||
-		!(await canAccessPatient(
+		!(await canAccessPatientRecord(
 			request.server.core,
 			request.user!.facility_id,
 			existing,
@@ -406,7 +429,7 @@ export const patientUnflag = async (
 
 	if (
 		!existing ||
-		!(await canAccessPatient(
+		!(await canAccessPatientRecord(
 			request.server.core,
 			request.user!.facility_id,
 			existing,
@@ -451,6 +474,9 @@ export const patientUnflag = async (
 	reply.status(status).send({
 		code,
 		message: "Patient unflagged.",
-		data: { ...patient, ...UNFLAGGED_STATUS } as unknown as PatientResponse["data"],
+		data: {
+			...patient,
+			...UNFLAGGED_STATUS,
+		} as unknown as PatientResponse["data"],
 	});
 };

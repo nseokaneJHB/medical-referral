@@ -2,14 +2,8 @@ import {
 	ROLES,
 	USER_STATUS,
 	FACILITY_STATUS,
-	TIMELINE_ACTION,
-	TERMINAL_REFERRAL_STATUSES,
 	type Role,
-	type TimelineType,
-	type TimelineAction,
 } from "@referral-tracking/shared";
-
-import type { CoreService } from "../core";
 
 import type {
 	UserModelSelect,
@@ -24,9 +18,13 @@ import type {
  * routes through, rather than more scattered inline `if (role === X)`
  * checks. Scoped to what this pass needs (registration/approval); grows as
  * later passes rewire Patients/Referrals/Facilities onto it too.
+ *
+ * Deliberately DB-free — every function here is a pure predicate over
+ * already-fetched data. A check that needs a DB read (e.g. "does this
+ * facility have an active Manager") lives as a `core/*.ts` method instead
+ * (see `Facility.isOrphaned`, `Referral.hasActiveFor`) and the caller
+ * fetches that boolean before calling in here.
  */
-
-type PermissionCore = Pick<CoreService, "user" | "timeline" | "referral">;
 
 const UNUSABLE_USER_STATUSES: ReadonlyArray<UserModelSelect["status"]> = [
 	USER_STATUS.PENDING,
@@ -53,17 +51,6 @@ const APPEALABLE_FACILITY_STATUSES: ReadonlyArray<
 	FACILITY_STATUS.REJECTED,
 	FACILITY_STATUS.FLAGGED,
 	FACILITY_STATUS.SUSPENDED,
-];
-
-/**
- * Not `ReadonlyArray` — passed directly into a `WhereOperator.in`, which
- * expects a plain mutable array type.
- */
-const PUNITIVE_TIMELINE_ACTIONS: TimelineAction[] = [
-	TIMELINE_ACTION.REJECTED,
-	TIMELINE_ACTION.DISABLED,
-	TIMELINE_ACTION.FLAGGED,
-	TIMELINE_ACTION.SUSPENDED,
 ];
 
 /**
@@ -154,31 +141,19 @@ export const canRedirectReferral = (
 
 /**
  * Nurse/Doctor see a patient if it's their own facility's, or their
- * facility has an active referral for that patient (origin or destination).
+ * facility has an active referral for that patient (origin or
+ * destination) — `hasActiveReferral` is the caller's pre-fetched answer
+ * to that (see `Referral.hasActiveFor`), not computed in here.
  */
-export const canAccessPatient = async (
-	core: PermissionCore,
+export const canAccessPatient = (
 	userFacilityId: string | null,
-	patient: Pick<PatientModelSelect, "id" | "facility_id">,
-): Promise<boolean> => {
+	patient: Pick<PatientModelSelect, "facility_id">,
+	hasActiveReferral: boolean,
+): boolean => {
 	if (patient.facility_id === userFacilityId) return true;
 	if (!userFacilityId) return false;
 
-	const activeReferrals = await core.referral.many({
-		page: 1,
-		limit: 1,
-		where: {
-			patient_id: patient.id,
-			status: { notIn: TERMINAL_REFERRAL_STATUSES },
-			OR: [
-				{ origin_facility_id: userFacilityId },
-				{ destination_facility_id: userFacilityId },
-			],
-		},
-		select: { id: true },
-	});
-
-	return activeReferrals.data.length > 0;
+	return hasActiveReferral;
 };
 
 /** A Nurse/Doctor may request a transfer only from their own current facility. */
@@ -195,16 +170,18 @@ export const canRequestTransfer = (
  * Whether `role` may decide the origin or destination side of a patient
  * transfer for `facilityId` — that facility's own Manager, or
  * Administrator as the orphan-facility fallback (no currently-active
- * Manager there), same fallback rule as Nurse/Doctor account approvals.
+ * Manager there, per the caller's pre-fetched `isOrphaned` — see
+ * `Facility.isOrphaned`), same fallback rule as Nurse/Doctor account
+ * approvals.
  */
-export const canDecideTransfer = async (
-	core: PermissionCore,
+export const canDecideTransfer = (
 	role: Role,
 	userFacilityId: string | null,
 	facilityId: string,
-): Promise<boolean> => {
+	isOrphaned: boolean,
+): boolean => {
 	if (role === ROLES.MANAGER) return userFacilityId === facilityId;
-	if (role === ROLES.ADMINISTRATOR) return isFacilityOrphaned(core, facilityId);
+	if (role === ROLES.ADMINISTRATOR) return isOrphaned;
 	return false;
 };
 
@@ -216,29 +193,6 @@ export const canViewUser = (
 ): boolean => {
 	if (role === ROLES.MANAGER) return target.facility_id === viewerFacilityId;
 	return true;
-};
-
-/**
- * True when a facility currently has no `ACTIVE` Manager — the trigger for
- * Administrator's orphan-facility fallback (approving/rejecting/flagging
- * Nurse/Doctor applicants there instead of the facility's own Manager).
- */
-export const isFacilityOrphaned = async (
-	core: PermissionCore,
-	facilityId: string,
-): Promise<boolean> => {
-	const result = await core.user.many({
-		page: 1,
-		limit: 1,
-		where: {
-			facility_id: facilityId,
-			role: ROLES.MANAGER,
-			status: USER_STATUS.ACTIVE,
-		},
-		select: { id: true },
-	});
-
-	return result.total === 0;
 };
 
 /**
@@ -256,46 +210,3 @@ export const canFileFacilityAppeal = (
 	user.role === ROLES.MANAGER &&
 	user.facility_id === facility.id &&
 	APPEALABLE_FACILITY_STATUSES.includes(facility.status);
-
-export interface AppealAuthority {
-	userId: string;
-	role: Role;
-}
-
-/**
- * Resolves "who imposed the status this appeal is contesting" — the most
- * recent punitive (`REJECTED`/`DISABLED`/`FLAGGED`/`SUSPENDED`) timeline
- * row for this entity, and that actor's *current* role (not the role they
- * held at the time — if they've since changed roles, today's role is what
- * governs whether they can still decide it). Returns `null` if there's no
- * punitive history to attribute (shouldn't happen for a real appeal, but
- * callers must handle it rather than assume).
- */
-export const resolveAppealAuthority = async (
-	core: PermissionCore,
-	target: { type: TimelineType; entity: string },
-): Promise<AppealAuthority | null> => {
-	const result = await core.timeline.many({
-		page: 1,
-		limit: 1,
-		where: {
-			type: target.type,
-			entity: target.entity,
-			action: { in: PUNITIVE_TIMELINE_ACTIONS },
-		},
-		order: { changed_at: "desc" },
-		select: { changer_id: true },
-	});
-
-	const [latest] = result.data;
-	if (!latest) return null;
-
-	const actor = await core.user.one({
-		where: { id: latest.changer_id },
-		select: { id: true, role: true },
-	});
-
-	if (!actor) return null;
-
-	return { userId: actor.id, role: actor.role as Role };
-};

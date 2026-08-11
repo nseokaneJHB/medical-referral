@@ -8,7 +8,7 @@ import {
 } from "@referral-tracking/shared";
 
 import { zeroFillCounts } from "../../lib/util";
-import { getPendingTransfersForFacility } from "../../lib/transfer";
+import { TransferManager } from "../../management/transfer";
 
 import type {
 	NurseSummaryRequest,
@@ -128,28 +128,33 @@ export const managerSummary = async (
 	const { core } = request.server;
 	const facilityId = request.user!.facility_id!;
 
-	const [totalStaff, totalPatients, statusCounts, pendingStaffApplications, pendingTransfers] =
-		await Promise.all([
-			core.user.count({ facility_id: facilityId }),
-			core.patient.count({ facility_id: facilityId }),
-			core.referral.count(
-				{
-					OR: [
-						{ origin_facility_id: facilityId },
-						{ destination_facility_id: facilityId },
-					],
-				},
-				"status",
-			),
-			core.user.count({
-				facility_id: facilityId,
-				role: { in: [ROLES.NURSE, ROLES.DOCTOR] },
-				status: USER_STATUS.PENDING,
-			}),
-			getPendingTransfersForFacility(core, facilityId).then(
-				(rows) => rows.length,
-			),
-		]);
+	const [
+		totalStaff,
+		totalPatients,
+		statusCounts,
+		pendingStaffApplications,
+		pendingTransfers,
+	] = await Promise.all([
+		core.user.count({ facility_id: facilityId }),
+		core.patient.count({ facility_id: facilityId }),
+		core.referral.count(
+			{
+				OR: [
+					{ origin_facility_id: facilityId },
+					{ destination_facility_id: facilityId },
+				],
+			},
+			"status",
+		),
+		core.user.count({
+			facility_id: facilityId,
+			role: { in: [ROLES.NURSE, ROLES.DOCTOR] },
+			status: USER_STATUS.PENDING,
+		}),
+		new TransferManager(core)
+			.getPendingForFacility(facilityId)
+			.then((rows) => rows.length),
+	]);
 
 	const counts = zeroFillCounts(statusCounts, REFERRAL_STATUS);
 	const totalReferrals = Object.values(counts).reduce((a, b) => a + b, 0);

@@ -1,3 +1,5 @@
+import { TERMINAL_REFERRAL_STATUSES } from "@referral-tracking/shared";
+
 import * as schema from "../drizzle/schema";
 
 import {
@@ -198,6 +200,28 @@ export class Referral {
 			where,
 			groupBy,
 		);
+	};
+
+	/**
+	 * `true` if `patientId` has a non-terminal referral touching
+	 * `facilityId` (as either origin or destination) — the DB check behind
+	 * a Nurse/Doctor seeing a patient outside their own facility (their
+	 * facility has an active referral for that patient).
+	 */
+	hasActiveFor = async (
+		patientId: string,
+		facilityId: string,
+	): Promise<boolean> => {
+		const count = await countRecords(this.executor, schema.ReferralModel, {
+			patient_id: patientId,
+			status: { notIn: TERMINAL_REFERRAL_STATUSES },
+			OR: [
+				{ origin_facility_id: facilityId },
+				{ destination_facility_id: facilityId },
+			],
+		} as WhereClause<schema.ReferralModelSelect>);
+
+		return count > 0;
 	};
 
 	/**

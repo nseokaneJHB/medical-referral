@@ -11,12 +11,12 @@ import {
 } from "@referral-tracking/shared";
 
 import { generateUuid } from "../../lib/util";
-import { decideAppeal, applyUserStatusChange } from "../../lib/moderation";
 import {
 	canFileFacilityAppeal,
 	canManagerActOnStaff,
-	resolveAppealAuthority,
 } from "../../lib/permission";
+import { AppealManager } from "../../management/appeal";
+import { ModerationManager } from "../../management/moderation";
 
 import type {
 	AppealsRequest,
@@ -49,10 +49,6 @@ const TIMELINE_FIELDS = {
 	next: true,
 	notes: true,
 	changed_at: true,
-} as const;
-
-const TIMELINE_INCLUDE = {
-	changer: { select: { id: true, name: true } },
 } as const;
 
 /**
@@ -112,7 +108,9 @@ export const staffApprove = async (
 			.send({ code, message: "Only a pending application can be approved." });
 	}
 
-	const updated = await applyUserStatusChange(request.server.core, {
+	const updated = await new ModerationManager(
+		request.server.core,
+	).applyUserStatusChange({
 		userId: target.id,
 		status: USER_STATUS.ACTIVE,
 		action: TIMELINE_ACTION.APPROVED,
@@ -141,7 +139,9 @@ export const staffReject = async (
 			.send({ code, message: "Only a pending application can be rejected." });
 	}
 
-	const updated = await applyUserStatusChange(request.server.core, {
+	const updated = await new ModerationManager(
+		request.server.core,
+	).applyUserStatusChange({
 		userId: target.id,
 		status: USER_STATUS.REJECTED,
 		action: TIMELINE_ACTION.REJECTED,
@@ -176,7 +176,9 @@ export const staffDisable = async (
 		});
 	}
 
-	const updated = await applyUserStatusChange(request.server.core, {
+	const updated = await new ModerationManager(
+		request.server.core,
+	).applyUserStatusChange({
 		userId: target.id,
 		status: USER_STATUS.DISABLED,
 		action: TIMELINE_ACTION.DISABLED,
@@ -205,7 +207,9 @@ export const staffFlag = async (
 			.send({ code, message: "Only an active staff member can be flagged." });
 	}
 
-	const updated = await applyUserStatusChange(request.server.core, {
+	const updated = await new ModerationManager(
+		request.server.core,
+	).applyUserStatusChange({
 		userId: target.id,
 		status: USER_STATUS.FLAGGED,
 		action: TIMELINE_ACTION.FLAGGED,
@@ -290,10 +294,17 @@ const decideAppealAsManager = async (
 		return reply.status(status).send({ code, message: "Appeal not found." });
 	}
 
+	if (!(await request.server.management.appeal.isOpen(appeal))) {
+		const { status, code } = HTTP_RESPONSE_CODE.CONFLICT;
+		return reply
+			.status(status)
+			.send({ code, message: "This appeal has already been decided." });
+	}
+
 	const type =
 		appeal.type as (typeof TIMELINE_TYPE)[keyof typeof TIMELINE_TYPE];
 
-	const authority = await resolveAppealAuthority(request.server.core, {
+	const authority = await request.server.management.appeal.resolveAuthority({
 		type,
 		entity: appeal.entity,
 	});
@@ -310,7 +321,7 @@ const decideAppealAsManager = async (
 	const entry = await request.server.core.connection.transaction(async (tx) => {
 		const txCore = request.server.core.withTransaction(tx);
 
-		return decideAppeal(txCore, {
+		return new AppealManager(txCore).decide({
 			type,
 			entity: appeal.entity,
 			approve,
@@ -393,17 +404,10 @@ export const appeals = async (
 		});
 	}
 
-	const result = await request.server.core.timeline.many({
+	const result = await request.server.management.appeal.list({
+		where: { type: TIMELINE_TYPE.USER, entity: { in: staffIds } },
 		page,
 		limit,
-		where: {
-			type: TIMELINE_TYPE.USER,
-			action: TIMELINE_ACTION.APPEAL_SUBMITTED,
-			entity: { in: staffIds },
-		},
-		order: { changed_at: "desc" },
-		select: TIMELINE_FIELDS,
-		include: TIMELINE_INCLUDE,
 	});
 
 	const { status, code } = HTTP_RESPONSE_CODE.OK;
