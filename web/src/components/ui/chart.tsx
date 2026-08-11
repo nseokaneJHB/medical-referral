@@ -43,14 +43,14 @@ function ChartTooltipContent({
 	active,
 	payload,
 	label,
-}: RechartsPrimitive.TooltipProps<number, string>) {
+}: Partial<RechartsPrimitive.TooltipContentProps<number, string>>) {
 	if (!active || !payload?.length) return null;
 
 	return (
 		<div className="bg-popover text-popover-foreground grid gap-1.5 rounded-lg border px-3 py-2 text-sm shadow-md">
 			{label && <p className="font-medium">{label}</p>}
-			{payload.map((item) => (
-				<div key={item.dataKey} className="flex items-center gap-2">
+			{payload.map((item, index) => (
+				<div key={index} className="flex items-center gap-2">
 					<span
 						className="h-2 w-2 shrink-0 rounded-full"
 						style={{ backgroundColor: item.color }}
