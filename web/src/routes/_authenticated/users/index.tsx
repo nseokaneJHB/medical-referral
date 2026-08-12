@@ -1,16 +1,22 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 import { createFileRoute, useNavigate, redirect } from "@tanstack/react-router";
-import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
+import { useMutation, useSuspenseQuery, useQuery } from "@tanstack/react-query";
+
+import { useForm, useWatch } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { toast } from "sonner";
 
 import {
 	FlagIcon,
 	BanIcon,
 	CheckIcon,
 	XIcon,
+	CopyIcon,
 	SearchIcon,
 	ArrowUpIcon,
 	ArrowDownIcon,
+	UserPlusIcon,
 	ChevronLeftIcon,
 	ChevronRightIcon,
 	ArrowUpDownIcon,
@@ -27,14 +33,18 @@ import {
 	ROLES,
 	USER_STATUS,
 	FRONTEND_URLS,
+	FACILITY_STATUS,
 	usersQuerySchema,
 	stringToTitleCase,
 	DEFAULT_PAGE_LIMIT,
+	createUserByAdminSchema,
 	type Role,
 	type User,
 	type UserResponse,
 	type ApproveActionBody,
 	type ModerationReasonBody,
+	type CreateUserByAdminBody,
+	type CreateUserByAdminResponse,
 } from "@referral-tracking/shared";
 
 import { Card, CardTitle, CardHeader, CardContent } from "@/components/ui/card";
@@ -49,17 +59,30 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Spinner } from "@/components/ui/spinner";
+import {
+	Dialog,
+	DialogTitle,
+	DialogFooter,
+	DialogHeader,
+	DialogContent,
+	DialogDescription,
+} from "@/components/ui/dialog";
 
 import { Link } from "@/components/custom/link";
 import { Loader } from "@/components/custom/loader";
+import { Input as FormInput } from "@/components/custom/input";
 import { SelectInput } from "@/components/custom/select-input";
 import { ReasonActionButton } from "@/components/custom/reason-action-button";
 
+import { useFormField } from "@/hooks/use-form-field";
 import { useToastMutation } from "@/hooks/use-toast-mutation";
 
 import { QUERY_KEYS } from "@/api/constant";
+import { facilitiesRequest } from "@/api/facilities";
 import {
 	flagStaff,
+	createUser,
 	usersRequest,
 	rejectStaff,
 	flagManager,
@@ -246,6 +269,219 @@ const STATUS_ITEMS = Object.values(USER_STATUS).map((value) => ({
 	label: stringToTitleCase(value),
 }));
 
+/**
+ * Administrator-only: create any role directly (active immediately, one-time
+ * temporary password). Two-stage dialog — the form, then a success view
+ * showing the password, since the server only ever returns it once.
+ */
+const CreateUserDialog = ({
+	onCreated,
+}: {
+	onCreated: () => Promise<void>;
+}) => {
+	const [open, setOpen] = useState(false);
+	const [created, setCreated] = useState<
+		CreateUserByAdminResponse["data"] | null
+	>(null);
+
+	const { control, handleSubmit, reset, setValue } =
+		useForm<CreateUserByAdminBody>({
+			mode: "onChange",
+			resolver: zodResolver(createUserByAdminSchema),
+			defaultValues: {
+				name: "",
+				email: "",
+				role: ROLES.NURSE,
+				facility_id: undefined,
+			},
+		});
+
+	const watchedRole = useWatch({ control, name: "role" });
+	const needsFacility = watchedRole !== ROLES.ADMINISTRATOR;
+
+	const { data: facilities } = useQuery({
+		queryKey: [...QUERY_KEYS.FACILITIES, "picker", FACILITY_STATUS.APPROVED],
+		queryFn: () =>
+			facilitiesRequest({
+				data: { page: "1", limit: "100", status: FACILITY_STATUS.APPROVED },
+			}),
+		enabled: needsFacility && open,
+	});
+
+	const facilityItems =
+		facilities?.data.map((facility) => ({
+			value: facility.id,
+			label: facility.name,
+		})) ?? [];
+
+	useEffect(() => {
+		if (!needsFacility) setValue("facility_id", undefined);
+	}, [needsFacility, setValue]);
+
+	const name = useFormField({ name: "name", control });
+	const email = useFormField({ name: "email", control });
+	const role = useFormField({ name: "role", control, type: "select" });
+	const facilityId = useFormField({
+		name: "facility_id",
+		control,
+		type: "select",
+	});
+
+	const createUserMutation = useMutation<
+		CreateUserByAdminResponse,
+		Error,
+		CreateUserByAdminBody
+	>({ mutationFn: createUser });
+
+	const onSubmit = async (payload: CreateUserByAdminBody) =>
+		useToastMutation({
+			loading: "Creating user...",
+			promise: createUserMutation.mutateAsync(payload),
+			onSuccess: async (response) => {
+				setCreated(response.data);
+				await onCreated();
+			},
+			onError: async (error) => {
+				if (error.errors) {
+					for (const field of error.errors) {
+						control.setError(field.field as keyof CreateUserByAdminBody, {
+							message: field.message,
+						});
+					}
+				}
+			},
+		});
+
+	const onOpenChange = (next: boolean) => {
+		setOpen(next);
+		if (!next) {
+			reset();
+			setCreated(null);
+		}
+	};
+
+	const isLoading = createUserMutation.isPending;
+
+	return (
+		<Dialog open={open} onOpenChange={onOpenChange}>
+			<Button
+				type="button"
+				title="Create user"
+				onClick={() => setOpen(true)}
+			>
+				<UserPlusIcon />
+				<span>Create user</span>
+			</Button>
+			<DialogContent>
+				{created ? (
+					<>
+						<DialogHeader>
+							<DialogTitle>User created</DialogTitle>
+							<DialogDescription>
+								Share this temporary password with {created.user.name} — it
+								won&apos;t be shown again.
+							</DialogDescription>
+						</DialogHeader>
+						<div className="flex items-center gap-2 rounded-md border p-2 font-mono text-sm">
+							<span className="flex-1 break-all">
+								{created.temporary_password}
+							</span>
+							<Button
+								type="button"
+								variant="outline"
+								size="sm"
+								title="Copy password"
+								onClick={() => {
+									navigator.clipboard.writeText(created.temporary_password);
+									toast.success("Password copied to clipboard");
+								}}
+							>
+								<CopyIcon />
+							</Button>
+						</div>
+						<DialogFooter>
+							<Button
+								type="button"
+								title="Done"
+								onClick={() => onOpenChange(false)}
+							>
+								<span>Done</span>
+							</Button>
+						</DialogFooter>
+					</>
+				) : (
+					<>
+						<DialogHeader>
+							<DialogTitle>Create user</DialogTitle>
+							<DialogDescription>
+								The account is active immediately with a one-time temporary
+								password.
+							</DialogDescription>
+						</DialogHeader>
+						<form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+							<FormInput
+								required
+								name="name"
+								label="Name"
+								error={name.error}
+								value={name.value}
+								onChange={name.onChange}
+								placeholder="Jane Doe"
+								disabled={isLoading}
+							/>
+							<FormInput
+								required
+								name="email"
+								type="email"
+								label="Email"
+								error={email.error}
+								value={email.value}
+								onChange={email.onChange}
+								placeholder="email@example.com"
+								disabled={isLoading}
+							/>
+							<SelectInput
+								label="Role"
+								items={ROLE_ITEMS}
+								value={role.value as string}
+								error={role.error}
+								disabled={isLoading}
+								placeholder="Select a role"
+								onChange={role.onChange as (value: string | undefined) => void}
+							/>
+							{needsFacility && (
+								<SelectInput
+									searchable
+									label="Facility"
+									items={facilityItems}
+									value={facilityId.value as string}
+									error={facilityId.error}
+									disabled={isLoading}
+									placeholder="Select a facility"
+									onChange={
+										facilityId.onChange as (value: string | undefined) => void
+									}
+								/>
+							)}
+							<DialogFooter>
+								<Button type="submit" title="Create user" disabled={isLoading}>
+									{isLoading ? (
+										<>
+											<Spinner /> <span>Creating...</span>
+										</>
+									) : (
+										<span>Create user</span>
+									)}
+								</Button>
+							</DialogFooter>
+						</form>
+					</>
+				)}
+			</DialogContent>
+		</Dialog>
+	);
+};
+
 const UsersPage = () => {
 	const navigate = useNavigate({ from: Route.fullPath });
 
@@ -307,8 +543,11 @@ const UsersPage = () => {
 	return (
 		<div className="space-y-4">
 			<Card className="border-0 bg-transparent px-0 py-1 shadow-none">
-				<CardHeader className="px-0 py-1">
+				<CardHeader className="flex items-center justify-between px-0 py-1">
 					<CardTitle className="text-2xl">Users</CardTitle>
+					{user.role === ROLES.ADMINISTRATOR && (
+						<CreateUserDialog onCreated={onChanged} />
+					)}
 				</CardHeader>
 			</Card>
 

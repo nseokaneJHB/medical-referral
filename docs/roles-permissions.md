@@ -1281,16 +1281,67 @@ regardless of outcome, or only on approval.
     the old raw-`useState` version for the personal appeal form — same
     violation, pre-existing, not fixed this session since it wasn't part
     of either of the two gaps being worked. Worth a follow-up pass.
-  - **Administrator-created user accounts — not started.** Backend route
-    already exists (`POST /administrator/users`, `API_PATHS.ADMINISTRATOR_USER_CREATE`,
-    handler in `administrator/route.ts`/`service.ts`) but its request
-    schema/behavior (temp-password flow) hasn't been read yet this
-    session. Next step: read `administrator/service.ts`'s handler for
-    that route and the body schema it expects, then build a create-user
-    form (likely on `/users` alongside the existing moderation actions,
-    or its own route) the same way `sign-up.tsx` builds the public
-    registration form, since that's the closest existing pattern for
-    "build a user via a role-aware form."
+  - **Administrator-created user accounts — done, live-verified.** Read
+    `createUserByAdminSchema`/`createUserByAdminResponseSchema`
+    (`shared/src/schema/administrator.ts`) and the `userCreate` handler
+    (`administrator/service.ts`): any role including another
+    Administrator, active immediately, no `password` field — server
+    always generates a one-time temporary password
+    (`generateTemporaryPassword`) returned exactly once in the response,
+    and sets `must_change_password: true`. `facility_id` is required
+    unless the role is `ADMINISTRATOR` (schema-level `superRefine`), and
+    must reference an `APPROVED` facility (service-level check, 404/409
+    otherwise). Built `createUser` in `web/src/api/users.ts` and a
+    `CreateUserDialog` on `users/index.tsx` (only place with a `/users`
+    Administrator+Manager split already established), gated to
+    `user.role === ROLES.ADMINISTRATOR` — the whole `administrator`
+    module is `authorize([ROLES.ADMINISTRATOR])`, so Manager never sees
+    the button. Two-stage dialog, same shape as `ReasonActionButton`'s
+    controlled-`Dialog` pattern but with a real `react-hook-form` +
+    `zodResolver(createUserByAdminSchema)` form (per
+    [[feedback_forms_use_react_hook_form]]): stage one is
+    name/email/role/facility (facility picker conditionally shown,
+    filtered to `FACILITY_STATUS.APPROVED` — mirrors `sign-up.tsx`'s
+    picker but with an explicit `status` filter added, since an
+    authenticated Administrator's `facilitiesRequest` isn't scoped to
+    approved-only the way the public sign-up endpoint is); stage two
+    (`created` state) shows the one-time temporary password with a copy
+    button, since the server never returns it again. Reused the
+    page's existing `ROLE_ITEMS` and `onChanged` (query invalidation)
+    rather than duplicating either.
+    **Verified live end-to-end** (`tsc --noEmit`/`eslint` clean
+    beforehand, both on `web/src/api/users.ts` and
+    `users/index.tsx`): signed in as Administrator, opened the dialog,
+    confirmed the Facility field disappears when Role is switched to
+    Administrator (schema's conditional requirement matched in the UI)
+    and reappears filtered to only approved facilities otherwise;
+    created a real Nurse account end-to-end — toast success, new row
+    appeared live at the top of the table with no manual refresh, temp
+    password shown and copy-to-clipboard confirmed working; signed out
+    and signed back in as that new Nurse using the temporary password —
+    real dashboard loaded correctly, confirming the account is genuinely
+    active and usable, not just created. Signed back in as Administrator
+    to restore session state afterward.
+    **Real leftover test artifact, unlike the facility-appeal test:**
+    `test.nurse.create@gmail.com` ("Test Nurse Account", Denesikmouth
+    Memorial Hospital) now exists as a permanent row — there is no
+    delete in this system's design (status-only lifecycle throughout),
+    so unlike the appeal test this can't self-clean via the flow itself.
+    Left in place; harmless (just one extra seeded-looking Nurse), but
+    flagging it explicitly rather than silently leaving an unexplained
+    account for a future session to find. A `reset`/reseed cycle clears
+    it along with everything else non-`seed.ts`.
+    **Not yet built, flagged not silently skipped:** the backend sets
+    `must_change_password: true` on every admin-created account, but
+    grepping the frontend (`web/src`) turns up zero handling of that
+    field anywhere — no forced-password-change screen, nothing on
+    sign-in. It's returned on `/me`/account responses
+    (`management/session.ts`, `account/service.ts`) but nothing reads
+    it client-side. Out of scope for this gap (a real, separate feature
+    — forced-password-change UX touching the sign-in flow), but worth
+    a deliberate decision rather than leaving it an invisible gap: right
+    now an admin-created user's temporary password works as a permanent
+    one unless changed voluntarily via whatever profile-editing exists.
   - **New open thread, not yet scoped:** mid-session the user raised
     wanting a dedicated **frontend** permissions file, mirroring
     `api/src/lib/permission.ts` and the same RBAC/ABAC/ReBAC article
@@ -1309,13 +1360,17 @@ regardless of outcome, or only on approval.
     predicate design. Pick this up after Administrator-created user
     accounts ships.
 
-**State at end of this session:** Manager facility-appeal is done and
-live-verified (see above) — working tree has two modified files
-(`web/src/api/facilities.ts`, `web/src/routes/_authenticated/facilities/$facilityId.tsx`),
-typecheck/lint clean, **not yet committed**. Administrator-created user
-accounts wasn't started (backend route/schema not yet read). Next
-session: commit the facility-appeal work (or fold it into whatever else
-lands first), then read `administrator/service.ts`'s
-`ADMINISTRATOR_USER_CREATE` handler + body schema and build the
-create-user form (see plan sketched two paragraphs up), then scope the
-frontend permissions file as its own pass.
+**State at end of this session:** both named gaps are done and
+live-verified. Manager facility-appeal was committed first (`e01fb96`).
+Administrator-created user accounts followed in the same session — see
+above for the full build/verify writeup — and is typecheck/lint clean,
+committed next. One real leftover test artifact from live-verifying the
+create-user flow: `test.nurse.create@gmail.com` ("Test Nurse Account")
+is a permanent extra row (no delete in this system's design; a
+reset/reseed clears it). One flagged-not-built gap: `must_change_password`
+is set server-side on every admin-created account but nothing in the
+frontend reads or enforces it yet — a real separate feature, not
+attempted this session. Next session: the frontend permissions file is
+the only remaining open thread from this doc's scope — pick that up as
+its own planning pass (see the open-thread note above for the grep
+findings and why it isn't a straight mirror of `permission.ts`).

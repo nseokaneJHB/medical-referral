@@ -13,6 +13,8 @@ import {
 	type UserDetailResponse,
 	type ModerationReasonBody,
 	type TimelineListResponse,
+	type CreateUserByAdminBody,
+	type CreateUserByAdminResponse,
 } from "@referral-tracking/shared";
 
 import { api } from "@/api";
@@ -181,6 +183,17 @@ export const disableManager = async (
 ): Promise<UserResponse> => {
 	const { data } = await api.patch<UserResponse>(
 		`${API_URLS(env.VITE_API_VERSION).ADMINISTRATOR}${buildUrlWithParams(API_PATHS.ADMINISTRATOR_MANAGER_DISABLE, { id })}`,
+		payload,
+	);
+	return data;
+};
+
+/** Administrator-only: create any role directly, active immediately. */
+export const createUser = async (
+	payload: CreateUserByAdminBody,
+): Promise<CreateUserByAdminResponse> => {
+	const { data } = await api.post<CreateUserByAdminResponse>(
+		`${API_URLS(env.VITE_API_VERSION).ADMINISTRATOR}${API_PATHS.ADMINISTRATOR_USER_CREATE}`,
 		payload,
 	);
 	return data;
