@@ -10,7 +10,6 @@ import { SaveIcon, FlagIcon, FlagOffIcon, ArrowLeftRightIcon } from "lucide-reac
 
 import {
 	GENDER,
-	ROLES,
 	FRONTEND_URLS,
 	stringToTitleCase,
 	UpdatePatientSchema,
@@ -51,6 +50,7 @@ import {
 	unflagPatient,
 	requestPatientTransfer,
 } from "@/api/patients";
+import { isNurse, isDoctor, canRequestTransfer } from "@/lib/permissions";
 
 const GENDER_ITEMS = Object.values(GENDER).map((value) => ({
 	value,
@@ -256,7 +256,7 @@ const PatientDetailPage = () => {
 
 	// Doctors and Managers have no patient fields left to edit — medical
 	// history is now derived from referrals, not a field on the patient.
-	const readOnlyFields = user.role !== ROLES.NURSE;
+	const readOnlyFields = !isNurse(user);
 
 	const { control, handleSubmit } = useForm<UpdatePatientBody>({
 		mode: "onChange",
@@ -322,9 +322,7 @@ const PatientDetailPage = () => {
 		await router.invalidate({ sync: true });
 	};
 
-	const canRequestTransfer =
-		(user.role === ROLES.NURSE || user.role === ROLES.DOCTOR) &&
-		user.facility_id === patient.facility.id;
+	const patientCanRequestTransfer = canRequestTransfer(user, patient);
 
 	return (
 		<div className="space-y-4">
@@ -340,7 +338,7 @@ const PatientDetailPage = () => {
 							</p>
 						)}
 					</div>
-					{user.role === ROLES.DOCTOR && (
+					{isDoctor(user) && (
 						<FlagPatientAction
 							patientId={patient.id}
 							flagged
@@ -356,7 +354,7 @@ const PatientDetailPage = () => {
 						<CardTitle className="text-xl">
 							{patient.first_name} {patient.last_name}
 						</CardTitle>
-						{user.role === ROLES.DOCTOR && !patient.flagged && (
+						{isDoctor(user) && !patient.flagged && (
 							<FlagPatientAction
 								patientId={patient.id}
 								flagged={false}
@@ -477,7 +475,7 @@ const PatientDetailPage = () => {
 									)}
 								</Button>
 							)}
-							{canRequestTransfer && (
+							{patientCanRequestTransfer && (
 								<RequestTransferAction
 									patientId={patient.id}
 									currentFacilityId={patient.facility.id}

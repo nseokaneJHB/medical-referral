@@ -19,7 +19,6 @@ import {
 } from "lucide-react";
 
 import {
-	ROLES,
 	FRONTEND_URLS,
 	FACILITY_STATUS,
 	stringToTitleCase,
@@ -47,6 +46,7 @@ import { SelectInput } from "@/components/custom/select-input";
 
 import { QUERY_KEYS } from "@/api/constant";
 import { facilitiesRequest } from "@/api/facilities";
+import { isAdministrator } from "@/lib/permissions";
 
 const STATUS_VARIANT: Record<
 	string,
@@ -287,7 +287,7 @@ export const Route = createFileRoute("/_authenticated/facilities/")({
 	validateSearch: facilitiesQuerySchema,
 	loaderDeps: ({ search }) => search,
 	beforeLoad: ({ context }) => {
-		if (context.user.role !== ROLES.ADMINISTRATOR) {
+		if (!isAdministrator(context.user)) {
 			throw redirect({ to: FRONTEND_URLS.HOME });
 		}
 	},

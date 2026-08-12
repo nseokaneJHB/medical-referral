@@ -20,7 +20,6 @@ import {
 } from "lucide-react";
 
 import {
-	ROLES,
 	PRIORITY,
 	FRONTEND_URLS,
 	REFERRAL_STATUS,
@@ -50,6 +49,7 @@ import { SelectInput } from "@/components/custom/select-input";
 
 import { QUERY_KEYS } from "@/api/constant";
 import { referralsRequest } from "@/api/referrals";
+import { canCreateReferral } from "@/lib/permissions";
 
 const columnHelper = createColumnHelper<Referral>();
 
@@ -97,7 +97,7 @@ const ReferralsPage = () => {
 
 	const [searchInput, setSearchInput] = useState(search.search ?? "");
 
-	const canCreate = user.role === ROLES.NURSE || user.role === ROLES.DOCTOR;
+	const canCreate = canCreateReferral(user);
 
 	const columns = [
 		columnHelper.accessor("patient", {

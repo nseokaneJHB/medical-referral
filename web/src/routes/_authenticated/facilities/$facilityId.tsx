@@ -9,7 +9,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { SaveIcon, CheckIcon, XIcon, FlagIcon, BanIcon } from "lucide-react";
 
 import {
-	ROLES,
 	appealSchema,
 	FRONTEND_URLS,
 	FACILITY_STATUS,
@@ -46,13 +45,11 @@ import {
 	fileFacilityAppeal,
 	facilityHistoryRequest,
 } from "@/api/facilities";
-
-/** Mirrors `APPEALABLE_FACILITY_STATUSES` in `api/src/lib/permission.ts`. */
-const APPEALABLE_FACILITY_STATUSES = new Set<string>([
-	FACILITY_STATUS.REJECTED,
-	FACILITY_STATUS.FLAGGED,
-	FACILITY_STATUS.SUSPENDED,
-]);
+import {
+	isAdministrator,
+	isOwnFacilityManager,
+	canFileFacilityAppeal,
+} from "@/lib/permissions";
 
 const STATUS_VARIANT: Record<
 	string,
@@ -294,11 +291,8 @@ const FacilityDetailPage = () => {
 		});
 
 	const isSaving = updateFacilityMutation.isPending;
-	const isAdministrator = user.role === ROLES.ADMINISTRATOR;
-	const isOwnFacility =
-		user.role === ROLES.MANAGER && user.facility_id === facility.id;
-	const canAppeal =
-		isOwnFacility && APPEALABLE_FACILITY_STATUSES.has(facility.status);
+	const canModerate = isAdministrator(user);
+	const canAppeal = canFileFacilityAppeal(user, facility);
 
 	return (
 		<div className="space-y-4">
@@ -315,7 +309,7 @@ const FacilityDetailPage = () => {
 							<Badge variant={STATUS_VARIANT[facility.status]}>
 								{stringToTitleCase(facility.status)}
 							</Badge>
-							{isAdministrator && (
+							{canModerate && (
 								<FacilityModerationActions
 									facilityId={facility.id}
 									status={facility.status}
@@ -374,10 +368,8 @@ export const Route = createFileRoute("/_authenticated/facilities/$facilityId")({
 	component: FacilityDetailPage,
 	beforeLoad: ({ context, params }) => {
 		const { user } = context;
-		const isOwnFacility =
-			user.role === ROLES.MANAGER && user.facility_id === params.facilityId;
 
-		if (user.role !== ROLES.ADMINISTRATOR && !isOwnFacility) {
+		if (!isAdministrator(user) && !isOwnFacilityManager(user, params.facilityId)) {
 			throw redirect({ to: FRONTEND_URLS.HOME });
 		}
 	},

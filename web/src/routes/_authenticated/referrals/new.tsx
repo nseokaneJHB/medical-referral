@@ -8,7 +8,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { SaveIcon } from "lucide-react";
 
 import {
-	ROLES,
 	PRIORITY,
 	FRONTEND_URLS,
 	stringToTitleCase,
@@ -33,6 +32,7 @@ import { QUERY_KEYS } from "@/api/constant";
 import { patientsRequest } from "@/api/patients";
 import { createReferral, referralsRequest } from "@/api/referrals";
 import { facilitiesRequest } from "@/api/facilities";
+import { canCreateReferral } from "@/lib/permissions";
 
 const PRIORITY_ITEMS = Object.values(PRIORITY).map((value) => ({
 	value,
@@ -246,10 +246,7 @@ const NewReferralPage = () => {
 export const Route = createFileRoute("/_authenticated/referrals/new")({
 	component: NewReferralPage,
 	beforeLoad: ({ context }) => {
-		if (
-			context.user.role !== ROLES.NURSE &&
-			context.user.role !== ROLES.DOCTOR
-		) {
+		if (!canCreateReferral(context.user)) {
 			throw redirect({ to: FRONTEND_URLS.REFERRALS });
 		}
 	},

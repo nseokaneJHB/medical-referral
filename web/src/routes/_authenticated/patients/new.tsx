@@ -8,7 +8,6 @@ import { SaveIcon } from "lucide-react";
 
 import {
 	GENDER,
-	ROLES,
 	FRONTEND_URLS,
 	stringToTitleCase,
 	CreatePatientSchema,
@@ -30,6 +29,7 @@ import { useToastMutation } from "@/hooks/use-toast-mutation";
 
 import { QUERY_KEYS } from "@/api/constant";
 import { createPatient } from "@/api/patients";
+import { isNurse } from "@/lib/permissions";
 
 const GENDER_ITEMS = Object.values(GENDER).map((value) => ({
 	value,
@@ -189,7 +189,7 @@ export const Route = createFileRoute("/_authenticated/patients/new")({
 	component: NewPatientPage,
 	beforeLoad: ({ context }) => {
 		const { user } = context;
-		if (user.role !== ROLES.NURSE) {
+		if (!isNurse(user)) {
 			throw redirect({ to: FRONTEND_URLS.PATIENTS });
 		}
 	},

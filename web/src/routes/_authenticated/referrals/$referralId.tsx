@@ -58,6 +58,13 @@ import {
 	updateReferralStatus,
 	referralHistoryRequest,
 } from "@/api/referrals";
+import {
+	canActOnReferral,
+	canEditReferralFull,
+	canAssignDoctorToReferral,
+	canSelfAssignReferral,
+	canRedirectReferral,
+} from "@/lib/permissions";
 
 const PRIORITY_ITEMS = Object.values(PRIORITY).map((value) => ({
 	value,
@@ -220,37 +227,17 @@ const ReferralDetailPage = () => {
 		queryFn: () => referralHistoryRequest({ data: { id: referral.id } }),
 	});
 
-	const isDoctor = user.role === ROLES.DOCTOR;
-	const isManager = user.role === ROLES.MANAGER;
-
-	const canAct =
-		(user.role === ROLES.NURSE && referral.referrer.id === user.id) ||
-		(isDoctor && referral.assignedDoctor?.id === user.id);
+	const canAct = canActOnReferral(user, referral);
 
 	const isTerminal = TERMINAL_REFERRAL_STATUSES.includes(referral.status);
 
-	const canEditFull =
-		user.role === ROLES.NURSE &&
-		referral.referrer.id === user.id &&
-		!isTerminal;
-	const canAssignDoctor =
-		isManager &&
-		referral.destination_facility.id === user.facility_id &&
-		!isTerminal;
+	const canEditFull = canEditReferralFull(user, referral);
+	const canAssignDoctor = canAssignDoctorToReferral(user, referral);
 	const canEdit = canEditFull || canAssignDoctor;
 
-	const canSelfAssign =
-		isDoctor &&
-		!referral.assignedDoctor &&
-		!isTerminal &&
-		user.facility_id === referral.destination_facility.id;
+	const canSelfAssign = canSelfAssignReferral(user, referral);
 
-	const canRedirect =
-		isDoctor &&
-		!isTerminal &&
-		(referral.assignedDoctor?.id === user.id ||
-			(!referral.assignedDoctor &&
-				user.facility_id === referral.destination_facility.id));
+	const canRedirect = canRedirectReferral(user, referral);
 
 	const legalNextStates = STATUS_TRANSITIONS[referral.status] ?? [];
 	const roleTargets =

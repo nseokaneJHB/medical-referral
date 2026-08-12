@@ -21,7 +21,6 @@ import {
 
 import {
 	GENDER,
-	ROLES,
 	FRONTEND_URLS,
 	stringToTitleCase,
 	DEFAULT_PAGE_LIMIT,
@@ -48,6 +47,7 @@ import { SelectInput } from "@/components/custom/select-input";
 
 import { QUERY_KEYS } from "@/api/constant";
 import { patientsRequest } from "@/api/patients";
+import { isNurse } from "@/lib/permissions";
 
 const GENDER_ITEMS = Object.values(GENDER).map((value) => ({
 	value,
@@ -90,7 +90,7 @@ const PatientsPage = () => {
 
 	const [searchInput, setSearchInput] = useState(search.search ?? "");
 
-	const canCreate = user.role === ROLES.NURSE;
+	const canCreate = isNurse(user);
 
 	const table = useReactTable({
 		columns,
