@@ -8,6 +8,7 @@ import {
 	type DoctorSummaryResponse,
 	type AdminSummaryResponse,
 	type ManagerSummaryResponse,
+	type ReferralsReportQuery,
 } from "@referral-tracking/shared";
 
 import { api } from "@/api";
@@ -22,46 +23,66 @@ const forwardedRequestOptions = () => {
 	return cookie ? { headers: { cookie } } : {};
 };
 
-export const nurseSummaryRequest = createServerFn({
-	method: "GET",
-}).handler(async (): Promise<NurseSummaryResponse> => {
-	const url = `${baseUrl}${API_PATHS.DASHBOARD_NURSE_SUMMARY}`;
-	const { data } = await api.get<NurseSummaryResponse>(
-		url,
-		forwardedRequestOptions(),
-	);
-	return data;
-});
+export const nurseSummaryRequest = createServerFn({ method: "GET" })
+	.inputValidator((query?: ReferralsReportQuery) => query)
+	.handler(async ({ data: query }): Promise<NurseSummaryResponse> => {
+		const options = {
+			...forwardedRequestOptions(),
+			params: query,
+			paramsSerializer: { indexes: null },
+		};
 
-export const doctorSummaryRequest = createServerFn({
-	method: "GET",
-}).handler(async (): Promise<DoctorSummaryResponse> => {
-	const url = `${baseUrl}${API_PATHS.DASHBOARD_DOCTOR_SUMMARY}`;
-	const { data } = await api.get<DoctorSummaryResponse>(
-		url,
-		forwardedRequestOptions(),
-	);
-	return data;
-});
+		const { data } = await api.get<NurseSummaryResponse>(
+			`${baseUrl}${API_PATHS.DASHBOARD_NURSE_SUMMARY}`,
+			options,
+		);
+		return data;
+	});
 
-export const adminSummaryRequest = createServerFn({
-	method: "GET",
-}).handler(async (): Promise<AdminSummaryResponse> => {
-	const url = `${baseUrl}${API_PATHS.DASHBOARD_ADMIN_SUMMARY}`;
-	const { data } = await api.get<AdminSummaryResponse>(
-		url,
-		forwardedRequestOptions(),
-	);
-	return data;
-});
+export const doctorSummaryRequest = createServerFn({ method: "GET" })
+	.inputValidator((query?: ReferralsReportQuery) => query)
+	.handler(async ({ data: query }): Promise<DoctorSummaryResponse> => {
+		const options = {
+			...forwardedRequestOptions(),
+			params: query,
+			paramsSerializer: { indexes: null },
+		};
 
-export const managerSummaryRequest = createServerFn({
-	method: "GET",
-}).handler(async (): Promise<ManagerSummaryResponse> => {
-	const url = `${baseUrl}${API_PATHS.DASHBOARD_MANAGER_SUMMARY}`;
-	const { data } = await api.get<ManagerSummaryResponse>(
-		url,
-		forwardedRequestOptions(),
-	);
-	return data;
-});
+		const { data } = await api.get<DoctorSummaryResponse>(
+			`${baseUrl}${API_PATHS.DASHBOARD_DOCTOR_SUMMARY}`,
+			options,
+		);
+		return data;
+	});
+
+export const adminSummaryRequest = createServerFn({ method: "GET" })
+	.inputValidator((query?: ReferralsReportQuery) => query)
+	.handler(async ({ data: query }): Promise<AdminSummaryResponse> => {
+		const options = {
+			...forwardedRequestOptions(),
+			params: query,
+			paramsSerializer: { indexes: null },
+		};
+
+		const { data } = await api.get<AdminSummaryResponse>(
+			`${baseUrl}${API_PATHS.DASHBOARD_ADMIN_SUMMARY}`,
+			options,
+		);
+		return data;
+	});
+
+export const managerSummaryRequest = createServerFn({ method: "GET" })
+	.inputValidator((query?: ReferralsReportQuery) => query)
+	.handler(async ({ data: query }): Promise<ManagerSummaryResponse> => {
+		const options = {
+			...forwardedRequestOptions(),
+			params: query,
+			paramsSerializer: { indexes: null },
+		};
+
+		const { data } = await api.get<ManagerSummaryResponse>(
+			`${baseUrl}${API_PATHS.DASHBOARD_MANAGER_SUMMARY}`,
+			options,
+		);
+		return data;
+	});

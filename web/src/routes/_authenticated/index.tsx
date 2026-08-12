@@ -230,7 +230,8 @@ const RecentActivityCard = ({
 						title={typeof item.label === "string" ? item.label : title}
 						to={item.to}
 						params={item.params}
-						buttonClassName="hover:text-primary h-auto w-full justify-between border-b p-0 pb-2 text-sm font-normal text-foreground no-underline last:border-0 last:pb-0 hover:no-underline"
+						className="justify-between border-b pb-2 last:border-0 last:pb-0"
+						buttonClassName="hover:text-primary h-auto w-full p-0 text-sm font-normal text-foreground no-underline hover:no-underline"
 					>
 						<span>{item.label}</span>
 						{item.sublabel && (
@@ -257,7 +258,7 @@ const NurseDashboard = ({
 	<div className="space-y-6">
 		<DateRangeFilter />
 
-		<div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+		<div className="grid grid-cols-2 gap-4 md:grid-cols-3">
 			<StatCard
 				icon={FilePlus2Icon}
 				label="Referrals Created"
@@ -272,11 +273,6 @@ const NurseDashboard = ({
 				icon={XCircleIcon}
 				label="Canceled Referrals"
 				value={summary.canceled.toString()}
-			/>
-			<StatCard
-				icon={ArrowLeftRightIcon}
-				label="Period Total"
-				value={report.total.toString()}
 			/>
 		</div>
 
@@ -324,7 +320,7 @@ const DoctorDashboard = ({
 	<div className="space-y-6">
 		<DateRangeFilter />
 
-		<div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+		<div className="grid grid-cols-2 gap-4 md:grid-cols-3">
 			<StatCard
 				icon={ClipboardListIcon}
 				label="My Referrals"
@@ -339,11 +335,6 @@ const DoctorDashboard = ({
 				icon={ClockIcon}
 				label="Pending Referrals"
 				value={summary.pending.toString()}
-			/>
-			<StatCard
-				icon={ArrowLeftRightIcon}
-				label="Period Total"
-				value={report.total.toString()}
 			/>
 		</div>
 
@@ -386,7 +377,7 @@ const AdminDashboard = ({
 	<div className="space-y-6">
 		<DateRangeFilter />
 
-		<div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
+		<div className="grid grid-cols-2 gap-4 md:grid-cols-4">
 			<StatCard
 				icon={UsersIcon}
 				label="Total Users"
@@ -406,11 +397,6 @@ const AdminDashboard = ({
 				icon={ArrowLeftRightIcon}
 				label="Total Referrals"
 				value={summary.total_referrals.toString()}
-			/>
-			<StatCard
-				icon={RepeatIcon}
-				label="Period Total"
-				value={report.total.toString()}
 			/>
 		</div>
 
@@ -479,11 +465,6 @@ const ManagerDashboard = ({
 					icon={ClipboardListIcon}
 					label="Total Patients"
 					value={summary.total_patients.toString()}
-				/>
-				<StatCard
-					icon={ArrowLeftRightIcon}
-					label="Period Total"
-					value={report.total.toString()}
 				/>
 				<StatCard
 					icon={UserPlusIcon}
@@ -617,8 +598,8 @@ export const Route = createFileRoute("/_authenticated/")({
 			const [summary, recentReferrals] = await Promise.all([
 				queryClient
 					.ensureQueryData({
-						queryKey: QUERY_KEYS.DASHBOARD_DOCTOR,
-						queryFn: doctorSummaryRequest,
+						queryKey: [QUERY_KEYS.DASHBOARD_DOCTOR, deps],
+						queryFn: () => doctorSummaryRequest(deps),
 					})
 					.then((r) => r.data),
 				queryClient
@@ -652,8 +633,8 @@ export const Route = createFileRoute("/_authenticated/")({
 			const [summary, recentUsers, recentFacilities] = await Promise.all([
 				queryClient
 					.ensureQueryData({
-						queryKey: QUERY_KEYS.DASHBOARD_ADMIN,
-						queryFn: adminSummaryRequest,
+						queryKey: [QUERY_KEYS.DASHBOARD_ADMIN, deps],
+						queryFn: () => adminSummaryRequest(deps),
 					})
 					.then((r) => r.data),
 				queryClient
@@ -715,8 +696,8 @@ export const Route = createFileRoute("/_authenticated/")({
 			const [summary, recentPatients, recentReferrals] = await Promise.all([
 				queryClient
 					.ensureQueryData({
-						queryKey: QUERY_KEYS.DASHBOARD_MANAGER,
-						queryFn: managerSummaryRequest,
+						queryKey: [QUERY_KEYS.DASHBOARD_MANAGER, deps],
+						queryFn: () => managerSummaryRequest(deps),
 					})
 					.then((r) => r.data),
 				queryClient
@@ -776,8 +757,8 @@ export const Route = createFileRoute("/_authenticated/")({
 		const [summary, recentPatients, recentReferrals] = await Promise.all([
 			queryClient
 				.ensureQueryData({
-					queryKey: QUERY_KEYS.DASHBOARD_NURSE,
-					queryFn: nurseSummaryRequest,
+					queryKey: [QUERY_KEYS.DASHBOARD_NURSE, deps],
+					queryFn: () => nurseSummaryRequest(deps),
 				})
 				.then((r) => r.data),
 			queryClient
