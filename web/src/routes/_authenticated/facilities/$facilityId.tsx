@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useMutation, useQuery, useSuspenseQuery } from "@tanstack/react-query";
 
@@ -8,10 +10,13 @@ import { SaveIcon, CheckIcon, XIcon, FlagIcon, BanIcon } from "lucide-react";
 
 import {
 	ROLES,
+	appealSchema,
 	FRONTEND_URLS,
 	FACILITY_STATUS,
 	stringToTitleCase,
 	UpdateFacilitySchema,
+	type AppealBody,
+	type TimelineResponse,
 	type FacilityResponse,
 	type UpdateFacilityBody,
 } from "@referral-tracking/shared";
@@ -38,8 +43,16 @@ import {
 	approveFacility,
 	facilityRequest,
 	suspendFacility,
+	fileFacilityAppeal,
 	facilityHistoryRequest,
 } from "@/api/facilities";
+
+/** Mirrors `APPEALABLE_FACILITY_STATUSES` in `api/src/lib/permission.ts`. */
+const APPEALABLE_FACILITY_STATUSES = new Set<string>([
+	FACILITY_STATUS.REJECTED,
+	FACILITY_STATUS.FLAGGED,
+	FACILITY_STATUS.SUSPENDED,
+]);
 
 const STATUS_VARIANT: Record<
 	string,
@@ -142,6 +155,76 @@ const FacilityModerationActions = ({
 	return null;
 };
 
+/** Manager-only: file an appeal against their own facility's punitive status. */
+const FacilityAppealForm = ({
+	onSubmitted,
+}: {
+	onSubmitted: () => Promise<void>;
+}) => {
+	const [submitted, setSubmitted] = useState(false);
+
+	const { control, handleSubmit } = useForm<AppealBody>({
+		mode: "onChange",
+		resolver: zodResolver(appealSchema),
+		defaultValues: { reason: "" },
+	});
+
+	const reason = useFormField({ name: "reason", control });
+
+	const appealMutation = useMutation<TimelineResponse, Error, AppealBody>({
+		mutationFn: fileFacilityAppeal,
+	});
+
+	const onSubmit = async (payload: AppealBody) =>
+		useToastMutation({
+			loading: "Submitting appeal...",
+			promise: appealMutation.mutateAsync(payload),
+			onSuccess: async () => {
+				setSubmitted(true);
+				await onSubmitted();
+			},
+		});
+
+	if (submitted) {
+		return (
+			<Card>
+				<CardContent className="text-muted-foreground pt-6 text-sm">
+					Your appeal has been submitted and is awaiting review.
+				</CardContent>
+			</Card>
+		);
+	}
+
+	return (
+		<Card>
+			<CardHeader>
+				<CardTitle className="text-lg">File an appeal</CardTitle>
+			</CardHeader>
+			<form onSubmit={handleSubmit(onSubmit)}>
+				<CardContent className="space-y-3">
+					<TextArea
+						required
+						name="reason"
+						label="Appeal reason"
+						error={reason.error}
+						value={reason.value}
+						onChange={reason.onChange}
+						disabled={appealMutation.isPending}
+					/>
+					<Button
+						type="submit"
+						title="Submit appeal"
+						disabled={appealMutation.isPending}
+					>
+						{appealMutation.isPending ? <Spinner /> : null}
+						<span>Submit appeal</span>
+					</Button>
+				</CardContent>
+			</form>
+		</Card>
+	);
+};
+
 const FacilityDetailPage = () => {
 	const { user, queryClient } = Route.useRouteContext();
 	const { facilityId } = Route.useParams();
@@ -212,6 +295,10 @@ const FacilityDetailPage = () => {
 
 	const isSaving = updateFacilityMutation.isPending;
 	const isAdministrator = user.role === ROLES.ADMINISTRATOR;
+	const isOwnFacility =
+		user.role === ROLES.MANAGER && user.facility_id === facility.id;
+	const canAppeal =
+		isOwnFacility && APPEALABLE_FACILITY_STATUSES.has(facility.status);
 
 	return (
 		<div className="space-y-4">
@@ -271,6 +358,8 @@ const FacilityDetailPage = () => {
 					</CardContent>
 				</Card>
 			</form>
+
+			{canAppeal && <FacilityAppealForm onSubmitted={onChanged} />}
 
 			<TimelineList
 				title="Facility history"

@@ -1224,3 +1224,98 @@ regardless of outcome, or only on approval.
   classes. That was written before a VS Code crash interrupted the session;
   the revert never actually landed on disk. What's above reflects the code
   as it actually exists.)*
+- **2026-08-12 (new session):** started on the last two named-but-unbuilt
+  gaps from the 2026-08-12 sweep above: Manager filing a facility appeal,
+  and Administrator-created user accounts. Prior session's cleanup batch
+  (count-first reordering, dead-wrapper removal, transfer module move,
+  link-table dedup) was verified clean (`tsc`/`eslint`, matching what this
+  doc already claimed) and committed as `8a14076` at the start of this
+  session — nothing was pending from before.
+  - **Manager facility-appeal — done, live-verified.**
+    `POST /manager/facility/appeal` already existed server-side
+    (`facilityAppealSubmit`, gated by `canFileFacilityAppeal`); no frontend
+    called it. Added `fileFacilityAppeal` to `web/src/api/facilities.ts`
+    and a `FacilityAppealForm` on `facilities/$facilityId.tsx`, shown when
+    the viewer is the facility's own Manager and `facility.status` is
+    `REJECTED`/`FLAGGED`/`SUSPENDED` (mirrors backend's
+    `APPEALABLE_FACILITY_STATUSES`, duplicated client-side since there's no
+    shared-constants file for that set yet). On submit, invalidates the
+    same queries the moderation-action `onChanged` callback already does,
+    so the new `APPEAL_SUBMITTED` row shows up in "Facility history"
+    immediately. No duplicate-submission guard — deliberately matches the
+    personal-appeal endpoint's existing behavior (`account/service.ts`
+    doesn't guard either), not a new gap introduced here.
+    **Verified live end-to-end** (`tsc --noEmit`/`eslint` clean beforehand):
+    manufactured the test scenario directly since no seeded facility was
+    flagged/suspended with a known-password Manager — signed in as
+    Administrator, flagged `manager@gmail.com`'s own facility
+    (Jakubowskiborough General Hospital) with a reason; signed in as
+    Frank Manager (`manager@gmail.com`), confirmed the "File an appeal"
+    card appeared on `/facilities/$facilityId` (via the new "My Facility"
+    sidebar link) and submitted it — the card correctly switched to
+    "awaiting review" and the new row showed in Facility history
+    immediately, no manual refresh needed; confirmed the appeal does
+    *not* show on the Manager's own `/appeals` queue (correct — only
+    Administrator ever decides facility appeals, matching
+    `resolveAppealAuthority`'s design); signed back in as Administrator,
+    confirmed it appeared in `/appeals` correctly labeled `Facility`,
+    approved it with a comment, and confirmed the facility's status
+    reverted to `Approved` — full history trail visible (`Approved →
+    Flagged → Appeal Submitted → Appeal Approved → Approved`). No
+    leftover test artifact — unlike the 2026-08-11 orphan-facility test,
+    the appeal-approve flow itself reverted the manufactured flag, no
+    direct DB write needed for cleanup.
+    (Aside, not a bug in this feature: clicking the sidebar "Appeals" link
+    while already mid-navigation-flow twice failed to route — had to
+    navigate by URL both times. Not investigated further this session;
+    worth a look if it recurs, since it'd affect every role's sidebar, not
+    just this feature.)
+  - **First draft used raw `useState` for the form** (copying
+    `account-status.tsx`'s existing personal-appeal pattern) — user caught
+    this and restated the standing rule: form fields always go through
+    `react-hook-form` + `zodResolver` + `useFormField`, never bare
+    `useState`, matching every other form in this codebase (e.g. the
+    name/address fields earlier in this same file). Rewritten to use
+    `useForm<AppealBody>({ resolver: zodResolver(appealSchema) })` +
+    `useFormField`. Note for later: `account-status.tsx` itself still has
+    the old raw-`useState` version for the personal appeal form — same
+    violation, pre-existing, not fixed this session since it wasn't part
+    of either of the two gaps being worked. Worth a follow-up pass.
+  - **Administrator-created user accounts — not started.** Backend route
+    already exists (`POST /administrator/users`, `API_PATHS.ADMINISTRATOR_USER_CREATE`,
+    handler in `administrator/route.ts`/`service.ts`) but its request
+    schema/behavior (temp-password flow) hasn't been read yet this
+    session. Next step: read `administrator/service.ts`'s handler for
+    that route and the body schema it expects, then build a create-user
+    form (likely on `/users` alongside the existing moderation actions,
+    or its own route) the same way `sign-up.tsx` builds the public
+    registration form, since that's the closest existing pattern for
+    "build a user via a role-aware form."
+  - **New open thread, not yet scoped:** mid-session the user raised
+    wanting a dedicated **frontend** permissions file, mirroring
+    `api/src/lib/permission.ts` and the same RBAC/ABAC/ReBAC article
+    referenced when that backend module was designed. A quick grep found
+    ~50 inline `role === ROLES.X` / `role !== ROLES.X` checks scattered
+    across 15+ frontend files (route `beforeLoad` guards, conditional
+    rendering, `side-bar.tsx`'s nav visibility, `users/index.tsx`'s
+    `resolveModerationFns`, the two just-added checks in
+    `facilities/$facilityId.tsx`) — a real, same-shaped problem to the one
+    that motivated the backend centralization. Explicitly deferred:
+    user agreed to finish the two named gaps first, then scope this as
+    its own planning pass in this doc (not improvised inline) — unlike
+    the backend module, this one is route/UI-shaped (guards +
+    conditional rendering + nav visibility), not query-shaped, so it
+    likely isn't a straight mirror of `permission.ts`'s function-per-
+    predicate design. Pick this up after Administrator-created user
+    accounts ships.
+
+**State at end of this session:** Manager facility-appeal is done and
+live-verified (see above) — working tree has two modified files
+(`web/src/api/facilities.ts`, `web/src/routes/_authenticated/facilities/$facilityId.tsx`),
+typecheck/lint clean, **not yet committed**. Administrator-created user
+accounts wasn't started (backend route/schema not yet read). Next
+session: commit the facility-appeal work (or fold it into whatever else
+lands first), then read `administrator/service.ts`'s
+`ADMINISTRATOR_USER_CREATE` handler + body schema and build the
+create-user form (see plan sketched two paragraphs up), then scope the
+frontend permissions file as its own pass.
