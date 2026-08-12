@@ -132,19 +132,6 @@ const FacilitiesPage = () => {
 
 			<Card>
 				<CardContent className="flex flex-wrap items-center gap-2">
-					<Input
-						value={searchInput}
-						placeholder="Search by name or address..."
-						onChange={(event) => setSearchInput(event.target.value)}
-						onKeyDown={(event) => {
-							if (event.key === "Enter") commitSearch();
-						}}
-						className="h-10 max-w-sm text-base"
-					/>
-					<Button variant="outline" title="Search" onClick={commitSearch}>
-						<SearchIcon />
-					</Button>
-
 					<SelectInput
 						multiple
 						items={STATUS_ITEMS}
@@ -162,6 +149,21 @@ const FacilitiesPage = () => {
 						className="h-10 w-48"
 						containerClassName="w-48"
 					/>
+
+					<div className="ml-auto flex items-center gap-2">
+						<Input
+							value={searchInput}
+							placeholder="Search by name or address..."
+							onChange={(event) => setSearchInput(event.target.value)}
+							onKeyDown={(event) => {
+								if (event.key === "Enter") commitSearch();
+							}}
+							className="h-10 max-w-sm text-base"
+						/>
+						<Button variant="outline" title="Search" onClick={commitSearch}>
+							<SearchIcon />
+						</Button>
+					</div>
 				</CardContent>
 			</Card>
 

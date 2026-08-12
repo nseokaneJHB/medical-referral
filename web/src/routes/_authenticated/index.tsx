@@ -113,40 +113,42 @@ const DateRangeFilter = () => {
 	const search = Route.useSearch();
 
 	return (
-		<div className="flex flex-wrap items-end gap-4">
-			<Field className="w-fit gap-1">
-				<FieldLabel>From</FieldLabel>
-				<Input
-					type="date"
-					value={search.from ?? ""}
-					onChange={(event) =>
-						navigate({
-							search: (prev) => ({
-								...prev,
-								from: event.target.value || undefined,
-							}),
-						})
-					}
-					className="h-10 text-base"
-				/>
-			</Field>
-			<Field className="w-fit gap-1">
-				<FieldLabel>To</FieldLabel>
-				<Input
-					type="date"
-					value={search.to ?? ""}
-					onChange={(event) =>
-						navigate({
-							search: (prev) => ({
-								...prev,
-								to: event.target.value || undefined,
-							}),
-						})
-					}
-					className="h-10 text-base"
-				/>
-			</Field>
-		</div>
+		<Card>
+			<CardContent className="flex flex-wrap items-end gap-4">
+				<Field className="w-fit gap-1">
+					<FieldLabel>From</FieldLabel>
+					<Input
+						type="date"
+						value={search.from ?? ""}
+						onChange={(event) =>
+							navigate({
+								search: (prev) => ({
+									...prev,
+									from: event.target.value || undefined,
+								}),
+							})
+						}
+						className="h-10 text-base"
+					/>
+				</Field>
+				<Field className="w-fit gap-1">
+					<FieldLabel>To</FieldLabel>
+					<Input
+						type="date"
+						value={search.to ?? ""}
+						onChange={(event) =>
+							navigate({
+								search: (prev) => ({
+									...prev,
+									to: event.target.value || undefined,
+								}),
+							})
+						}
+						className="h-10 text-base"
+					/>
+				</Field>
+			</CardContent>
+		</Card>
 	);
 };
 

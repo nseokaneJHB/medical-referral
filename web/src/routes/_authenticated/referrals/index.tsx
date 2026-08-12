@@ -180,20 +180,7 @@ const ReferralsPage = () => {
 			</Card>
 
 			<Card>
-				<CardContent className="flex flex-wrap items-center gap-2">
-					<Input
-						value={searchInput}
-						placeholder="Search reason..."
-						onChange={(event) => setSearchInput(event.target.value)}
-						onKeyDown={(event) => {
-							if (event.key === "Enter") commitSearch();
-						}}
-						className="h-10 max-w-sm text-base"
-					/>
-					<Button variant="outline" title="Search" onClick={commitSearch}>
-						<SearchIcon />
-					</Button>
-
+				<CardContent className="flex flex-wrap items-end gap-2">
 					<SelectInput
 						multiple
 						items={STATUS_ITEMS}
@@ -264,6 +251,21 @@ const ReferralsPage = () => {
 							className="h-10 text-base"
 						/>
 					</Field>
+
+					<div className="ml-auto flex items-end gap-2">
+						<Input
+							value={searchInput}
+							placeholder="Search reason..."
+							onChange={(event) => setSearchInput(event.target.value)}
+							onKeyDown={(event) => {
+								if (event.key === "Enter") commitSearch();
+							}}
+							className="h-10 max-w-sm text-base"
+						/>
+						<Button variant="outline" title="Search" onClick={commitSearch}>
+							<SearchIcon />
+						</Button>
+					</div>
 				</CardContent>
 			</Card>
 
