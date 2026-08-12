@@ -42,7 +42,6 @@ export const nurseSummaryRequest = createServerFn({ method: "GET" })
 export const doctorSummaryRequest = createServerFn({ method: "GET" })
 	.inputValidator((query?: ReferralsReportQuery) => query)
 	.handler(async ({ data: query }): Promise<DoctorSummaryResponse> => {
-		console.log("[doctorSummaryRequest handler] query received:", JSON.stringify(query));
 		const options = {
 			...forwardedRequestOptions(),
 			params: query,
@@ -59,7 +58,6 @@ export const doctorSummaryRequest = createServerFn({ method: "GET" })
 export const adminSummaryRequest = createServerFn({ method: "GET" })
 	.inputValidator((query?: ReferralsReportQuery) => query)
 	.handler(async ({ data: query }): Promise<AdminSummaryResponse> => {
-		console.log("[adminSummaryRequest handler] query received:", JSON.stringify(query));
 		const options = {
 			...forwardedRequestOptions(),
 			params: query,
@@ -76,7 +74,6 @@ export const adminSummaryRequest = createServerFn({ method: "GET" })
 export const managerSummaryRequest = createServerFn({ method: "GET" })
 	.inputValidator((query?: ReferralsReportQuery) => query)
 	.handler(async ({ data: query }): Promise<ManagerSummaryResponse> => {
-		console.log("[managerSummaryRequest handler] query received:", JSON.stringify(query));
 		const options = {
 			...forwardedRequestOptions(),
 			params: query,

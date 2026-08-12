@@ -601,10 +601,7 @@ export const Route = createFileRoute("/_authenticated/")({
 				queryClient
 					.ensureQueryData({
 						queryKey: [QUERY_KEYS.DASHBOARD_DOCTOR, deps],
-						queryFn: () => {
-							console.log("[loader] calling doctorSummaryRequest with deps:", JSON.stringify(deps));
-							return doctorSummaryRequest({ data: deps });
-						},
+						queryFn: () => doctorSummaryRequest({ data: deps }),
 					})
 					.then((r) => r.data),
 				queryClient
@@ -639,10 +636,7 @@ export const Route = createFileRoute("/_authenticated/")({
 				queryClient
 					.ensureQueryData({
 						queryKey: [QUERY_KEYS.DASHBOARD_ADMIN, deps],
-						queryFn: () => {
-							console.log("[loader] calling adminSummaryRequest with deps:", JSON.stringify(deps));
-							return adminSummaryRequest({ data: deps });
-						},
+						queryFn: () => adminSummaryRequest({ data: deps }),
 					})
 					.then((r) => r.data),
 				queryClient
@@ -705,10 +699,7 @@ export const Route = createFileRoute("/_authenticated/")({
 				queryClient
 					.ensureQueryData({
 						queryKey: [QUERY_KEYS.DASHBOARD_MANAGER, deps],
-						queryFn: () => {
-							console.log("[loader] calling managerSummaryRequest with deps:", JSON.stringify(deps));
-							return managerSummaryRequest({ data: deps });
-						},
+						queryFn: () => managerSummaryRequest({ data: deps }),
 					})
 					.then((r) => r.data),
 				queryClient
