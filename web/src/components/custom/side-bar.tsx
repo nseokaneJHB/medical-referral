@@ -270,9 +270,9 @@ export const SideBar = () => {
 											</span>
 										</Link>
 									</SidebarMenuButton>
-									{!!badgeCounts[item.to as string] && (
-										<SidebarMenuBadge>
-											{badgeCounts[item.to as string]}
+									{(item.to as string) in badgeCounts && (
+										<SidebarMenuBadge className="right-2 min-w-5 rounded-full bg-primary px-1.5 text-primary-foreground">
+											{badgeCounts[item.to as string] ?? 0}
 										</SidebarMenuBadge>
 									)}
 								</SidebarMenuItem>
