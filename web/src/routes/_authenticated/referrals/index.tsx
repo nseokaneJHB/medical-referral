@@ -266,7 +266,7 @@ const ReferralsPage = () => {
 			</div>
 
 			<Card>
-				<CardContent className="px-0">
+				<CardContent>
 					<Table>
 						<TableHeader>
 							{table.getHeaderGroups().map((headerGroup) => (

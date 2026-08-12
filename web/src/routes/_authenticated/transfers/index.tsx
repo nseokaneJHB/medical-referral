@@ -189,7 +189,7 @@ const TransfersPage = () => {
 			</Card>
 
 			<Card>
-				<CardContent className="px-0">
+				<CardContent>
 					<Table>
 						<TableHeader>
 							<TableRow>
