@@ -3,7 +3,6 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { CheckCircleIcon, ClipboardListIcon, PercentIcon } from "lucide-react";
 
 import {
-	ROLES,
 	USER_STATUS,
 	FRONTEND_URLS,
 	stringToTitleCase,
@@ -15,6 +14,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BackLink } from "@/components/custom/back-link";
 import { StatCard } from "@/components/custom/stat-card";
 import { ReadOnlyField } from "@/components/custom/read-only-field";
+
+import { isDoctor, canManageUsers } from "@/lib/permissions";
 
 import { QUERY_KEYS } from "@/api/constant";
 import { userRequest } from "@/api/users";
@@ -54,7 +55,7 @@ const UserDetailPage = () => {
 				</CardContent>
 			</Card>
 
-			{user.role === ROLES.DOCTOR && user.stats && (
+			{isDoctor(user) && user.stats && (
 				<div className="grid gap-4 sm:grid-cols-3">
 					<StatCard
 						icon={ClipboardListIcon}
@@ -80,10 +81,7 @@ const UserDetailPage = () => {
 export const Route = createFileRoute("/_authenticated/users/$userId")({
 	component: UserDetailPage,
 	beforeLoad: ({ context }) => {
-		if (
-			context.user.role !== ROLES.ADMINISTRATOR &&
-			context.user.role !== ROLES.MANAGER
-		) {
+		if (!canManageUsers(context.user)) {
 			throw redirect({ to: FRONTEND_URLS.HOME });
 		}
 	},

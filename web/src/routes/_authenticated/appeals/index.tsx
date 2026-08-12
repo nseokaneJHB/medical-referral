@@ -45,6 +45,8 @@ import {
 	appealsRequest,
 } from "@/api/appeals";
 
+import { canManageUsers } from "@/lib/permissions";
+
 /** Per-row decide buttons. */
 const AppealActions = ({
 	appealId,
@@ -232,10 +234,7 @@ const AppealsPage = () => {
 export const Route = createFileRoute("/_authenticated/appeals/")({
 	component: AppealsPage,
 	beforeLoad: ({ context }) => {
-		if (
-			context.user.role !== ROLES.MANAGER &&
-			context.user.role !== ROLES.ADMINISTRATOR
-		) {
+		if (!canManageUsers(context.user)) {
 			throw redirect({ to: FRONTEND_URLS.HOME });
 		}
 	},

@@ -5,7 +5,6 @@ import { createFileRoute, useNavigate, redirect } from "@tanstack/react-router";
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 
 import {
-	ROLES,
 	LOGIN_STATUS,
 	FRONTEND_URLS,
 	getRelativeTime,
@@ -13,6 +12,8 @@ import {
 	DEFAULT_PAGE_LIMIT,
 	DEFAULT_PAGE_NUMBER,
 } from "@referral-tracking/shared";
+
+import { isAdministrator } from "@/lib/permissions";
 
 import { Card, CardTitle, CardHeader, CardContent } from "@/components/ui/card";
 import {
@@ -161,7 +162,7 @@ export const Route = createFileRoute("/_authenticated/audit/")({
 	validateSearch: searchSchema,
 	loaderDeps: ({ search }) => search,
 	beforeLoad: ({ context }) => {
-		if (context.user.role !== ROLES.ADMINISTRATOR) {
+		if (!isAdministrator(context.user)) {
 			throw redirect({ to: FRONTEND_URLS.HOME });
 		}
 	},

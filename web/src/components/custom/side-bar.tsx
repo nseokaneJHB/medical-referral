@@ -52,6 +52,8 @@ import { ThemeToggle } from "@/components/custom/theme-toggle";
 
 import { SignOutButton } from "@/components/sign-out-button";
 
+import { canViewNavItem } from "@/lib/permissions";
+
 interface NavItem {
 	to: LinkProps["to"];
 	label: string;
@@ -120,7 +122,7 @@ export const SideBar = () => {
 	const { state, toggleSidebar } = useSidebar();
 
 	const visibleNavItems = NAV_ITEMS.filter(
-		(item) => !item.roles || item.roles.includes(user.role),
+		(item) => canViewNavItem(user, item),
 	);
 
 	return (

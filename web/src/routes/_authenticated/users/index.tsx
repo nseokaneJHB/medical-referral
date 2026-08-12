@@ -93,6 +93,8 @@ import {
 	disableManager,
 } from "@/api/users";
 
+import { isAdministrator, canManageUsers, canModerateUser } from "@/lib/permissions";
+
 /**
  * Which set of moderation endpoints applies to a given row — Manager account
  * moderation (`*Manager`, Administrator-only) vs Nurse/Doctor moderation
@@ -112,8 +114,9 @@ const resolveModerationFns = (
 	flag: (id: string, payload: ModerationReasonBody) => Promise<UserResponse>;
 	disable: (id: string, payload: ModerationReasonBody) => Promise<UserResponse>;
 } | null => {
+	if (!canModerateUser(viewerRole, targetRole)) return null;
+
 	if (targetRole === ROLES.MANAGER) {
-		if (viewerRole !== ROLES.ADMINISTRATOR) return null;
 		return {
 			approve: approveManager,
 			reject: rejectManager,
@@ -122,17 +125,13 @@ const resolveModerationFns = (
 		};
 	}
 
-	if (targetRole === ROLES.NURSE || targetRole === ROLES.DOCTOR) {
-		const namespace = viewerRole === ROLES.ADMINISTRATOR ? "ADMINISTRATOR" : "MANAGER";
-		return {
-			approve: (id, payload) => approveStaff(namespace, id, payload),
-			reject: (id, payload) => rejectStaff(namespace, id, payload),
-			flag: (id, payload) => flagStaff(namespace, id, payload),
-			disable: (id, payload) => disableStaff(namespace, id, payload),
-		};
-	}
-
-	return null;
+	const namespace = viewerRole === ROLES.ADMINISTRATOR ? "ADMINISTRATOR" : "MANAGER";
+	return {
+		approve: (id, payload) => approveStaff(namespace, id, payload),
+		reject: (id, payload) => rejectStaff(namespace, id, payload),
+		flag: (id, payload) => flagStaff(namespace, id, payload),
+		disable: (id, payload) => disableStaff(namespace, id, payload),
+	};
 };
 
 /** Row moderation actions — which buttons show depends on the target's current status. */
@@ -545,7 +544,7 @@ const UsersPage = () => {
 			<Card className="border-0 bg-transparent px-0 py-1 shadow-none">
 				<CardHeader className="flex items-center justify-between px-0 py-1">
 					<CardTitle className="text-2xl">Users</CardTitle>
-					{user.role === ROLES.ADMINISTRATOR && (
+					{isAdministrator(user) && (
 						<CreateUserDialog onCreated={onChanged} />
 					)}
 				</CardHeader>
@@ -733,10 +732,7 @@ export const Route = createFileRoute("/_authenticated/users/")({
 	validateSearch: usersQuerySchema,
 	loaderDeps: ({ search }) => search,
 	beforeLoad: ({ context }) => {
-		if (
-			context.user.role !== ROLES.ADMINISTRATOR &&
-			context.user.role !== ROLES.MANAGER
-		) {
+		if (!canManageUsers(context.user)) {
 			throw redirect({ to: FRONTEND_URLS.HOME });
 		}
 	},
