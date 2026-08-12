@@ -1,6 +1,11 @@
 import { useState, useEffect } from "react";
 
-import { createFileRoute, useNavigate, redirect } from "@tanstack/react-router";
+import {
+	Link as RouterLink,
+	createFileRoute,
+	useNavigate,
+	redirect,
+} from "@tanstack/react-router";
 import { useMutation, useSuspenseQuery, useQuery } from "@tanstack/react-query";
 
 import { useForm, useWatch } from "react-hook-form";
@@ -10,6 +15,7 @@ import { toast } from "sonner";
 import {
 	FlagIcon,
 	BanIcon,
+	EyeIcon,
 	CheckIcon,
 	XIcon,
 	CopyIcon,
@@ -68,11 +74,12 @@ import {
 	DialogContent,
 	DialogDescription,
 } from "@/components/ui/dialog";
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 
-import { Link } from "@/components/custom/link";
 import { Loader } from "@/components/custom/loader";
 import { Input as FormInput } from "@/components/custom/input";
 import { SelectInput } from "@/components/custom/select-input";
+import { RowActionsMenu } from "@/components/custom/row-actions-menu";
 import { ReasonActionButton } from "@/components/custom/reason-action-button";
 
 import { useFormField } from "@/hooks/use-form-field";
@@ -134,8 +141,8 @@ const resolveModerationFns = (
 	};
 };
 
-/** Row moderation actions — which buttons show depends on the target's current status. */
-const UserModerationActions = ({
+/** Row moderation menu items — which actions show depends on the target's current status. */
+const UserModerationMenuItems = ({
 	user,
 	viewerRole,
 	onChanged,
@@ -161,18 +168,15 @@ const UserModerationActions = ({
 
 	if (user.status === USER_STATUS.PENDING) {
 		return (
-			<div className="flex justify-end gap-2">
-				<Button
-					type="button"
-					variant="success-outline"
-					title="Approve"
-					size="sm"
+			<>
+				<DropdownMenuItem
+					variant="success"
 					disabled={approveMutation.isPending}
-					onClick={onApprove}
+					onSelect={onApprove}
 				>
 					<CheckIcon />
 					<span>Approve</span>
-				</Button>
+				</DropdownMenuItem>
 				<ReasonActionButton
 					label="Reject"
 					title="Reject this application"
@@ -181,14 +185,26 @@ const UserModerationActions = ({
 					description="This application will be rejected — a reason is required."
 					mutationFn={(reason) => fns.reject(user.id, { reason })}
 					onChanged={onChanged}
+					renderTrigger={(onClick) => (
+						<DropdownMenuItem
+							variant="destructive"
+							onSelect={(event) => {
+								event.preventDefault();
+								onClick();
+							}}
+						>
+							<XIcon />
+							<span>Reject</span>
+						</DropdownMenuItem>
+					)}
 				/>
-			</div>
+			</>
 		);
 	}
 
 	if (user.status === USER_STATUS.ACTIVE) {
 		return (
-			<div className="flex justify-end gap-2">
+			<>
 				<ReasonActionButton
 					label="Flag"
 					title="Flag this account"
@@ -197,6 +213,18 @@ const UserModerationActions = ({
 					description="Flagging restricts this account until it's cleared — a reason is required."
 					mutationFn={(reason) => fns.flag(user.id, { reason })}
 					onChanged={onChanged}
+					renderTrigger={(onClick) => (
+						<DropdownMenuItem
+							variant="warning"
+							onSelect={(event) => {
+								event.preventDefault();
+								onClick();
+							}}
+						>
+							<FlagIcon />
+							<span>Flag</span>
+						</DropdownMenuItem>
+					)}
 				/>
 				<ReasonActionButton
 					label="Disable"
@@ -206,24 +234,46 @@ const UserModerationActions = ({
 					description="Disabling fully freezes this account — a reason is required."
 					mutationFn={(reason) => fns.disable(user.id, { reason })}
 					onChanged={onChanged}
+					renderTrigger={(onClick) => (
+						<DropdownMenuItem
+							variant="destructive"
+							onSelect={(event) => {
+								event.preventDefault();
+								onClick();
+							}}
+						>
+							<BanIcon />
+							<span>Disable</span>
+						</DropdownMenuItem>
+					)}
 				/>
-			</div>
+			</>
 		);
 	}
 
 	if (user.status === USER_STATUS.FLAGGED) {
 		return (
-			<div className="flex justify-end gap-2">
-				<ReasonActionButton
-					label="Disable"
-					title="Disable this account"
-					variant="error-outline"
-					icon={BanIcon}
-					description="Disabling fully freezes this account — a reason is required."
-					mutationFn={(reason) => fns.disable(user.id, { reason })}
-					onChanged={onChanged}
-				/>
-			</div>
+			<ReasonActionButton
+				label="Disable"
+				title="Disable this account"
+				variant="error-outline"
+				icon={BanIcon}
+				description="Disabling fully freezes this account — a reason is required."
+				mutationFn={(reason) => fns.disable(user.id, { reason })}
+				onChanged={onChanged}
+				renderTrigger={(onClick) => (
+					<DropdownMenuItem
+						variant="destructive"
+						onSelect={(event) => {
+							event.preventDefault();
+							onClick();
+						}}
+					>
+						<BanIcon />
+						<span>Disable</span>
+					</DropdownMenuItem>
+				)}
+			/>
 		);
 	}
 
@@ -643,7 +693,7 @@ const UsersPage = () => {
 											</TableHead>
 										);
 									})}
-									<TableHead />
+									<TableHead className="text-right">Actions</TableHead>
 								</TableRow>
 							))}
 						</TableHeader>
@@ -668,22 +718,25 @@ const UsersPage = () => {
 											)}
 										</TableCell>
 									))}
-									<TableCell>
-										<div className="flex justify-end gap-2">
-											<UserModerationActions
+									<TableCell className="text-right">
+										<RowActionsMenu
+											label={`Actions for ${row.original.name ?? row.original.email}`}
+										>
+											<DropdownMenuItem asChild>
+												<RouterLink
+													to={FRONTEND_URLS.USER}
+													params={{ userId: row.original.id }}
+												>
+													<EyeIcon />
+													<span>View</span>
+												</RouterLink>
+											</DropdownMenuItem>
+											<UserModerationMenuItems
 												user={row.original}
 												viewerRole={user.role}
 												onChanged={onChanged}
 											/>
-											<Link
-												variant="outline"
-												title="View user"
-												to={FRONTEND_URLS.USER}
-												params={{ userId: row.original.id }}
-											>
-												View
-											</Link>
-										</div>
+										</RowActionsMenu>
 									</TableCell>
 								</TableRow>
 							))}

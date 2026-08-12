@@ -32,9 +32,11 @@ import {
 	DialogContent,
 	DialogDescription,
 } from "@/components/ui/dialog";
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 
 import { TextArea } from "@/components/custom/text-area";
 import { Loader } from "@/components/custom/loader";
+import { RowActionsMenu } from "@/components/custom/row-actions-menu";
 
 import { useToastMutation } from "@/hooks/use-toast-mutation";
 
@@ -100,27 +102,28 @@ const TransferActions = ({
 		});
 
 	return (
-		<div className="flex justify-end gap-2">
-			<Button
-				type="button"
-				variant="success-outline"
-				title={`Approve ${side} side`}
+		<RowActionsMenu
+			label={`Actions for ${transfer.patient.first_name} ${transfer.patient.last_name}`}
+		>
+			<DropdownMenuItem
+				variant="success"
 				disabled={approveMutation.isPending}
-				onClick={onApprove}
+				onSelect={onApprove}
 			>
 				<CheckIcon />
 				<span>Approve</span>
-			</Button>
+			</DropdownMenuItem>
 			<Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
-				<Button
-					type="button"
-					variant="error-outline"
-					title={`Reject ${side} side`}
-					onClick={() => setRejectOpen(true)}
+				<DropdownMenuItem
+					variant="destructive"
+					onSelect={(event) => {
+						event.preventDefault();
+						setRejectOpen(true);
+					}}
 				>
 					<XIcon />
 					<span>Reject</span>
-				</Button>
+				</DropdownMenuItem>
 				<DialogContent>
 					<DialogHeader>
 						<DialogTitle>Reject this transfer?</DialogTitle>
@@ -149,7 +152,7 @@ const TransferActions = ({
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
-		</div>
+		</RowActionsMenu>
 	);
 };
 
@@ -196,7 +199,7 @@ const TransfersPage = () => {
 								<TableHead>Reason</TableHead>
 								<TableHead>Requested by</TableHead>
 								<TableHead>Awaiting</TableHead>
-								<TableHead />
+								<TableHead className="text-right">Actions</TableHead>
 							</TableRow>
 						</TableHeader>
 						<TableBody>
@@ -228,7 +231,7 @@ const TransfersPage = () => {
 												: "Destination"}
 										</Badge>
 									</TableCell>
-									<TableCell>
+									<TableCell className="text-right">
 										<TransferActions
 											transfer={transfer}
 											namespace={namespace}

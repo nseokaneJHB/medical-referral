@@ -4,7 +4,7 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { CheckIcon, XIcon } from "lucide-react";
+import { CheckIcon, EyeIcon, XIcon } from "lucide-react";
 
 import {
 	ROLES,
@@ -25,7 +25,6 @@ import {
 	TableHeader,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
 	Dialog,
 	DialogTitle,
@@ -33,9 +32,11 @@ import {
 	DialogContent,
 	DialogDescription,
 } from "@/components/ui/dialog";
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 
 import { Loader } from "@/components/custom/loader";
 import { ReadOnlyField } from "@/components/custom/read-only-field";
+import { RowActionsMenu } from "@/components/custom/row-actions-menu";
 import { ReasonActionButton } from "@/components/custom/reason-action-button";
 
 import { QUERY_KEYS } from "@/api/constant";
@@ -47,8 +48,8 @@ import {
 
 import { canManageUsers } from "@/lib/permissions";
 
-/** Per-row decide buttons. */
-const AppealActions = ({
+/** Per-row decide menu items. */
+const AppealMenuItems = ({
 	appealId,
 	namespace,
 	onChanged,
@@ -58,7 +59,7 @@ const AppealActions = ({
 	onChanged: () => Promise<void>;
 }) => {
 	return (
-		<div className="flex justify-end gap-2">
+		<>
 			<ReasonActionButton<TimelineResponse>
 				label="Approve"
 				title="Approve this appeal"
@@ -68,6 +69,18 @@ const AppealActions = ({
 				reasonLabel="Comment"
 				mutationFn={(notes) => approveAppeal(namespace, appealId, { notes })}
 				onChanged={onChanged}
+				renderTrigger={(onClick) => (
+					<DropdownMenuItem
+						variant="warning"
+						onSelect={(event) => {
+							event.preventDefault();
+							onClick();
+						}}
+					>
+						<CheckIcon />
+						<span>Approve</span>
+					</DropdownMenuItem>
+				)}
 			/>
 			<ReasonActionButton<TimelineResponse>
 				label="Deny"
@@ -78,8 +91,20 @@ const AppealActions = ({
 				reasonLabel="Comment"
 				mutationFn={(notes) => denyAppeal(namespace, appealId, { notes })}
 				onChanged={onChanged}
+				renderTrigger={(onClick) => (
+					<DropdownMenuItem
+						variant="destructive"
+						onSelect={(event) => {
+							event.preventDefault();
+							onClick();
+						}}
+					>
+						<XIcon />
+						<span>Deny</span>
+					</DropdownMenuItem>
+				)}
 			/>
-		</div>
+		</>
 	);
 };
 
@@ -168,7 +193,7 @@ const AppealsPage = () => {
 								<TableHead>Reason</TableHead>
 								<TableHead>Submitted by</TableHead>
 								<TableHead>Submitted</TableHead>
-								<TableHead />
+								<TableHead className="text-right">Actions</TableHead>
 							</TableRow>
 						</TableHeader>
 						<TableBody>
@@ -195,23 +220,25 @@ const AppealsPage = () => {
 									<TableCell>
 										{getRelativeTime(appeal.changed_at as unknown as string)}
 									</TableCell>
-									<TableCell>
-										<div className="flex justify-end gap-2">
-											<Button
-												type="button"
-												variant="outline"
-												title="View appeal"
-												size="sm"
-												onClick={() => setViewing(appeal)}
+									<TableCell className="text-right">
+										<RowActionsMenu
+											label={`Actions for ${appeal.subject.name ?? "appeal"}`}
+										>
+											<DropdownMenuItem
+												onSelect={(event) => {
+													event.preventDefault();
+													setViewing(appeal);
+												}}
 											>
-												View
-											</Button>
-											<AppealActions
+												<EyeIcon />
+												<span>View</span>
+											</DropdownMenuItem>
+											<AppealMenuItems
 												appealId={appeal.id}
 												namespace={namespace}
 												onChanged={onChanged}
 											/>
-										</div>
+										</RowActionsMenu>
 									</TableCell>
 								</TableRow>
 							))}

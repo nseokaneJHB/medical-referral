@@ -1,4 +1,4 @@
-import { useState, type ComponentType } from "react";
+import { useState, type ReactNode, type ComponentType } from "react";
 
 import { useMutation } from "@tanstack/react-query";
 
@@ -21,7 +21,7 @@ import { useToastMutation } from "@/hooks/use-toast-mutation";
 /**
  * A punitive/decision action (reject, flag, disable, suspend, deny, ...)
  * behind a required-reason confirm dialog — the shared shape behind every
- * such action across users, facilities, and appeals: a button that opens a
+ * such action across users, facilities, and appeals: a trigger that opens a
  * dialog, requires a non-empty reason, and disables its confirm button
  * until one is entered.
  */
@@ -34,6 +34,7 @@ export const ReasonActionButton = <T extends GlobalResponse>({
 	reasonLabel = "Reason",
 	mutationFn,
 	onChanged,
+	renderTrigger,
 }: {
 	label: string;
 	title: string;
@@ -43,6 +44,8 @@ export const ReasonActionButton = <T extends GlobalResponse>({
 	reasonLabel?: string;
 	mutationFn: (reason: string) => Promise<T>;
 	onChanged: () => Promise<void>;
+	/** Swaps the default outline button trigger for a custom one (e.g. a `DropdownMenuItem` in a row-actions menu) — call the given `onClick` to open the dialog. */
+	renderTrigger?: (onClick: () => void) => ReactNode;
 }) => {
 	const [open, setOpen] = useState(false);
 	const [reason, setReason] = useState("");
@@ -62,16 +65,20 @@ export const ReasonActionButton = <T extends GlobalResponse>({
 
 	return (
 		<Dialog open={open} onOpenChange={setOpen}>
-			<Button
-				type="button"
-				variant={variant}
-				title={title}
-				size="sm"
-				onClick={() => setOpen(true)}
-			>
-				<Icon />
-				<span>{label}</span>
-			</Button>
+			{renderTrigger ? (
+				renderTrigger(() => setOpen(true))
+			) : (
+				<Button
+					type="button"
+					variant={variant}
+					title={title}
+					size="sm"
+					onClick={() => setOpen(true)}
+				>
+					<Icon />
+					<span>{label}</span>
+				</Button>
+			)}
 			<DialogContent>
 				<DialogHeader>
 					<DialogTitle>{title}?</DialogTitle>
