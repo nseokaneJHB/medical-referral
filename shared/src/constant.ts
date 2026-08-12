@@ -295,6 +295,10 @@ export const FACILITY_STATUS = {
 	SUSPENDED: "SUSPENDED",
 } as const;
 
+/** Eligible for a Manager-filed appeal — single source of truth for both `api/src/lib/permission.ts` and the frontend's `lib/permissions.ts`. */
+export const APPEALABLE_FACILITY_STATUSES: (typeof FACILITY_STATUS)[keyof typeof FACILITY_STATUS][] =
+	[FACILITY_STATUS.REJECTED, FACILITY_STATUS.FLAGGED, FACILITY_STATUS.SUSPENDED];
+
 /**
  * Generalized append-only audit log (`timeline` table) — covers Users,
  * Facilities, and Referrals moderation/status history in one shared shape.

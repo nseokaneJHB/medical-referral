@@ -2,6 +2,7 @@ import {
 	ROLES,
 	USER_STATUS,
 	FACILITY_STATUS,
+	APPEALABLE_FACILITY_STATUSES,
 	type Role,
 } from "@referral-tracking/shared";
 
@@ -45,13 +46,6 @@ const APPEALABLE_USER_STATUSES: ReadonlyArray<UserModelSelect["status"]> = [
 	USER_STATUS.DISABLED,
 ];
 
-const APPEALABLE_FACILITY_STATUSES: ReadonlyArray<
-	FacilityModelSelect["status"]
-> = [
-	FACILITY_STATUS.REJECTED,
-	FACILITY_STATUS.FLAGGED,
-	FACILITY_STATUS.SUSPENDED,
-];
 
 /**
  * Coarse account-level gate, applied by `middleware/authorize.ts` on every
