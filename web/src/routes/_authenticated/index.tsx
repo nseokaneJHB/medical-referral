@@ -597,14 +597,13 @@ export const Route = createFileRoute("/_authenticated/")({
 		).data;
 
 		if (user.role === ROLES.DOCTOR) {
-			console.log("[loader] doctor deps:", JSON.stringify(deps));
 			const [summary, recentReferrals] = await Promise.all([
 				queryClient
 					.ensureQueryData({
 						queryKey: [QUERY_KEYS.DASHBOARD_DOCTOR, deps],
 						queryFn: () => {
 							console.log("[loader] calling doctorSummaryRequest with deps:", JSON.stringify(deps));
-							return doctorSummaryRequest(deps);
+							return doctorSummaryRequest({ data: deps });
 						},
 					})
 					.then((r) => r.data),
@@ -636,14 +635,13 @@ export const Route = createFileRoute("/_authenticated/")({
 		}
 
 		if (user.role === ROLES.ADMINISTRATOR) {
-			console.log("[loader] admin deps:", JSON.stringify(deps));
 			const [summary, recentUsers, recentFacilities] = await Promise.all([
 				queryClient
 					.ensureQueryData({
 						queryKey: [QUERY_KEYS.DASHBOARD_ADMIN, deps],
 						queryFn: () => {
 							console.log("[loader] calling adminSummaryRequest with deps:", JSON.stringify(deps));
-							return adminSummaryRequest(deps);
+							return adminSummaryRequest({ data: deps });
 						},
 					})
 					.then((r) => r.data),
@@ -703,14 +701,13 @@ export const Route = createFileRoute("/_authenticated/")({
 		}
 
 		if (user.role === ROLES.MANAGER) {
-			console.log("[loader] manager deps:", JSON.stringify(deps));
 			const [summary, recentPatients, recentReferrals] = await Promise.all([
 				queryClient
 					.ensureQueryData({
 						queryKey: [QUERY_KEYS.DASHBOARD_MANAGER, deps],
 						queryFn: () => {
 							console.log("[loader] calling managerSummaryRequest with deps:", JSON.stringify(deps));
-							return managerSummaryRequest(deps);
+							return managerSummaryRequest({ data: deps });
 						},
 					})
 					.then((r) => r.data),
@@ -768,15 +765,11 @@ export const Route = createFileRoute("/_authenticated/")({
 			};
 		}
 
-		console.log("[loader] nurse deps:", JSON.stringify(deps));
 		const [summary, recentPatients, recentReferrals] = await Promise.all([
 			queryClient
 				.ensureQueryData({
 					queryKey: [QUERY_KEYS.DASHBOARD_NURSE, deps],
-					queryFn: () => {
-						console.log("[loader] calling nurseSummaryRequest with deps:", JSON.stringify(deps));
-						return nurseSummaryRequest(deps);
-					},
+					queryFn: () => nurseSummaryRequest({ data: deps }),
 				})
 				.then((r) => r.data),
 			queryClient
