@@ -143,66 +143,68 @@ const PatientsPage = () => {
 				</CardHeader>
 			</Card>
 
-			<div className="flex flex-wrap items-end gap-2">
-				<Input
-					value={searchInput}
-					placeholder="Search by name or phone..."
-					onChange={(event) => setSearchInput(event.target.value)}
-					onKeyDown={(event) => {
-						if (event.key === "Enter") commitSearch();
-					}}
-					className="h-10 max-w-sm text-base"
-				/>
-
-				<SelectInput
-					multiple
-					items={GENDER_ITEMS}
-					placeholder="Gender"
-					value={search.gender ? search.gender.split(",") : []}
-					onChange={(value) =>
-						navigate({
-							search: (prev) => ({
-								...prev,
-								gender: value.length > 0 ? value.join(",") : undefined,
-								page: "1",
-							}),
-						})
-					}
-					className="h-10 w-40"
-					containerClassName="w-40"
-				/>
-
-				<Field className="w-fit gap-1">
-					<FieldLabel>Born from</FieldLabel>
+			<Card>
+				<CardContent className="flex flex-wrap items-end gap-2">
 					<Input
-						type="number"
-						placeholder="Year"
-						value={dobFromYear}
-						onChange={(event) => setDobFromYear(event.target.value)}
+						value={searchInput}
+						placeholder="Search by name or phone..."
+						onChange={(event) => setSearchInput(event.target.value)}
 						onKeyDown={(event) => {
 							if (event.key === "Enter") commitSearch();
 						}}
-						className="h-10 w-28 text-base"
+						className="h-10 max-w-sm text-base"
 					/>
-				</Field>
-				<Field className="w-fit gap-1">
-					<FieldLabel>Born to</FieldLabel>
-					<Input
-						type="number"
-						placeholder="Year"
-						value={dobToYear}
-						onChange={(event) => setDobToYear(event.target.value)}
-						onKeyDown={(event) => {
-							if (event.key === "Enter") commitSearch();
-						}}
-						className="h-10 w-28 text-base"
-					/>
-				</Field>
 
-				<Button variant="outline" title="Search" onClick={commitSearch}>
-					<SearchIcon />
-				</Button>
-			</div>
+					<SelectInput
+						multiple
+						items={GENDER_ITEMS}
+						placeholder="Gender"
+						value={search.gender ? search.gender.split(",") : []}
+						onChange={(value) =>
+							navigate({
+								search: (prev) => ({
+									...prev,
+									gender: value.length > 0 ? value.join(",") : undefined,
+									page: "1",
+								}),
+							})
+						}
+						className="h-10 w-40"
+						containerClassName="w-40"
+					/>
+
+					<Field className="w-fit gap-1">
+						<FieldLabel>Born from</FieldLabel>
+						<Input
+							type="number"
+							placeholder="Year"
+							value={dobFromYear}
+							onChange={(event) => setDobFromYear(event.target.value)}
+							onKeyDown={(event) => {
+								if (event.key === "Enter") commitSearch();
+							}}
+							className="h-10 w-28 text-base"
+						/>
+					</Field>
+					<Field className="w-fit gap-1">
+						<FieldLabel>Born to</FieldLabel>
+						<Input
+							type="number"
+							placeholder="Year"
+							value={dobToYear}
+							onChange={(event) => setDobToYear(event.target.value)}
+							onKeyDown={(event) => {
+								if (event.key === "Enter") commitSearch();
+							}}
+							className="h-10 w-28 text-base"
+						/>
+					</Field>
+
+					<Button variant="outline" title="Search" onClick={commitSearch}>
+						<SearchIcon />
+					</Button>
+				</CardContent>
+			</Card>
 
 			<Card>
 				<CardContent>

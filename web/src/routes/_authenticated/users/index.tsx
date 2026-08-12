@@ -600,56 +600,58 @@ const UsersPage = () => {
 				</CardHeader>
 			</Card>
 
-			<div className="flex flex-wrap items-center gap-2">
-				<Input
-					value={searchInput}
-					placeholder="Search by name or email..."
-					onChange={(event) => setSearchInput(event.target.value)}
-					onKeyDown={(event) => {
-						if (event.key === "Enter") commitSearch();
-					}}
-					className="h-10 max-w-sm text-base"
-				/>
-				<Button variant="outline" title="Search" onClick={commitSearch}>
-					<SearchIcon />
-				</Button>
+			<Card>
+				<CardContent className="flex flex-wrap items-center gap-2">
+					<Input
+						value={searchInput}
+						placeholder="Search by name or email..."
+						onChange={(event) => setSearchInput(event.target.value)}
+						onKeyDown={(event) => {
+							if (event.key === "Enter") commitSearch();
+						}}
+						className="h-10 max-w-sm text-base"
+					/>
+					<Button variant="outline" title="Search" onClick={commitSearch}>
+						<SearchIcon />
+					</Button>
 
-				<SelectInput
-					multiple
-					items={ROLE_ITEMS}
-					placeholder="Role"
-					value={search.role ? search.role.split(",") : []}
-					onChange={(value) =>
-						navigate({
-							search: (prev) => ({
-								...prev,
-								role: value.length > 0 ? value.join(",") : undefined,
-								page: "1",
-							}),
-						})
-					}
-					className="h-10 w-48"
-					containerClassName="w-48"
-				/>
+					<SelectInput
+						multiple
+						items={ROLE_ITEMS}
+						placeholder="Role"
+						value={search.role ? search.role.split(",") : []}
+						onChange={(value) =>
+							navigate({
+								search: (prev) => ({
+									...prev,
+									role: value.length > 0 ? value.join(",") : undefined,
+									page: "1",
+								}),
+							})
+						}
+						className="h-10 w-48"
+						containerClassName="w-48"
+					/>
 
-				<SelectInput
-					multiple
-					items={STATUS_ITEMS}
-					placeholder="Status"
-					value={search.status ? search.status.split(",") : []}
-					onChange={(value) =>
-						navigate({
-							search: (prev) => ({
-								...prev,
-								status: value.length > 0 ? value.join(",") : undefined,
-								page: "1",
-							}),
-						})
-					}
-					className="h-10 w-48"
-					containerClassName="w-48"
-				/>
-			</div>
+					<SelectInput
+						multiple
+						items={STATUS_ITEMS}
+						placeholder="Status"
+						value={search.status ? search.status.split(",") : []}
+						onChange={(value) =>
+							navigate({
+								search: (prev) => ({
+									...prev,
+									status: value.length > 0 ? value.join(",") : undefined,
+									page: "1",
+								}),
+							})
+						}
+						className="h-10 w-48"
+						containerClassName="w-48"
+					/>
+				</CardContent>
+			</Card>
 
 			<Card>
 				<CardContent>
