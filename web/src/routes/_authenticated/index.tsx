@@ -107,14 +107,53 @@ const PRIORITY_CHART_CONFIG: ChartConfig = {
 	urgent: { label: "Urgent", color: "var(--color-error)" },
 };
 
-// Consolidated in from the old standalone Reports page — the date filter
-// sits directly above the breakdowns it scopes, and this whole section
-// lives right under the headline stat cards instead of trailing the page
-// as a separately-headed afterthought.
-const ReportsSection = ({ report }: { report: ReferralsReport }) => {
+// Date filter controls for the referrals report — scopes the breakdown
+// charts and the total referrals stat card below.
+const ReportDateFilter = () => {
 	const navigate = useNavigate({ from: Route.fullPath });
 	const search = Route.useSearch();
 
+	return (
+		<div className="flex flex-wrap items-end gap-2">
+			<Field className="w-fit gap-1">
+				<FieldLabel>From</FieldLabel>
+				<Input
+					type="date"
+					value={search.from ?? ""}
+					onChange={(event) =>
+						navigate({
+							search: (prev) => ({
+								...prev,
+								from: event.target.value || undefined,
+							}),
+						})
+					}
+					className="h-10 text-base"
+				/>
+			</Field>
+			<Field className="w-fit gap-1">
+				<FieldLabel>To</FieldLabel>
+				<Input
+					type="date"
+					value={search.to ?? ""}
+					onChange={(event) =>
+						navigate({
+							search: (prev) => ({
+								...prev,
+								to: event.target.value || undefined,
+							}),
+						})
+					}
+					className="h-10 text-base"
+				/>
+			</Field>
+		</div>
+	);
+};
+
+// Consolidated in from the old standalone Reports page — breakdown charts
+// for referral status and priority distribution, scoped by the date filter.
+const BreakdownChartsSection = ({ report }: { report: ReferralsReport }) => {
 	const statusData = Object.entries(report.by_status).map(([key, value]) => ({
 		key,
 		label: stringToTitleCase(key),
@@ -126,50 +165,7 @@ const ReportsSection = ({ report }: { report: ReferralsReport }) => {
 
 	return (
 		<div className="space-y-4">
-			<div className="flex flex-wrap items-end justify-between gap-4">
-				<h2 className="text-lg font-semibold">Referral trends</h2>
-				<div className="flex flex-wrap items-end gap-2">
-					<Field className="w-fit gap-1">
-						<FieldLabel>From</FieldLabel>
-						<Input
-							type="date"
-							value={search.from ?? ""}
-							onChange={(event) =>
-								navigate({
-									search: (prev) => ({
-										...prev,
-										from: event.target.value || undefined,
-									}),
-								})
-							}
-							className="h-10 text-base"
-						/>
-					</Field>
-					<Field className="w-fit gap-1">
-						<FieldLabel>To</FieldLabel>
-						<Input
-							type="date"
-							value={search.to ?? ""}
-							onChange={(event) =>
-								navigate({
-									search: (prev) => ({
-										...prev,
-										to: event.target.value || undefined,
-									}),
-								})
-							}
-							className="h-10 text-base"
-						/>
-					</Field>
-				</div>
-			</div>
-
-			<StatCard
-				icon={ArrowLeftRightIcon}
-				label="Total referrals in range"
-				value={report.total.toString()}
-				className="max-w-xs"
-			/>
+			<h2 className="text-lg font-semibold">Referral trends</h2>
 
 			<div className="grid gap-4 lg:grid-cols-2">
 				<Card>
@@ -278,13 +274,18 @@ const NurseDashboard = ({
 				value={summary.canceled.toString()}
 			/>
 			<StatCard
-				icon={PauseCircleIcon}
-				label="Referrals on Hold"
-				value={summary.on_hold.toString()}
+				icon={ArrowLeftRightIcon}
+				label="Total in Range"
+				value={report.total.toString()}
 			/>
 		</div>
 
-		<ReportsSection report={report} />
+		<div className="space-y-4">
+			<div className="flex flex-wrap items-end justify-between gap-4">
+				<ReportDateFilter />
+			</div>
+			<BreakdownChartsSection report={report} />
+		</div>
 
 		<div className="grid gap-4 md:grid-cols-2">
 			<RecentActivityCard
@@ -343,13 +344,18 @@ const DoctorDashboard = ({
 				value={summary.pending.toString()}
 			/>
 			<StatCard
-				icon={CheckCheckIcon}
-				label="Completed Referrals"
-				value={summary.completed.toString()}
+				icon={ArrowLeftRightIcon}
+				label="Total in Range"
+				value={report.total.toString()}
 			/>
 		</div>
 
-		<ReportsSection report={report} />
+		<div className="space-y-4">
+			<div className="flex flex-wrap items-end justify-between gap-4">
+				<ReportDateFilter />
+			</div>
+			<BreakdownChartsSection report={report} />
+		</div>
 
 		<RecentActivityCard
 			title="Referrals assigned to you"
@@ -386,7 +392,7 @@ const AdminDashboard = ({
 	recentFacilities: RecentItem[];
 }) => (
 	<div className="space-y-4">
-		<div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+		<div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
 			<StatCard
 				icon={UsersIcon}
 				label="Total Users"
@@ -407,9 +413,19 @@ const AdminDashboard = ({
 				label="Total Referrals"
 				value={summary.total_referrals.toString()}
 			/>
+			<StatCard
+				icon={RepeatIcon}
+				label="In Range"
+				value={report.total.toString()}
+			/>
 		</div>
 
-		<ReportsSection report={report} />
+		<div className="space-y-4">
+			<div className="flex flex-wrap items-end justify-between gap-4">
+				<ReportDateFilter />
+			</div>
+			<BreakdownChartsSection report={report} />
+		</div>
 
 		<div className="grid gap-4 md:grid-cols-2">
 			<RecentActivityCard
@@ -475,8 +491,8 @@ const ManagerDashboard = ({
 				/>
 				<StatCard
 					icon={ArrowLeftRightIcon}
-					label="Total Referrals"
-					value={summary.total_referrals.toString()}
+					label="In Range"
+					value={report.total.toString()}
 				/>
 				<StatCard
 					icon={UserPlusIcon}
@@ -508,7 +524,12 @@ const ManagerDashboard = ({
 				</div>
 			)}
 
-			<ReportsSection report={report} />
+			<div className="space-y-4">
+				<div className="flex flex-wrap items-end justify-between gap-4">
+					<ReportDateFilter />
+				</div>
+				<BreakdownChartsSection report={report} />
+			</div>
 
 			<div className="grid gap-4 md:grid-cols-2">
 				<RecentActivityCard
