@@ -27,8 +27,24 @@ export const nurseSummary = async (
 ): Promise<void> => {
 	const { core } = request.server;
 
+	const where: { referrer_id: string; created_at?: Record<string, unknown> } = {
+		referrer_id: request.user!.id,
+	};
+
+	if (request.query.from) {
+		where.created_at = {
+			...(where.created_at || {}),
+			gte: new Date(`${request.query.from}T00:00:00.000Z`),
+		};
+	}
+	if (request.query.to) {
+		const end = new Date(`${request.query.to}T00:00:00.000Z`);
+		end.setUTCDate(end.getUTCDate() + 1);
+		where.created_at = { ...(where.created_at || {}), lt: end };
+	}
+
 	const counts = zeroFillCounts(
-		await core.referral.count({ referrer_id: request.user!.id }, "status"),
+		await core.referral.count(where, "status"),
 		REFERRAL_STATUS,
 	);
 
@@ -57,8 +73,24 @@ export const doctorSummary = async (
 ): Promise<void> => {
 	const { core } = request.server;
 
+	const where: { doctor: string; created_at?: Record<string, unknown> } = {
+		doctor: request.user!.id,
+	};
+
+	if (request.query.from) {
+		where.created_at = {
+			...(where.created_at || {}),
+			gte: new Date(`${request.query.from}T00:00:00.000Z`),
+		};
+	}
+	if (request.query.to) {
+		const end = new Date(`${request.query.to}T00:00:00.000Z`);
+		end.setUTCDate(end.getUTCDate() + 1);
+		where.created_at = { ...(where.created_at || {}), lt: end };
+	}
+
 	const counts = zeroFillCounts(
-		await core.referral.count({ doctor: request.user!.id }, "status"),
+		await core.referral.count(where, "status"),
 		REFERRAL_STATUS,
 	);
 
@@ -86,12 +118,26 @@ export const adminSummary = async (
 ): Promise<void> => {
 	const { core } = request.server;
 
+	const where: Record<string, unknown> = {};
+
+	if (request.query.from) {
+		where.created_at = {
+			...(where.created_at as Record<string, unknown> || {}),
+			gte: new Date(`${request.query.from}T00:00:00.000Z`),
+		};
+	}
+	if (request.query.to) {
+		const end = new Date(`${request.query.to}T00:00:00.000Z`);
+		end.setUTCDate(end.getUTCDate() + 1);
+		where.created_at = { ...(where.created_at as Record<string, unknown> || {}), lt: end };
+	}
+
 	const [totalUsers, totalPatients, totalFacilities, statusCounts] =
 		await Promise.all([
-			core.user.count(),
-			core.patient.count(),
-			core.facility.count(),
-			core.referral.count(undefined, "status"),
+			core.user.count(Object.keys(where).length > 0 ? where : undefined),
+			core.patient.count(Object.keys(where).length > 0 ? where : undefined),
+			core.facility.count(Object.keys(where).length > 0 ? where : undefined),
+			core.referral.count(Object.keys(where).length > 0 ? where : undefined, "status"),
 		]);
 
 	const counts = zeroFillCounts(statusCounts, REFERRAL_STATUS);
@@ -128,6 +174,20 @@ export const managerSummary = async (
 	const { core } = request.server;
 	const facilityId = request.user!.facility_id!;
 
+	const where: Record<string, unknown> = {};
+
+	if (request.query.from) {
+		where.created_at = {
+			...(where.created_at as Record<string, unknown> || {}),
+			gte: new Date(`${request.query.from}T00:00:00.000Z`),
+		};
+	}
+	if (request.query.to) {
+		const end = new Date(`${request.query.to}T00:00:00.000Z`);
+		end.setUTCDate(end.getUTCDate() + 1);
+		where.created_at = { ...(where.created_at as Record<string, unknown> || {}), lt: end };
+	}
+
 	const [
 		totalStaff,
 		totalPatients,
@@ -135,14 +195,21 @@ export const managerSummary = async (
 		pendingStaffApplications,
 		pendingTransfers,
 	] = await Promise.all([
-		core.user.count({ facility_id: facilityId }),
-		core.patient.count({ facility_id: facilityId }),
+		core.user.count({
+			facility_id: facilityId,
+			...(Object.keys(where).length > 0 ? where : {}),
+		}),
+		core.patient.count({
+			facility_id: facilityId,
+			...(Object.keys(where).length > 0 ? where : {}),
+		}),
 		core.referral.count(
 			{
 				OR: [
 					{ origin_facility_id: facilityId },
 					{ destination_facility_id: facilityId },
 				],
+				...(Object.keys(where).length > 0 ? where : {}),
 			},
 			"status",
 		),

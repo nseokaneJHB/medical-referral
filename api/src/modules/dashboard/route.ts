@@ -4,6 +4,7 @@ import {
 	ROLES,
 	API_PATHS,
 	globalResponseSchema,
+	referralsReportQuerySchema,
 	adminSummaryResponseSchema,
 	doctorSummaryResponseSchema,
 	nurseSummaryResponseSchema,
@@ -32,6 +33,7 @@ export const route: FastifyPluginAsync = async (
 			app.authorize([ROLES.NURSE]),
 		],
 		schema: {
+			querystring: referralsReportQuerySchema,
 			response: {
 				200: nurseSummaryResponseSchema,
 				401: globalResponseSchema,
@@ -50,6 +52,7 @@ export const route: FastifyPluginAsync = async (
 			app.authorize([ROLES.DOCTOR]),
 		],
 		schema: {
+			querystring: referralsReportQuerySchema,
 			response: {
 				200: doctorSummaryResponseSchema,
 				401: globalResponseSchema,
@@ -68,6 +71,7 @@ export const route: FastifyPluginAsync = async (
 			app.authorize([ROLES.ADMINISTRATOR]),
 		],
 		schema: {
+			querystring: referralsReportQuerySchema,
 			response: {
 				200: adminSummaryResponseSchema,
 				401: globalResponseSchema,
@@ -86,6 +90,7 @@ export const route: FastifyPluginAsync = async (
 			app.authorize([ROLES.MANAGER]),
 		],
 		schema: {
+			querystring: referralsReportQuerySchema,
 			response: {
 				200: managerSummaryResponseSchema,
 				401: globalResponseSchema,
