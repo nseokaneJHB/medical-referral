@@ -12,6 +12,7 @@ import {
 } from "@referral-tracking/shared";
 
 import { auth } from "../../lib/auth";
+import { hashPassword } from "../../lib/password";
 import { generateTemporaryPassword } from "../../lib/util";
 import { AppealManager } from "../../management/appeal";
 import { ModerationManager } from "../../management/moderation";
@@ -33,6 +34,7 @@ import type {
 	ManagerRejectRequest,
 	FacilityApproveRequest,
 	FacilitySuspendRequest,
+	UserResetPasswordRequest,
 } from "./type";
 
 const USER_FIELDS = {
@@ -689,6 +691,63 @@ export const userCreate = async (
 	reply.status(status).send({
 		code,
 		message: "User created.",
+		data: { user, temporary_password: temporaryPassword },
+	});
+};
+
+/**
+ * Regenerates a user's password — the only recovery path when an
+ * Administrator loses a just-issued (or any) temporary password before
+ * sharing it, since it's hashed the moment it's set and never stored in
+ * recoverable form. Same shape as `userCreate`'s password issuance: a
+ * fresh one-time temporary password, returned exactly once, with
+ * `must_change_password` set so the recipient is prompted to pick their
+ * own on next use of that flow.
+ */
+export const userResetPassword = async (
+	request: FastifyRequest<UserResetPasswordRequest>,
+	reply: FastifyReply<UserResetPasswordRequest>,
+): Promise<void> => {
+	const target = await request.server.core.user.one({
+		where: { id: request.params.id },
+		select: USER_FIELDS,
+	});
+
+	if (!target) {
+		const { status, code } = HTTP_RESPONSE_CODE.NOT_FOUND;
+		return reply.status(status).send({ code, message: "User not found." });
+	}
+
+	const account = await request.server.core.account.one({
+		where: { user_id: target.id },
+		select: { id: true },
+	});
+
+	if (!account) {
+		const { status, code } = HTTP_RESPONSE_CODE.NOT_FOUND;
+		return reply
+			.status(status)
+			.send({ code, message: "No credential account found for this user." });
+	}
+
+	const temporaryPassword = generateTemporaryPassword();
+
+	await request.server.core.account.update({
+		where: { id: account.id },
+		data: { password: await hashPassword(temporaryPassword) },
+		select: { id: true },
+	});
+
+	const [user] = await request.server.core.user.update({
+		where: { id: target.id },
+		data: { must_change_password: true },
+		select: USER_FIELDS,
+	});
+
+	const { status, code } = HTTP_RESPONSE_CODE.OK;
+	reply.status(status).send({
+		code,
+		message: "Password reset.",
 		data: { user, temporary_password: temporaryPassword },
 	});
 };

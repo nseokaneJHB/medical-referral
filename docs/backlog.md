@@ -57,7 +57,46 @@ ask the user what this idea actually entailed before it can be scoped.
 Confirmed as name-only self-service for now (no email/password, and never
 `role`/`facility_id`/`status` — the privilege-escalation risk originally
 flagged here). Specialty self-assignment stays tied to the still-parked
-Facility specialties idea above, not yet scoped.
+Facility specialties idea above, not yet scoped. **Note:** the
+password-change item below reopens the "no password" half of this —
+self-service password change needs *some* profile/settings page to live
+on, and this is the only prior decision about one existing.
+
+## Self-service password change (+ profile/settings page)
+
+- **Raised 2026-08-12**, right after shipping Administrator password reset
+  (`docs/roles-permissions.md`'s 2026-08-12 session log entry) and the
+  Argon2 hashing cutover. User pointed out the resulting gap: once an
+  Administrator resets (or creates) a user's password, that user has no
+  way to ever change it themselves — confirmed by research, there is
+  currently **no self-service password-change capability anywhere in the
+  system**:
+  - Backend: better-auth's built-in `changePassword` endpoint isn't even
+    routed — `api/src/modules/authentication/route.ts` only registers
+    sign-up/sign-in/sign-out/session, no catch-all `auth.handler` mounted.
+  - Frontend: no profile/settings/account page exists at all (`account-
+    status.tsx` is facility-approval/appeal, not account settings), no API
+    call for it, no nav link.
+  - `must_change_password` (set on every admin-created/admin-reset
+    account) is defined and flows into the session/account response
+    (`shared/src/schema/account.ts`) but is completely inert on the
+    frontend — nothing reads it, no forced-change screen, no redirect.
+    Previously flagged as "not yet built" in `docs/roles-permissions.md`
+    when the create-user flow shipped; now more consequential since
+    admin-reset is also live and it's the *only* password-change path.
+- **User's explicit requirement:** this must be coupled with a real
+  profile/settings page, not bolted on as a standalone password-change
+  form somewhere ad hoc. Ties directly to the "User profile pages" item
+  above, which only resolved the name-only piece and explicitly deferred
+  email/password.
+- Not scoped yet — needs its own planning pass covering at minimum: where
+  the page lives in nav, whether `changePassword` gets exposed via
+  better-auth's handler or a custom endpoint (consistent with the
+  Argon2/`api/src/lib/password.ts` hashing setup, not better-auth's
+  scrypt default), and whether/how `must_change_password` finally gets
+  read client-side (forced-change redirect on sign-in vs. a passive
+  banner on the new settings page).
+- Status: **parked, not started.**
 
 ## Frontend module organization — API calls sharded by role
 
@@ -246,3 +285,7 @@ Facility specialties idea above, not yet scoped.
   too far for pages that are one shared layout with role-gated actions
   (referral/patient detail) rather than genuinely different views
   (dashboard) — not yet resolved.
+- **2026-08-12**: new item parked, self-service password change coupled
+  with a profile/settings page — raised right after Administrator password
+  reset shipped, exposing that no self-service password-change path exists
+  anywhere. User explicit: not to be implemented now, just logged.

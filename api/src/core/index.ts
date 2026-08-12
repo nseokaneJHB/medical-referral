@@ -2,6 +2,7 @@ import type { Database, Executor } from "./helpers";
 
 import { User } from "./user";
 import { Logins } from "./logins";
+import { Account } from "./account";
 import { Patient } from "./patient";
 import { Facility } from "./facility";
 import { Referral } from "./referral";
@@ -21,6 +22,7 @@ import { auth as betterAuth } from "../lib/auth";
 type TransactableCore = Pick<
 	CoreService,
 	| "user"
+	| "account"
 	| "patient"
 	| "facility"
 	| "referral"
@@ -33,6 +35,7 @@ type TransactableCore = Pick<
 
 export class CoreService {
 	public user: User;
+	public account: Account;
 	public patient: Patient;
 	public facility: Facility;
 	public referral: Referral;
@@ -45,6 +48,7 @@ export class CoreService {
 
 	constructor(db: Database, auth: typeof betterAuth) {
 		this.user = new User(db);
+		this.account = new Account(db);
 		this.patient = new Patient(db);
 		this.facility = new Facility(db);
 		this.referral = new Referral(db);
@@ -68,6 +72,7 @@ export class CoreService {
 	 */
 	withTransaction = (tx: Executor): TransactableCore => ({
 		user: new User(tx),
+		account: new Account(tx),
 		patient: new Patient(tx),
 		facility: new Facility(tx),
 		referral: new Referral(tx),

@@ -52,9 +52,21 @@ export const createUserByAdminSchema = z
 		}
 	});
 
+const userWithTemporaryPasswordSchema = z.object({
+	user: UserSchema,
+	temporary_password: stringSchema,
+});
+
 export const createUserByAdminResponseSchema = globalResponseSchema.extend({
-	data: z.object({
-		user: UserSchema,
-		temporary_password: stringSchema,
-	}),
+	data: userWithTemporaryPasswordSchema,
+});
+
+/**
+ * `PATCH /administrator/users/:id/reset-password` — no body (Administrator
+ * doesn't choose the new password, same reasoning as create: the server
+ * always generates a fresh one-time temporary password and returns it
+ * exactly once, alongside `must_change_password: true` on the row).
+ */
+export const resetUserPasswordResponseSchema = globalResponseSchema.extend({
+	data: userWithTemporaryPasswordSchema,
 });

@@ -197,6 +197,7 @@ export const API_PATHS = {
 	ADMINISTRATOR_FACILITY_FLAG: "/facilities/:id/flag",
 	ADMINISTRATOR_FACILITY_SUSPEND: "/facilities/:id/suspend",
 	ADMINISTRATOR_USER_CREATE: "/users",
+	ADMINISTRATOR_USER_RESET_PASSWORD: "/users/:id/reset-password",
 	ADMINISTRATOR_APPEAL_APPROVE: "/appeals/:id/approve",
 	ADMINISTRATOR_APPEAL_DENY: "/appeals/:id/deny",
 	ADMINISTRATOR_APPEAL_LIST: "/appeals",

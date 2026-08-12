@@ -13,6 +13,7 @@ import * as schema from "../drizzle/schema";
 import { env } from "./env";
 import { generateUuid } from "./util";
 import { connection } from "./database";
+import { hashPassword, verifyPassword } from "./password";
 
 /**
  * Better Auth instance — plain email/password sign-up/sign-in, cookie
@@ -40,6 +41,10 @@ export const auth = betterAuth({
 	emailAndPassword: {
 		enabled: true,
 		minPasswordLength: 8,
+		password: {
+			hash: hashPassword,
+			verify: verifyPassword,
+		},
 	},
 
 	user: {

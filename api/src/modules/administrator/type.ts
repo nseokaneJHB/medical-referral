@@ -14,6 +14,7 @@ import type {
 	CreateUserByAdminBody,
 	TimelineListResponse,
 	CreateUserByAdminResponse,
+	ResetUserPasswordResponse,
 } from "@referral-tracking/shared";
 
 export interface ManagerApproveRequest extends RouteGenericInterface {
@@ -91,6 +92,11 @@ export interface FacilitySuspendRequest extends RouteGenericInterface {
 export interface UserCreateRequest extends RouteGenericInterface {
 	Body: CreateUserByAdminBody;
 	Reply: CreateUserByAdminResponse | GlobalResponse;
+}
+
+export interface UserResetPasswordRequest extends RouteGenericInterface {
+	Params: UserParams;
+	Reply: ResetUserPasswordResponse | GlobalResponse;
 }
 
 export interface AppealApproveRequest extends RouteGenericInterface {

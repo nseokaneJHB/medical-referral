@@ -1374,3 +1374,63 @@ attempted this session. Next session: the frontend permissions file is
 the only remaining open thread from this doc's scope — pick that up as
 its own planning pass (see the open-thread note above for the grep
 findings and why it isn't a straight mirror of `permission.ts`).
+
+**2026-08-12, new session — Administrator password reset + Argon2 password
+hashing (done, committed).** Picked back up after a VS Code crash mid
+`pnpm install`; the crash itself just left `node_modules` gutted (repaired
+with a plain `pnpm install`), no work was lost since it's all on disk/git.
+
+- **`PATCH /administrator/users/:id/reset-password`** — regenerates a
+  user's password: the recovery path when an Administrator loses a
+  just-issued (or any) temporary password before sharing it, since it's
+  hashed the moment it's set and never stored recoverable. Same response
+  shape as `userCreate`: a fresh one-time temporary password returned
+  exactly once, `must_change_password: true` set on the row. New
+  `api/src/core/account.ts` (`one`/`update` on the `account` table —
+  better-auth's credential storage) backs it, wired into `CoreService`.
+  Frontend: `ResetPasswordAction` on `users/$userId.tsx`, gated to
+  `ROLES.ADMINISTRATOR`, same confirm → show-once-password two-stage
+  dialog shape as `CreateUserDialog`.
+- **Password hashing switched from better-auth's default (scrypt) to
+  Argon2id, system-wide.** While wiring the reset endpoint, found that
+  `better-auth/crypto`'s `hashPassword` — what the in-progress code was
+  about to reuse — is just better-auth's own scrypt hasher, not Argon2,
+  despite `@node-rs/argon2` already sitting unused in `api/package.json`
+  from an earlier session. Rather than hash resets with Argon2 while
+  sign-up/sign-in stayed on scrypt (which would've been two incompatible
+  hash formats under one `account.password` column), added
+  `api/src/lib/password.ts` (Argon2id via `@node-rs/argon2`, matching the
+  `hash(password) => string` / `verify({hash, password}) => boolean`
+  shape better-auth's `context.password` expects) and wired it into
+  `auth.ts`'s `emailAndPassword.password.hash`/`.verify`. That makes
+  Argon2id the one hasher for every password in the system — self
+  sign-up, admin-created accounts (`signUpEmail` under the hood), and
+  resets — all consistent, and it's what `userResetPassword` now imports
+  instead of `better-auth/crypto`.
+  **Real consequence, confirmed and accepted before doing it:** this
+  invalidates every existing scrypt-format hash (all seed data, any
+  pre-existing account) — better-auth's verify only understands one
+  algorithm at a time. User chose the full-cutover option (over an
+  Argon2-with-scrypt-fallback verify) given this is pre-release with a
+  reseed convention already ([[feedback_migrations_single_file]],
+  [[project_seed_data]]) — did the full `reset`/reseed cycle inside the
+  docker containers rather than a fallback verify path. `seed.ts` and
+  `bootstrap-admin.ts` needed no changes — both create accounts via
+  `auth.api.signUpEmail`, which already picks up whatever hasher
+  `auth.ts` configures.
+- **Live-verified end-to-end**, whole stack up via `docker compose up -d`
+  (not just the API — this touches the frontend dialog too): reset
+  `src/drizzle/migrations` + reseeded fresh (confirmed stored hashes are
+  `$argon2id$...` format), signed in as `administrator@gmail.com` /
+  `Password@123` (proves fresh Argon2 seed hashes verify correctly, not
+  just cached session), opened a Nurse's user detail page, used Reset
+  password, got a new one-time temp password, signed out, signed back in
+  as that Nurse with the temp password — real dashboard loaded,
+  confirming the Argon2 hash written by the reset endpoint round-trips
+  through better-auth's own verify. Signed back in as Administrator
+  afterward to restore session state, then `docker compose down` to stop
+  all containers per the user's standing instruction (API-only for
+  backend testing, whole stack for end-to-end, always stop containers
+  when done).
+- **No change to the still-open frontend permissions file thread** —
+  still the only remaining item from this doc's original scope.

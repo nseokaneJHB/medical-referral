@@ -19,6 +19,7 @@ import {
 	transferListResponseSchema,
 	appealListResponseSchema,
 	createUserByAdminResponseSchema,
+	resetUserPasswordResponseSchema,
 } from "@referral-tracking/shared";
 
 import {
@@ -36,6 +37,7 @@ import {
 	managerApprove,
 	managerDisable,
 	facilityReject,
+	userResetPassword,
 	facilitySuspend,
 	facilityApprove,
 } from "./service";
@@ -226,6 +228,17 @@ export const route: FastifyPluginAsync = async (
 				409: globalResponseSchema,
 				422: globalResponseSchema,
 			},
+		},
+	});
+
+	app.route({
+		method: "PATCH",
+		url: API_PATHS.ADMINISTRATOR_USER_RESET_PASSWORD,
+		handler: userResetPassword,
+		preHandler: preHandler(EVENT_NAMES.ADMINISTRATOR_USER_RESET_PASSWORD),
+		schema: {
+			params: userParamsSchema,
+			response: { 200: resetUserPasswordResponseSchema, ...commonResponses },
 		},
 	});
 
