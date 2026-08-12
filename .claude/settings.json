@@ -4,7 +4,10 @@
 			"Bash(pnpm run typecheck *)",
 			"Bash(pnpm typecheck *)",
 			"Bash(docker compose ps)",
-			"Bash(npx tsc --noEmit *)"
+			"Bash(npx tsc --noEmit *)",
+			"WebFetch(domain:localhost)",
+			"Bash(curl localhost:3000*)",
+			"Bash(curl http://localhost:3000*)"
 		]
 	}
 }
