@@ -230,13 +230,15 @@ const RecentActivityCard = ({
 						title={typeof item.label === "string" ? item.label : title}
 						to={item.to}
 						params={item.params}
-						className="justify-between border-b pb-2 last:border-0 last:pb-0"
+						className="border-b pb-2 last:border-0 last:pb-0"
 						buttonClassName="hover:text-primary h-auto w-full p-0 text-sm font-normal text-foreground no-underline hover:no-underline"
 					>
-						<span>{item.label}</span>
-						{item.sublabel && (
-							<span className="text-muted-foreground">{item.sublabel}</span>
-						)}
+						<span className="flex w-full items-center justify-between">
+							<span>{item.label}</span>
+							{item.sublabel && (
+								<span className="text-muted-foreground">{item.sublabel}</span>
+							)}
+						</span>
 					</Link>
 				))
 			)}
@@ -595,11 +597,15 @@ export const Route = createFileRoute("/_authenticated/")({
 		).data;
 
 		if (user.role === ROLES.DOCTOR) {
+			console.log("[loader] doctor deps:", JSON.stringify(deps));
 			const [summary, recentReferrals] = await Promise.all([
 				queryClient
 					.ensureQueryData({
 						queryKey: [QUERY_KEYS.DASHBOARD_DOCTOR, deps],
-						queryFn: () => doctorSummaryRequest(deps),
+						queryFn: () => {
+							console.log("[loader] calling doctorSummaryRequest with deps:", JSON.stringify(deps));
+							return doctorSummaryRequest(deps);
+						},
 					})
 					.then((r) => r.data),
 				queryClient
@@ -630,11 +636,15 @@ export const Route = createFileRoute("/_authenticated/")({
 		}
 
 		if (user.role === ROLES.ADMINISTRATOR) {
+			console.log("[loader] admin deps:", JSON.stringify(deps));
 			const [summary, recentUsers, recentFacilities] = await Promise.all([
 				queryClient
 					.ensureQueryData({
 						queryKey: [QUERY_KEYS.DASHBOARD_ADMIN, deps],
-						queryFn: () => adminSummaryRequest(deps),
+						queryFn: () => {
+							console.log("[loader] calling adminSummaryRequest with deps:", JSON.stringify(deps));
+							return adminSummaryRequest(deps);
+						},
 					})
 					.then((r) => r.data),
 				queryClient
@@ -693,11 +703,15 @@ export const Route = createFileRoute("/_authenticated/")({
 		}
 
 		if (user.role === ROLES.MANAGER) {
+			console.log("[loader] manager deps:", JSON.stringify(deps));
 			const [summary, recentPatients, recentReferrals] = await Promise.all([
 				queryClient
 					.ensureQueryData({
 						queryKey: [QUERY_KEYS.DASHBOARD_MANAGER, deps],
-						queryFn: () => managerSummaryRequest(deps),
+						queryFn: () => {
+							console.log("[loader] calling managerSummaryRequest with deps:", JSON.stringify(deps));
+							return managerSummaryRequest(deps);
+						},
 					})
 					.then((r) => r.data),
 				queryClient
@@ -754,11 +768,15 @@ export const Route = createFileRoute("/_authenticated/")({
 			};
 		}
 
+		console.log("[loader] nurse deps:", JSON.stringify(deps));
 		const [summary, recentPatients, recentReferrals] = await Promise.all([
 			queryClient
 				.ensureQueryData({
 					queryKey: [QUERY_KEYS.DASHBOARD_NURSE, deps],
-					queryFn: () => nurseSummaryRequest(deps),
+					queryFn: () => {
+						console.log("[loader] calling nurseSummaryRequest with deps:", JSON.stringify(deps));
+						return nurseSummaryRequest(deps);
+					},
 				})
 				.then((r) => r.data),
 			queryClient
