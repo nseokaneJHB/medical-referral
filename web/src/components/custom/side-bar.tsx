@@ -271,7 +271,7 @@ export const SideBar = () => {
 										</Link>
 									</SidebarMenuButton>
 									{(item.to as string) in badgeCounts && (
-										<SidebarMenuBadge className="right-2 min-w-5 rounded-full bg-primary px-1.5 text-primary-foreground">
+										<SidebarMenuBadge className="right-2 min-w-5 rounded-full bg-destructive px-1.5 text-destructive-foreground">
 											{badgeCounts[item.to as string] ?? 0}
 										</SidebarMenuBadge>
 									)}
