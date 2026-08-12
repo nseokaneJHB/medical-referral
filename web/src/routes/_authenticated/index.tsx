@@ -107,14 +107,13 @@ const PRIORITY_CHART_CONFIG: ChartConfig = {
 	urgent: { label: "Urgent", color: "var(--color-error)" },
 };
 
-// Date filter controls for the referrals report — scopes the breakdown
-// charts and the total referrals stat card below.
-const ReportDateFilter = () => {
+// Date range filter for scoping the referrals report data.
+const DateRangeFilter = () => {
 	const navigate = useNavigate({ from: Route.fullPath });
 	const search = Route.useSearch();
 
 	return (
-		<div className="flex flex-wrap items-end gap-2">
+		<div className="flex flex-wrap items-end gap-4">
 			<Field className="w-fit gap-1">
 				<FieldLabel>From</FieldLabel>
 				<Input
@@ -151,8 +150,7 @@ const ReportDateFilter = () => {
 	);
 };
 
-// Consolidated in from the old standalone Reports page — breakdown charts
-// for referral status and priority distribution, scoped by the date filter.
+// Referral breakdown charts for status and priority distribution, scoped by date.
 const BreakdownChartsSection = ({ report }: { report: ReferralsReport }) => {
 	const statusData = Object.entries(report.by_status).map(([key, value]) => ({
 		key,
@@ -256,7 +254,9 @@ const NurseDashboard = ({
 	recentPatients: RecentItem[];
 	recentReferrals: RecentItem[];
 }) => (
-	<div className="space-y-4">
+	<div className="space-y-6">
+		<DateRangeFilter />
+
 		<div className="grid grid-cols-2 gap-4 md:grid-cols-4">
 			<StatCard
 				icon={FilePlus2Icon}
@@ -275,17 +275,12 @@ const NurseDashboard = ({
 			/>
 			<StatCard
 				icon={ArrowLeftRightIcon}
-				label="Total in Range"
+				label="Period Total"
 				value={report.total.toString()}
 			/>
 		</div>
 
-		<div className="space-y-4">
-			<div className="flex flex-wrap items-end justify-between gap-4">
-				<ReportDateFilter />
-			</div>
-			<BreakdownChartsSection report={report} />
-		</div>
+		<BreakdownChartsSection report={report} />
 
 		<div className="grid gap-4 md:grid-cols-2">
 			<RecentActivityCard
@@ -326,7 +321,9 @@ const DoctorDashboard = ({
 	report: ReferralsReport;
 	recentReferrals: RecentItem[];
 }) => (
-	<div className="space-y-4">
+	<div className="space-y-6">
+		<DateRangeFilter />
+
 		<div className="grid grid-cols-2 gap-4 md:grid-cols-4">
 			<StatCard
 				icon={ClipboardListIcon}
@@ -345,17 +342,12 @@ const DoctorDashboard = ({
 			/>
 			<StatCard
 				icon={ArrowLeftRightIcon}
-				label="Total in Range"
+				label="Period Total"
 				value={report.total.toString()}
 			/>
 		</div>
 
-		<div className="space-y-4">
-			<div className="flex flex-wrap items-end justify-between gap-4">
-				<ReportDateFilter />
-			</div>
-			<BreakdownChartsSection report={report} />
-		</div>
+		<BreakdownChartsSection report={report} />
 
 		<RecentActivityCard
 			title="Referrals assigned to you"
@@ -391,7 +383,9 @@ const AdminDashboard = ({
 	recentUsers: RecentItem[];
 	recentFacilities: RecentItem[];
 }) => (
-	<div className="space-y-4">
+	<div className="space-y-6">
+		<DateRangeFilter />
+
 		<div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
 			<StatCard
 				icon={UsersIcon}
@@ -415,17 +409,12 @@ const AdminDashboard = ({
 			/>
 			<StatCard
 				icon={RepeatIcon}
-				label="In Range"
+				label="Period Total"
 				value={report.total.toString()}
 			/>
 		</div>
 
-		<div className="space-y-4">
-			<div className="flex flex-wrap items-end justify-between gap-4">
-				<ReportDateFilter />
-			</div>
-			<BreakdownChartsSection report={report} />
-		</div>
+		<BreakdownChartsSection report={report} />
 
 		<div className="grid gap-4 md:grid-cols-2">
 			<RecentActivityCard
@@ -477,7 +466,9 @@ const ManagerDashboard = ({
 		summary.pending_staff_applications > 0 || summary.pending_transfers > 0;
 
 	return (
-		<div className="space-y-4">
+		<div className="space-y-6">
+			<DateRangeFilter />
+
 			<div className="grid grid-cols-2 gap-4 md:grid-cols-3">
 				<StatCard
 					icon={UsersIcon}
@@ -491,7 +482,7 @@ const ManagerDashboard = ({
 				/>
 				<StatCard
 					icon={ArrowLeftRightIcon}
-					label="In Range"
+					label="Period Total"
 					value={report.total.toString()}
 				/>
 				<StatCard
@@ -524,12 +515,7 @@ const ManagerDashboard = ({
 				</div>
 			)}
 
-			<div className="space-y-4">
-				<div className="flex flex-wrap items-end justify-between gap-4">
-					<ReportDateFilter />
-				</div>
-				<BreakdownChartsSection report={report} />
-			</div>
+			<BreakdownChartsSection report={report} />
 
 			<div className="grid gap-4 md:grid-cols-2">
 				<RecentActivityCard
