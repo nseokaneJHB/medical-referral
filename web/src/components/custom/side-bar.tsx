@@ -5,6 +5,7 @@ import {
 	useRouterState,
 	type LinkProps,
 } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 
 import {
 	GavelIcon,
@@ -21,7 +22,13 @@ import {
 	ChevronsUpDownIcon,
 } from "lucide-react";
 
-import { ROLES, FRONTEND_URLS } from "@referral-tracking/shared";
+import {
+	ROLES,
+	FRONTEND_URLS,
+	USER_STATUS,
+	FACILITY_STATUS,
+	REFERRAL_STATUS,
+} from "@referral-tracking/shared";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -33,6 +40,7 @@ import {
 	SidebarFooter,
 	SidebarContent,
 	SidebarMenuItem,
+	SidebarMenuBadge,
 	SidebarMenuButton,
 	SidebarGroupContent,
 	Sidebar as ShadcnSidebar,
@@ -53,6 +61,13 @@ import { ThemeToggle } from "@/components/custom/theme-toggle";
 import { SignOutButton } from "@/components/sign-out-button";
 
 import { canViewNavItem } from "@/lib/permissions";
+
+import { QUERY_KEYS } from "@/api/constant";
+import { usersRequest } from "@/api/users";
+import { appealsRequest } from "@/api/appeals";
+import { transfersRequest } from "@/api/transfers";
+import { referralsRequest } from "@/api/referrals";
+import { facilitiesRequest } from "@/api/facilities";
 
 interface NavItem {
 	to: LinkProps["to"];
@@ -125,6 +140,71 @@ export const SideBar = () => {
 		(item) => canViewNavItem(user, item),
 	);
 
+	const showUsersBadge = visibleNavItems.some(
+		(item) => item.to === FRONTEND_URLS.USERS,
+	);
+	const showFacilitiesBadge = visibleNavItems.some(
+		(item) => item.to === FRONTEND_URLS.FACILITIES,
+	);
+	const showTransfersBadge = visibleNavItems.some(
+		(item) => item.to === FRONTEND_URLS.TRANSFERS,
+	);
+	const showAppealsBadge = visibleNavItems.some(
+		(item) => item.to === FRONTEND_URLS.APPEALS,
+	);
+	const showReferralsBadge = visibleNavItems.some(
+		(item) => item.to === FRONTEND_URLS.REFERRALS,
+	);
+
+	const namespace = user.role === ROLES.ADMINISTRATOR ? "ADMINISTRATOR" : "MANAGER";
+
+	const { data: usersPending } = useQuery({
+		queryKey: [...QUERY_KEYS.USERS, "pending-count"],
+		queryFn: () =>
+			usersRequest({
+				data: { page: "1", status: USER_STATUS.PENDING, limit: "1" },
+			}),
+		enabled: showUsersBadge,
+	});
+
+	const { data: facilitiesPending } = useQuery({
+		queryKey: [...QUERY_KEYS.FACILITIES, "pending-count"],
+		queryFn: () =>
+			facilitiesRequest({
+				data: { page: "1", status: FACILITY_STATUS.PENDING, limit: "1" },
+			}),
+		enabled: showFacilitiesBadge,
+	});
+
+	const { data: transfersPending } = useQuery({
+		queryKey: [...QUERY_KEYS.TRANSFERS, namespace],
+		queryFn: () => transfersRequest({ data: { namespace } }),
+		enabled: showTransfersBadge,
+	});
+
+	const { data: appealsPending } = useQuery({
+		queryKey: [...QUERY_KEYS.APPEALS, namespace],
+		queryFn: () => appealsRequest({ data: { namespace } }),
+		enabled: showAppealsBadge,
+	});
+
+	const { data: referralsPending } = useQuery({
+		queryKey: [...QUERY_KEYS.REFERRALS, "pending-count"],
+		queryFn: () =>
+			referralsRequest({
+				data: { page: "1", status: REFERRAL_STATUS.PENDING, limit: "1" },
+			}),
+		enabled: showReferralsBadge,
+	});
+
+	const badgeCounts: Record<string, number | undefined> = {
+		[FRONTEND_URLS.USERS]: usersPending?.total,
+		[FRONTEND_URLS.FACILITIES]: facilitiesPending?.total,
+		[FRONTEND_URLS.TRANSFERS]: transfersPending?.total,
+		[FRONTEND_URLS.APPEALS]: appealsPending?.total,
+		[FRONTEND_URLS.REFERRALS]: referralsPending?.total,
+	};
+
 	return (
 		<ShadcnSidebar collapsible="icon">
 			<SidebarHeader>
@@ -190,6 +270,11 @@ export const SideBar = () => {
 											</span>
 										</Link>
 									</SidebarMenuButton>
+									{!!badgeCounts[item.to as string] && (
+										<SidebarMenuBadge>
+											{badgeCounts[item.to as string]}
+										</SidebarMenuBadge>
+									)}
 								</SidebarMenuItem>
 							))}
 							{user.role === ROLES.MANAGER && user.facility_id && (
