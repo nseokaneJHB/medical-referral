@@ -188,15 +188,19 @@ const PersonCell = ({
 
 /**
  * Action cell for the table: a small badge for which kind of entity the
- * row is about (User/Facility/Referral/Patient), then the action label —
+ * row is about (Facility/Referral/Patient), then the action label —
  * omitted for Referral rows, where the badge alone is enough context and
- * the label would just repeat "Changed status" on every row.
+ * the label would just repeat "Changed status" on every row. The type
+ * badge itself is omitted for User rows — the action label alone
+ * (Disabled/Flagged/Approved appeal/etc.) already reads as user-specific.
  */
 const ActionCell = ({ entry }: { entry: ManagerAudit }) => (
 	<span className="inline-flex flex-wrap items-center gap-1.5">
-		<Badge variant={TYPE_VARIANT[entry.type]} className="shrink-0">
-			{stringToTitleCase(entry.type)}
-		</Badge>
+		{entry.type !== TIMELINE_TYPE.USER && (
+			<Badge variant={TYPE_VARIANT[entry.type]} className="shrink-0">
+				{stringToTitleCase(entry.type)}
+			</Badge>
+		)}
 		{entry.type !== TIMELINE_TYPE.REFERRAL && (
 			<span className="whitespace-nowrap">
 				{ACTION_LABEL[entry.action] ?? stringToTitleCase(entry.action)}
@@ -384,9 +388,8 @@ const FacilityAuditPage = () => {
 										<ActionCell entry={entry} />
 									</TableCell>
 									<TableCell className="max-w-60 truncate">
-										<PersonCell
+										<ActorCell
 											name={entry.subject.name}
-											role={entry.subject.role}
 											isSelf={entry.subject.id === user.id}
 										/>
 									</TableCell>
