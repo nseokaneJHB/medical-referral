@@ -292,6 +292,16 @@ const STATUS_VARIANT: Record<
 	[USER_STATUS.DEPARTED]: "default",
 };
 
+const ROLE_VARIANT: Record<
+	string,
+	"info" | "secondary" | "outline" | "suspended"
+> = {
+	[ROLES.NURSE]: "info",
+	[ROLES.DOCTOR]: "outline",
+	[ROLES.MANAGER]: "suspended",
+	[ROLES.ADMINISTRATOR]: "secondary",
+};
+
 const columnHelper = createColumnHelper<User>();
 
 const columns = [
@@ -303,7 +313,9 @@ const columns = [
 	columnHelper.accessor("role", {
 		header: "Role",
 		cell: (info) => (
-			<Badge variant="info">{stringToTitleCase(info.getValue())}</Badge>
+			<Badge variant={ROLE_VARIANT[info.getValue()]}>
+				{stringToTitleCase(info.getValue())}
+			</Badge>
 		),
 	}),
 	columnHelper.accessor("status", {
