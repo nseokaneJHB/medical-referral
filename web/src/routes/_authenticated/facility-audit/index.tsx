@@ -123,9 +123,20 @@ const ACTION_VERB: Record<TimelineAction, string> = {
 };
 
 /**
- * A person's name, plus (when known) their role badge, plus a "You" tag
- * when the row is about the viewer themselves — disambiguates who's who on
- * rows where both the actor and the subject are people.
+ * The actor's name — or just "You" when the viewer performed the action
+ * themselves, replacing the name entirely rather than appending a badge.
+ */
+const ActorCell = ({
+	name,
+	isSelf,
+}: {
+	name: string | null;
+	isSelf: boolean;
+}) => <span className="font-medium">{isSelf ? "You" : (name ?? "—")}</span>;
+
+/**
+ * A subject's name, plus (when known) their role badge, plus a "You" tag
+ * when the row is about the viewer themselves.
  */
 const PersonCell = ({
 	name,
@@ -152,6 +163,30 @@ const PersonCell = ({
 );
 
 /**
+ * Subject cell for the table: a small badge for which kind of entity it is
+ * (User/Facility/Referral/Patient — "who/where/what"), then the subject
+ * itself via `PersonCell`.
+ */
+const SubjectCell = ({
+	entry,
+	viewerId,
+}: {
+	entry: ManagerAudit;
+	viewerId: string;
+}) => (
+	<span className="inline-flex flex-wrap items-center gap-1.5">
+		<Badge variant={TYPE_VARIANT[entry.type]} className="shrink-0">
+			{stringToTitleCase(entry.type)}
+		</Badge>
+		<PersonCell
+			name={entry.subject.name}
+			role={entry.subject.role}
+			isSelf={entry.subject.id === viewerId}
+		/>
+	</span>
+);
+
+/**
  * The "who did what to whom, and what was the verdict" sentence used at
  * the top of the details dialog as a quick summary above the broken-out
  * fields below it.
@@ -167,7 +202,7 @@ const AuditSentence = ({
 
 	return (
 		<span className="inline-flex flex-wrap items-center gap-1.5">
-			<PersonCell
+			<ActorCell
 				name={entry.changer.name}
 				isSelf={entry.changer.id === viewerId}
 			/>
@@ -232,7 +267,7 @@ const AuditDetailsDialog = ({
 						<ReadOnlyField
 							label="Performed by"
 							value={
-								<PersonCell
+								<ActorCell
 									name={entry.changer.name}
 									isSelf={entry.changer.id === viewerId}
 								/>
@@ -295,7 +330,6 @@ const FacilityAuditPage = () => {
 					<Table>
 						<TableHeader>
 							<TableRow>
-								<TableHead>Type</TableHead>
 								<TableHead>Performed by</TableHead>
 								<TableHead>Action</TableHead>
 								<TableHead>Subject</TableHead>
@@ -308,7 +342,7 @@ const FacilityAuditPage = () => {
 							{response.data.length === 0 && (
 								<TableRow>
 									<TableCell
-										colSpan={7}
+										colSpan={6}
 										className="text-muted-foreground text-center"
 									>
 										No activity recorded yet.
@@ -321,13 +355,8 @@ const FacilityAuditPage = () => {
 									className="cursor-pointer"
 									onClick={() => setViewing(entry)}
 								>
-									<TableCell>
-										<Badge variant={TYPE_VARIANT[entry.type]}>
-											{stringToTitleCase(entry.type)}
-										</Badge>
-									</TableCell>
 									<TableCell className="max-w-40 truncate">
-										<PersonCell
+										<ActorCell
 											name={entry.changer.name}
 											isSelf={entry.changer.id === user.id}
 										/>
@@ -335,12 +364,8 @@ const FacilityAuditPage = () => {
 									<TableCell className="whitespace-nowrap">
 										{ACTION_LABEL[entry.action] ?? stringToTitleCase(entry.action)}
 									</TableCell>
-									<TableCell className="max-w-52 truncate">
-										<PersonCell
-											name={entry.subject.name}
-											role={entry.subject.role}
-											isSelf={entry.subject.id === user.id}
-										/>
+									<TableCell className="max-w-60 truncate">
+										<SubjectCell entry={entry} viewerId={user.id} />
 									</TableCell>
 									<TableCell className="max-w-40 truncate">
 										{entry.previous && entry.next
