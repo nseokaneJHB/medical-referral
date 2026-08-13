@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { uuidSchema, stringSchema, userRefSchema } from "./field";
+import { uuidSchema, stringSchema, roleSchema, userRefSchema } from "./field";
 
 import { globalResponseSchema, paginatedGlobalResponseSchema } from "./global";
 
@@ -65,7 +65,7 @@ export const appealListResponseSchema = paginatedGlobalResponseSchema.extend({
  * `APPEAL_SUBMITTED` rows).
  */
 export const ManagerAuditSchema = TimelineSchema.extend({
-	subject: userRefSchema,
+	subject: userRefSchema.extend({ role: roleSchema.nullable() }),
 });
 
 export const managerAuditListResponseSchema = paginatedGlobalResponseSchema.extend({

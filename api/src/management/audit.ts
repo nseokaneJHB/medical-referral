@@ -1,5 +1,6 @@
 import {
 	TIMELINE_TYPE,
+	type Role,
 	type Timeline,
 	type ManagerAudit,
 } from "@referral-tracking/shared";
@@ -132,9 +133,12 @@ export class AuditManager {
 	 * `entity` alone is a bare UUID — batch-fetches every distinct
 	 * user/patient/referral/facility name referenced by `rows` (one query
 	 * per type, not one per row) and attaches it as `subject`, normalized to
-	 * `{ id, name }` regardless of entity type: a patient's `name` is its
-	 * first + last name joined; a referral's is its `referral_reason`
-	 * (referrals have no display name of their own).
+	 * `{ id, name, role }` regardless of entity type: a patient's `name` is
+	 * its first + last name joined; a referral's is its `referral_reason`
+	 * (referrals have no display name of their own); `role` is only ever
+	 * populated for `type: USER` rows (Nurse/Doctor/Manager/Administrator),
+	 * null everywhere else — the frontend uses it to disambiguate which kind
+	 * of person a User-type row is about.
 	 */
 	hydrateSubjects = async (rows: Timeline[]): Promise<ManagerAudit[]> => {
 		const userIds = rows
@@ -156,7 +160,7 @@ export class AuditManager {
 						page: 1,
 						limit: userIds.length,
 						where: { id: { in: userIds } },
-						select: { id: true, name: true },
+						select: { id: true, name: true, role: true },
 					})
 				: null,
 			patientIds.length > 0
@@ -186,7 +190,11 @@ export class AuditManager {
 		]);
 
 		const nameById = new Map<string, string | null>();
-		for (const user of users?.data ?? []) nameById.set(user.id, user.name);
+		const roleById = new Map<string, Role | null>();
+		for (const user of users?.data ?? []) {
+			nameById.set(user.id, user.name);
+			roleById.set(user.id, user.role);
+		}
 		for (const patient of patients?.data ?? [])
 			nameById.set(
 				patient.id,
@@ -199,7 +207,11 @@ export class AuditManager {
 
 		return rows.map((row) => ({
 			...row,
-			subject: { id: row.entity, name: nameById.get(row.entity) ?? null },
+			subject: {
+				id: row.entity,
+				name: nameById.get(row.entity) ?? null,
+				role: roleById.get(row.entity) ?? null,
+			},
 		}));
 	};
 }
