@@ -57,6 +57,22 @@ export const appealListResponseSchema = paginatedGlobalResponseSchema.extend({
 });
 
 /**
+ * A `timeline` row enriched with `subject`, scoped to a Manager's own
+ * facility — the facility-wide "who did what when" feed covering their
+ * staff, their patients, referrals touching their facility, and their
+ * facility itself. Same enrichment shape as `AppealSchema` (this isn't
+ * appeal-specific — `AppealSchema` is just the subset filtered to
+ * `APPEAL_SUBMITTED` rows).
+ */
+export const ManagerAuditSchema = TimelineSchema.extend({
+	subject: userRefSchema,
+});
+
+export const managerAuditListResponseSchema = paginatedGlobalResponseSchema.extend({
+	data: z.array(ManagerAuditSchema),
+});
+
+/**
  * Single-row response — used for `POST /account/appeal` (echoes the
  * created `APPEAL_SUBMITTED` row) and the appeal-decision endpoints in
  * `administrator`/`manager` (echoes the created `APPEAL_APPROVED`/

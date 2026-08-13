@@ -21,6 +21,7 @@ import { ModerationManager } from "../../management/moderation";
 import type {
 	AppealsRequest,
 	StaffFlagRequest,
+	AuditListRequest,
 	AppealDenyRequest,
 	StaffApproveRequest,
 	StaffRejectRequest,
@@ -414,6 +415,51 @@ export const appeals = async (
 	reply.status(status).send({
 		code,
 		message: "Appeals retrieved.",
+		...result,
+	});
+};
+
+/**
+ * A Manager's facility-wide activity feed — every `timeline` row about
+ * their staff, their patients, referrals touching their facility, or their
+ * facility itself. See `AuditManager.listForFacility` for how the
+ * facility-scoping actually works.
+ */
+export const auditList = async (
+	request: FastifyRequest<AuditListRequest>,
+	reply: FastifyReply<AuditListRequest>,
+): Promise<void> => {
+	const manager = request.user!;
+	const page = request.query.page
+		? Number(request.query.page)
+		: DEFAULT_PAGE_NUMBER;
+	const limit = request.query.limit
+		? Number(request.query.limit)
+		: DEFAULT_PAGE_LIMIT;
+
+	if (!manager.facility_id) {
+		const { status, code } = HTTP_RESPONSE_CODE.OK;
+		return reply.status(status).send({
+			code,
+			message: "Facility audit retrieved.",
+			data: [],
+			page,
+			limit,
+			count: 0,
+			total: 0,
+		});
+	}
+
+	const result = await request.server.management.audit.listForFacility({
+		facilityId: manager.facility_id,
+		page,
+		limit,
+	});
+
+	const { status, code } = HTTP_RESPONSE_CODE.OK;
+	reply.status(status).send({
+		code,
+		message: "Facility audit retrieved.",
 		...result,
 	});
 };

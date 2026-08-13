@@ -19,6 +19,8 @@ export const QUERY_KEYS = {
 
 	AUDIT_LOGINS: ["audit", "logins"],
 
+	FACILITY_AUDIT: ["facility-audit"],
+
 	TRANSFERS: ["transfers"],
 
 	APPEALS: ["appeals"],

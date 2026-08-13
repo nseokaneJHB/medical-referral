@@ -16,10 +16,12 @@ import {
 	timelineResponseSchema,
 	appealListResponseSchema,
 	transferListResponseSchema,
+	managerAuditListResponseSchema,
 } from "@referral-tracking/shared";
 
 import {
 	appeals,
+	auditList,
 	staffFlag,
 	appealDeny,
 	staffReject,
@@ -214,6 +216,20 @@ export const route: FastifyPluginAsync = async (
 		schema: {
 			response: {
 				200: transferListResponseSchema,
+				401: globalResponseSchema,
+				403: globalResponseSchema,
+			},
+		},
+	});
+
+	app.route({
+		method: "GET",
+		url: API_PATHS.MANAGER_AUDIT_LIST,
+		handler: auditList,
+		preHandler: preHandler(EVENT_NAMES.MANAGER_AUDIT_LIST),
+		schema: {
+			response: {
+				200: managerAuditListResponseSchema,
 				401: globalResponseSchema,
 				403: globalResponseSchema,
 			},

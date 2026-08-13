@@ -128,6 +128,12 @@ const NAV_ITEMS: NavItem[] = [
 		label: "Audit log",
 		roles: [ROLES.ADMINISTRATOR],
 	},
+	{
+		to: FRONTEND_URLS.FACILITY_AUDIT,
+		icon: HistoryIcon,
+		label: "Facility audit",
+		roles: [ROLES.MANAGER],
+	},
 ];
 
 export const SideBar = () => {

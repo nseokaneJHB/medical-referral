@@ -11,6 +11,7 @@ import type {
 	ApproveActionBody,
 	ModerationReasonBody,
 	TimelineListResponse,
+	ManagerAuditListResponse,
 } from "@referral-tracking/shared";
 
 export interface StaffApproveRequest extends RouteGenericInterface {
@@ -57,4 +58,9 @@ export interface AppealDenyRequest extends RouteGenericInterface {
 export interface AppealsRequest extends RouteGenericInterface {
 	Querystring: { page?: string; limit?: string };
 	Reply: TimelineListResponse | GlobalResponse;
+}
+
+export interface AuditListRequest extends RouteGenericInterface {
+	Querystring: { page?: string; limit?: string };
+	Reply: ManagerAuditListResponse | GlobalResponse;
 }

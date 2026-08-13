@@ -24,6 +24,7 @@ export const FRONTEND_URLS = {
 	USERS: "/users",
 	USER: "/users/$userId",
 	AUDIT: "/audit",
+	FACILITY_AUDIT: "/facility-audit",
 	FACILITIES: "/facilities",
 	FACILITY: "/facilities/$facilityId",
 	TRANSFERS: "/transfers",
@@ -233,6 +234,7 @@ export const API_PATHS = {
 	MANAGER_TRANSFER_DESTINATION_APPROVE: "/transfers/:id/destination/approve",
 	MANAGER_TRANSFER_DESTINATION_REJECT: "/transfers/:id/destination/reject",
 	MANAGER_TRANSFER_LIST: "/transfers",
+	MANAGER_AUDIT_LIST: "/audit",
 
 	PATIENT_LIST: "/",
 	PATIENT_BY_ID: "/:id",

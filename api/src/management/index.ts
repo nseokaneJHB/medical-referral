@@ -1,6 +1,7 @@
 import type { CoreService } from "../core";
 
 import { AppealManager } from "./appeal";
+import { AuditManager } from "./audit";
 import { SessionManager } from "./session";
 import { TransferManager } from "./transfer";
 import { ModerationManager } from "./moderation";
@@ -19,12 +20,14 @@ import { ModerationManager } from "./moderation";
  */
 export class ManagementService {
 	public appeal: AppealManager;
+	public audit: AuditManager;
 	public session: SessionManager;
 	public transfer: TransferManager;
 	public moderation: ModerationManager;
 
 	constructor(core: CoreService) {
 		this.appeal = new AppealManager(core);
+		this.audit = new AuditManager(core);
 		this.session = new SessionManager();
 		this.transfer = new TransferManager(core);
 		this.moderation = new ModerationManager(core);
