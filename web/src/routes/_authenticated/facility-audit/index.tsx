@@ -15,6 +15,7 @@ import {
 	DEFAULT_PAGE_LIMIT,
 	DEFAULT_PAGE_NUMBER,
 	type ManagerAudit,
+	type TimelineAction,
 } from "@referral-tracking/shared";
 
 import { isManager } from "@/lib/permissions";
@@ -70,9 +71,36 @@ const ROLE_VARIANT: Record<
 };
 
 /**
+ * Natural-language verb phrase per action, so a row reads as a sentence
+ * ("{actor} {verb} {subject}") instead of a raw enum value — e.g.
+ * `STATUS_CHANGE` alone doesn't say who did what to what, "changed the
+ * status of" does.
+ */
+const ACTION_VERB: Record<TimelineAction, string> = {
+	STATUS_CHANGE: "changed the status of",
+	DOCTOR_ASSIGNED: "assigned a doctor to",
+	REDIRECTED: "redirected",
+	TRANSFER_REQUESTED: "requested a transfer for",
+	TRANSFER_APPROVED_ORIGIN: "approved the origin side of the transfer for",
+	TRANSFER_APPROVED_DESTINATION:
+		"approved the destination side of the transfer for",
+	TRANSFER_REJECTED: "rejected the transfer for",
+	APPROVED: "approved",
+	REJECTED: "rejected",
+	DISABLED: "disabled",
+	FLAGGED: "flagged",
+	UNFLAGGED: "unflagged",
+	SUSPENDED: "suspended",
+	DEPARTED: "recorded the departure of",
+	APPEAL_SUBMITTED: "submitted an appeal for",
+	APPEAL_APPROVED: "approved the appeal for",
+	APPEAL_DENIED: "denied the appeal for",
+};
+
+/**
  * A person's name, plus (when known) their role badge, plus a "You" tag
  * when the row is about the viewer themselves — disambiguates who's who on
- * rows where both the Subject and the "Performed by" actor are people.
+ * rows where both the actor and the subject are people.
  */
 const PersonCell = ({
 	name,
@@ -83,8 +111,8 @@ const PersonCell = ({
 	role?: string | null;
 	isSelf: boolean;
 }) => (
-	<div className="flex items-center gap-1.5">
-		<span className="truncate">{name ?? "—"}</span>
+	<span className="inline-flex flex-wrap items-center gap-1.5">
+		<span className="font-medium">{name ?? "—"}</span>
 		{role && (
 			<Badge variant={ROLE_VARIANT[role]} className="shrink-0">
 				{stringToTitleCase(role)}
@@ -95,10 +123,46 @@ const PersonCell = ({
 				You
 			</Badge>
 		)}
-	</div>
+	</span>
 );
 
-/** Full, untruncated audit entry details — the table's cells are clipped for layout. */
+/**
+ * The "who did what to whom, and what was the verdict" sentence shared by
+ * the table row and the details dialog — one place computing it keeps both
+ * views consistent.
+ */
+const AuditSentence = ({
+	entry,
+	viewerId,
+}: {
+	entry: ManagerAudit;
+	viewerId: string;
+}) => {
+	const verb = ACTION_VERB[entry.action] ?? stringToTitleCase(entry.action);
+
+	return (
+		<span className="inline-flex flex-wrap items-center gap-1.5">
+			<PersonCell
+				name={entry.changer.name}
+				isSelf={entry.changer.id === viewerId}
+			/>
+			<span className="text-muted-foreground">{verb}</span>
+			<PersonCell
+				name={entry.subject.name}
+				role={entry.subject.role}
+				isSelf={entry.subject.id === viewerId}
+			/>
+			{entry.previous && entry.next && (
+				<span className="text-muted-foreground">
+					— {stringToTitleCase(entry.previous)} →{" "}
+					{stringToTitleCase(entry.next)}
+				</span>
+			)}
+		</span>
+	);
+};
+
+/** Full, untruncated audit entry details — the table row is clipped for layout. */
 const AuditDetailsDialog = ({
 	entry,
 	viewerId,
@@ -123,6 +187,9 @@ const AuditDetailsDialog = ({
 						</DialogDescription>
 					</DialogHeader>
 					<div className="space-y-4">
+						<p className="text-sm leading-relaxed">
+							<AuditSentence entry={entry} viewerId={viewerId} />
+						</p>
 						<div className="grid gap-4 sm:grid-cols-2">
 							<ReadOnlyField
 								label="Type"
@@ -157,7 +224,7 @@ const AuditDetailsDialog = ({
 							}
 						/>
 						<div className="flex w-full flex-col gap-1">
-							<span className="text-sm font-medium">Change</span>
+							<span className="text-sm font-medium">Verdict / change</span>
 							<p className="text-foreground rounded-md border bg-transparent p-3 text-sm whitespace-pre-wrap">
 								{entry.previous && entry.next
 									? `${stringToTitleCase(entry.previous)} → ${stringToTitleCase(entry.next)}`
@@ -203,20 +270,16 @@ const FacilityAuditPage = () => {
 					<Table>
 						<TableHeader>
 							<TableRow>
-								<TableHead>Type</TableHead>
-								<TableHead>Subject</TableHead>
-								<TableHead>Action</TableHead>
-								<TableHead>Change</TableHead>
-								<TableHead>Notes</TableHead>
-								<TableHead>Performed by</TableHead>
-								<TableHead>When</TableHead>
+								<TableHead className="w-28">Type</TableHead>
+								<TableHead>Details</TableHead>
+								<TableHead className="w-32">When</TableHead>
 							</TableRow>
 						</TableHeader>
 						<TableBody>
 							{response.data.length === 0 && (
 								<TableRow>
 									<TableCell
-										colSpan={7}
+										colSpan={3}
 										className="text-muted-foreground text-center"
 									>
 										No activity recorded yet.
@@ -234,29 +297,17 @@ const FacilityAuditPage = () => {
 											{stringToTitleCase(entry.type)}
 										</Badge>
 									</TableCell>
-									<TableCell className="max-w-56 truncate">
-										<PersonCell
-											name={entry.subject.name}
-											role={entry.subject.role}
-											isSelf={entry.subject.id === user.id}
-										/>
-									</TableCell>
-									<TableCell>{stringToTitleCase(entry.action)}</TableCell>
-									<TableCell className="max-w-48 truncate">
-										{entry.previous && entry.next
-											? `${stringToTitleCase(entry.previous)} → ${stringToTitleCase(entry.next)}`
-											: "—"}
-									</TableCell>
-									<TableCell className="max-w-60 truncate">
-										{entry.notes ?? "—"}
-									</TableCell>
-									<TableCell className="max-w-48 truncate">
-										<PersonCell
-											name={entry.changer.name}
-											isSelf={entry.changer.id === user.id}
-										/>
-									</TableCell>
 									<TableCell>
+										<div className="text-sm leading-relaxed">
+											<AuditSentence entry={entry} viewerId={user.id} />
+										</div>
+										{entry.notes && (
+											<p className="text-muted-foreground mt-1 max-w-xl truncate text-sm italic">
+												"{entry.notes}"
+											</p>
+										)}
+									</TableCell>
+									<TableCell className="text-muted-foreground text-sm whitespace-nowrap">
 										{getRelativeTime(entry.changed_at as unknown as string)}
 									</TableCell>
 								</TableRow>
