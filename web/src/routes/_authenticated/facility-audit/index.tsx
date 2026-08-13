@@ -71,10 +71,35 @@ const ROLE_VARIANT: Record<
 };
 
 /**
- * Natural-language verb phrase per action, so a row reads as a sentence
- * ("{actor} {verb} {subject}") instead of a raw enum value — e.g.
- * `STATUS_CHANGE` alone doesn't say who did what to what, "changed the
- * status of" does.
+ * Short, standalone label per action for the "Action" column — distinct
+ * from the sentence-flow verb phrases below, which have trailing
+ * prepositions ("approved the appeal for") that only read correctly when
+ * immediately followed by the subject's name.
+ */
+const ACTION_LABEL: Record<TimelineAction, string> = {
+	STATUS_CHANGE: "Changed status",
+	DOCTOR_ASSIGNED: "Assigned doctor",
+	REDIRECTED: "Redirected",
+	TRANSFER_REQUESTED: "Requested transfer",
+	TRANSFER_APPROVED_ORIGIN: "Approved transfer (origin)",
+	TRANSFER_APPROVED_DESTINATION: "Approved transfer (destination)",
+	TRANSFER_REJECTED: "Rejected transfer",
+	APPROVED: "Approved",
+	REJECTED: "Rejected",
+	DISABLED: "Disabled",
+	FLAGGED: "Flagged",
+	UNFLAGGED: "Unflagged",
+	SUSPENDED: "Suspended",
+	DEPARTED: "Recorded departure",
+	APPEAL_SUBMITTED: "Submitted appeal",
+	APPEAL_APPROVED: "Approved appeal",
+	APPEAL_DENIED: "Denied appeal",
+};
+
+/**
+ * Natural-language verb phrase per action, so the dialog's summary sentence
+ * reads as "{actor} {verb} {subject}" — e.g. `STATUS_CHANGE` alone doesn't
+ * say who did what to what, "changed the status of" does.
  */
 const ACTION_VERB: Record<TimelineAction, string> = {
 	STATUS_CHANGE: "changed the status of",
@@ -127,9 +152,9 @@ const PersonCell = ({
 );
 
 /**
- * The "who did what to whom, and what was the verdict" sentence shared by
- * the table row and the details dialog — one place computing it keeps both
- * views consistent.
+ * The "who did what to whom, and what was the verdict" sentence used at
+ * the top of the details dialog as a quick summary above the broken-out
+ * fields below it.
  */
 const AuditSentence = ({
 	entry,
@@ -162,7 +187,7 @@ const AuditSentence = ({
 	);
 };
 
-/** Full, untruncated audit entry details — the table row is clipped for layout. */
+/** Full, untruncated audit entry details — the table's cells are clipped for layout. */
 const AuditDetailsDialog = ({
 	entry,
 	viewerId,
@@ -177,7 +202,7 @@ const AuditDetailsDialog = ({
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			{entry && (
-				<DialogContent>
+				<DialogContent className="sm:max-w-2xl">
 					<DialogHeader>
 						<DialogTitle>Audit entry details</DialogTitle>
 						<DialogDescription>
@@ -201,9 +226,18 @@ const AuditDetailsDialog = ({
 							/>
 							<ReadOnlyField
 								label="Action"
-								value={stringToTitleCase(entry.action)}
+								value={ACTION_LABEL[entry.action] ?? stringToTitleCase(entry.action)}
 							/>
 						</div>
+						<ReadOnlyField
+							label="Performed by"
+							value={
+								<PersonCell
+									name={entry.changer.name}
+									isSelf={entry.changer.id === viewerId}
+								/>
+							}
+						/>
 						<ReadOnlyField
 							label="Subject"
 							value={
@@ -214,17 +248,8 @@ const AuditDetailsDialog = ({
 								/>
 							}
 						/>
-						<ReadOnlyField
-							label="Performed by"
-							value={
-								<PersonCell
-									name={entry.changer.name}
-									isSelf={entry.changer.id === viewerId}
-								/>
-							}
-						/>
 						<div className="flex w-full flex-col gap-1">
-							<span className="text-sm font-medium">Verdict / change</span>
+							<span className="text-sm font-medium">Verdict</span>
 							<p className="text-foreground rounded-md border bg-transparent p-3 text-sm whitespace-pre-wrap">
 								{entry.previous && entry.next
 									? `${stringToTitleCase(entry.previous)} → ${stringToTitleCase(entry.next)}`
@@ -232,9 +257,9 @@ const AuditDetailsDialog = ({
 							</p>
 						</div>
 						<div className="flex w-full flex-col gap-1">
-							<span className="text-sm font-medium">Notes</span>
+							<span className="text-sm font-medium">Why</span>
 							<p className="text-foreground rounded-md border bg-transparent p-3 text-sm whitespace-pre-wrap">
-								{entry.notes ?? "No notes."}
+								{entry.notes ?? "No reason given."}
 							</p>
 						</div>
 					</div>
@@ -270,16 +295,20 @@ const FacilityAuditPage = () => {
 					<Table>
 						<TableHeader>
 							<TableRow>
-								<TableHead className="w-28">Type</TableHead>
-								<TableHead>Details</TableHead>
-								<TableHead className="w-32">When</TableHead>
+								<TableHead>Type</TableHead>
+								<TableHead>Performed by</TableHead>
+								<TableHead>Action</TableHead>
+								<TableHead>Subject</TableHead>
+								<TableHead>Verdict</TableHead>
+								<TableHead>Why</TableHead>
+								<TableHead>When</TableHead>
 							</TableRow>
 						</TableHeader>
 						<TableBody>
 							{response.data.length === 0 && (
 								<TableRow>
 									<TableCell
-										colSpan={3}
+										colSpan={7}
 										className="text-muted-foreground text-center"
 									>
 										No activity recorded yet.
@@ -297,17 +326,31 @@ const FacilityAuditPage = () => {
 											{stringToTitleCase(entry.type)}
 										</Badge>
 									</TableCell>
-									<TableCell>
-										<div className="text-sm leading-relaxed">
-											<AuditSentence entry={entry} viewerId={user.id} />
-										</div>
-										{entry.notes && (
-											<p className="text-muted-foreground mt-1 max-w-xl truncate text-sm italic">
-												"{entry.notes}"
-											</p>
-										)}
+									<TableCell className="max-w-40 truncate">
+										<PersonCell
+											name={entry.changer.name}
+											isSelf={entry.changer.id === user.id}
+										/>
 									</TableCell>
-									<TableCell className="text-muted-foreground text-sm whitespace-nowrap">
+									<TableCell className="whitespace-nowrap">
+										{ACTION_LABEL[entry.action] ?? stringToTitleCase(entry.action)}
+									</TableCell>
+									<TableCell className="max-w-52 truncate">
+										<PersonCell
+											name={entry.subject.name}
+											role={entry.subject.role}
+											isSelf={entry.subject.id === user.id}
+										/>
+									</TableCell>
+									<TableCell className="max-w-40 truncate">
+										{entry.previous && entry.next
+											? `${stringToTitleCase(entry.previous)} → ${stringToTitleCase(entry.next)}`
+											: "—"}
+									</TableCell>
+									<TableCell className="max-w-48 truncate text-muted-foreground italic">
+										{entry.notes ?? "—"}
+									</TableCell>
+									<TableCell className="text-muted-foreground whitespace-nowrap">
 										{getRelativeTime(entry.changed_at as unknown as string)}
 									</TableCell>
 								</TableRow>
