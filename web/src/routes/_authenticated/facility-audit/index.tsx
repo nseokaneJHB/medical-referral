@@ -8,7 +8,11 @@ import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 
 import {
 	ROLES,
+	USER_STATUS,
+	TIMELINE_TYPE,
 	FRONTEND_URLS,
+	FACILITY_STATUS,
+	REFERRAL_STATUS,
 	formatDate,
 	getRelativeTime,
 	stringToTitleCase,
@@ -58,6 +62,26 @@ const TYPE_VARIANT: Record<
 	FACILITY: "suspended",
 	REFERRAL: "outline",
 	PATIENT: "secondary",
+};
+
+/** Merged referral/user/facility status → badge variant, matching each entity's own list-page badges (referrals/users/facilities `index.tsx`). Values that mean the same thing across entities (PENDING, REJECTED, FLAGGED) already agree on variant in each source page, so this merge is conflict-free. */
+const STATUS_VARIANT: Record<
+	string,
+	"default" | "info" | "success" | "warning" | "error" | "locked"
+> = {
+	[REFERRAL_STATUS.PENDING]: "default",
+	[REFERRAL_STATUS.ACCEPTED]: "info",
+	[REFERRAL_STATUS.IN_PROGRESS]: "info",
+	[REFERRAL_STATUS.ON_HOLD]: "warning",
+	[REFERRAL_STATUS.COMPLETED]: "success",
+	[REFERRAL_STATUS.REJECTED]: "error",
+	[REFERRAL_STATUS.CANCELED]: "error",
+	[USER_STATUS.ACTIVE]: "success",
+	[USER_STATUS.DISABLED]: "locked",
+	[USER_STATUS.FLAGGED]: "warning",
+	[USER_STATUS.DEPARTED]: "default",
+	[FACILITY_STATUS.APPROVED]: "success",
+	[FACILITY_STATUS.SUSPENDED]: "error",
 };
 
 const ROLE_VARIANT: Record<
@@ -164,16 +188,20 @@ const PersonCell = ({
 
 /**
  * Action cell for the table: a small badge for which kind of entity the
- * row is about (User/Facility/Referral/Patient), then the action label.
+ * row is about (User/Facility/Referral/Patient), then the action label —
+ * omitted for Referral rows, where the badge alone is enough context and
+ * the label would just repeat "Changed status" on every row.
  */
 const ActionCell = ({ entry }: { entry: ManagerAudit }) => (
 	<span className="inline-flex flex-wrap items-center gap-1.5">
 		<Badge variant={TYPE_VARIANT[entry.type]} className="shrink-0">
 			{stringToTitleCase(entry.type)}
 		</Badge>
-		<span className="whitespace-nowrap">
-			{ACTION_LABEL[entry.action] ?? stringToTitleCase(entry.action)}
-		</span>
+		{entry.type !== TIMELINE_TYPE.REFERRAL && (
+			<span className="whitespace-nowrap">
+				{ACTION_LABEL[entry.action] ?? stringToTitleCase(entry.action)}
+			</span>
+		)}
 	</span>
 );
 
@@ -363,7 +391,13 @@ const FacilityAuditPage = () => {
 										/>
 									</TableCell>
 									<TableCell className="max-w-32 truncate">
-										{entry.next ? stringToTitleCase(entry.next) : "—"}
+										{entry.next ? (
+											<Badge variant={STATUS_VARIANT[entry.next] ?? "outline"}>
+												{stringToTitleCase(entry.next)}
+											</Badge>
+										) : (
+											"—"
+										)}
 									</TableCell>
 									<TableCell className="max-w-48 truncate text-muted-foreground italic">
 										{entry.reason ?? entry.notes ?? "—"}
