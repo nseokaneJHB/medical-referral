@@ -194,16 +194,23 @@ const isAppealAction = (action: TimelineAction): boolean =>
 	APPEAL_ACTIONS.includes(action);
 
 /**
+ * Shared "whose appeal" clause for appeal rows — "your" when the viewer
+ * is the appeal's subject, otherwise "{name}'s". Used by both the Subject
+ * column's label and the dialog's summary sentence so they can't drift.
+ */
+const appealWhose = (entry: ManagerAudit, viewerId: string): string =>
+	entry.subject.id === viewerId
+		? "your"
+		: `${entry.subject.name ?? "their"}'s`;
+
+/**
  * Appeal rows read better as a single sentence fragment in the Subject
  * column than as "{name} [role] [You]" — whose appeal it is matters more
  * than the subject's role. `APPEAL_SUBMITTED`'s actor and subject are
  * always the same person, so it never needs a "whose" clause.
  */
 const appealSubjectLabel = (entry: ManagerAudit, viewerId: string): string => {
-	const whose =
-		entry.subject.id === viewerId
-			? "your"
-			: `${entry.subject.name ?? "their"}'s`;
+	const whose = appealWhose(entry, viewerId);
 
 	switch (entry.action) {
 		case TIMELINE_ACTION.APPEAL_SUBMITTED:
@@ -214,6 +221,29 @@ const appealSubjectLabel = (entry: ManagerAudit, viewerId: string): string => {
 			return `Denied ${whose} appeal`;
 		default:
 			return entry.subject.name ?? "—";
+	}
+};
+
+/**
+ * Lowercase verb-continuation form of the same appeal phrasing, for the
+ * dialog's "{actor} {this}" summary sentence — e.g. "You submitted an
+ * appeal" / "Ava Administrator approved your appeal".
+ */
+const appealSentenceFragment = (
+	entry: ManagerAudit,
+	viewerId: string,
+): string => {
+	const whose = appealWhose(entry, viewerId);
+
+	switch (entry.action) {
+		case TIMELINE_ACTION.APPEAL_SUBMITTED:
+			return "submitted an appeal";
+		case TIMELINE_ACTION.APPEAL_APPROVED:
+			return `approved ${whose} appeal`;
+		case TIMELINE_ACTION.APPEAL_DENIED:
+			return `denied ${whose} appeal`;
+		default:
+			return "";
 	}
 };
 
@@ -320,6 +350,20 @@ const AuditSentence = ({
 	entry: ManagerAudit;
 	viewerId: string;
 }) => {
+	if (isAppealAction(entry.action)) {
+		return (
+			<span className="inline-flex flex-wrap items-center gap-1.5">
+				<ActorCell
+					name={entry.changer.name}
+					isSelf={entry.changer.id === viewerId}
+				/>
+				<span className="text-muted-foreground">
+					{appealSentenceFragment(entry, viewerId)}
+				</span>
+			</span>
+		);
+	}
+
 	const verb = ACTION_VERB[entry.action] ?? stringToTitleCase(entry.action);
 
 	return (
@@ -398,11 +442,17 @@ const AuditDetailsDialog = ({
 						<ReadOnlyField
 							label="Subject"
 							value={
-								<PersonCell
-									name={entry.subject.name}
-									role={entry.subject.role}
-									isSelf={entry.subject.id === viewerId}
-								/>
+								isAppealAction(entry.action) ? (
+									<span className="font-medium">
+										{appealSubjectLabel(entry, viewerId)}
+									</span>
+								) : (
+									<PersonCell
+										name={entry.subject.name}
+										role={entry.subject.role}
+										isSelf={entry.subject.id === viewerId}
+									/>
+								)
 							}
 						/>
 						<div className="flex w-full flex-col gap-1">
