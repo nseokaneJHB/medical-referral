@@ -11,6 +11,7 @@ import {
 	USER_STATUS,
 	TIMELINE_TYPE,
 	FRONTEND_URLS,
+	TIMELINE_ACTION,
 	FACILITY_STATUS,
 	REFERRAL_STATUS,
 	formatDate,
@@ -147,6 +148,65 @@ const ACTION_VERB: Record<TimelineAction, string> = {
 };
 
 /**
+ * Action badge color, by what happened rather than which entity it
+ * happened to — so "Disabled" and "Flagged" read as different severities
+ * instead of both being the same "User" blue. STATUS_CHANGE and the
+ * APPEAL_* actions aren't listed here since `ActionCell` special-cases
+ * Referral and Appeal rows before this map is ever consulted.
+ */
+const ACTION_VARIANT: Record<
+	string,
+	"default" | "info" | "success" | "warning" | "error" | "locked"
+> = {
+	DOCTOR_ASSIGNED: "default",
+	REDIRECTED: "default",
+	TRANSFER_REQUESTED: "default",
+	TRANSFER_APPROVED_ORIGIN: "success",
+	TRANSFER_APPROVED_DESTINATION: "success",
+	TRANSFER_REJECTED: "error",
+	APPROVED: "success",
+	REJECTED: "error",
+	DISABLED: "locked",
+	FLAGGED: "warning",
+	UNFLAGGED: "default",
+	SUSPENDED: "error",
+	DEPARTED: "default",
+};
+
+const APPEAL_ACTIONS: TimelineAction[] = [
+	TIMELINE_ACTION.APPEAL_SUBMITTED,
+	TIMELINE_ACTION.APPEAL_APPROVED,
+	TIMELINE_ACTION.APPEAL_DENIED,
+];
+
+const isAppealAction = (action: TimelineAction): boolean =>
+	APPEAL_ACTIONS.includes(action);
+
+/**
+ * Appeal rows read better as a single sentence fragment in the Subject
+ * column than as "{name} [role] [You]" — whose appeal it is matters more
+ * than the subject's role. `APPEAL_SUBMITTED`'s actor and subject are
+ * always the same person, so it never needs a "whose" clause.
+ */
+const appealSubjectLabel = (entry: ManagerAudit, viewerId: string): string => {
+	const whose =
+		entry.subject.id === viewerId
+			? "your"
+			: `${entry.subject.name ?? "their"}'s`;
+
+	switch (entry.action) {
+		case TIMELINE_ACTION.APPEAL_SUBMITTED:
+			return "Submitted appeal";
+		case TIMELINE_ACTION.APPEAL_APPROVED:
+			return `Approved ${whose} appeal`;
+		case TIMELINE_ACTION.APPEAL_DENIED:
+			return `Denied ${whose} appeal`;
+		default:
+			return entry.subject.name ?? "—";
+	}
+};
+
+/**
  * The actor's name — or just "You" when the viewer performed the action
  * themselves, replacing the name entirely rather than appending a badge.
  */
@@ -187,27 +247,55 @@ const PersonCell = ({
 );
 
 /**
- * Action cell for the table: a small badge for which kind of entity the
- * row is about (Facility/Referral/Patient), then the action label —
- * omitted for Referral rows, where the badge alone is enough context and
- * the label would just repeat "Changed status" on every row. The type
- * badge itself is omitted for User rows — the action label alone
- * (Disabled/Flagged/Approved appeal/etc.) already reads as user-specific.
+ * Action cell for the table: always exactly one badge. Appeal rows show
+ * "Appeal" regardless of entity type (whose appeal it is is the Subject
+ * column's job — see `SubjectCell`). Referral rows show "Referral" rather
+ * than the action label, since STATUS_CHANGE/DOCTOR_ASSIGNED/REDIRECTED
+ * would just repeat "Changed status" on every row. Everything else shows
+ * the action label (Disabled/Flagged/Approved/etc.), colored by what
+ * happened via `ACTION_VARIANT` — not by entity type, so different
+ * severities of action don't all collapse into one color.
  */
-const ActionCell = ({ entry }: { entry: ManagerAudit }) => (
-	<span className="inline-flex flex-wrap items-center gap-1.5">
-		{entry.type !== TIMELINE_TYPE.USER && (
-			<Badge variant={TYPE_VARIANT[entry.type]} className="shrink-0">
-				{stringToTitleCase(entry.type)}
+const ActionCell = ({ entry }: { entry: ManagerAudit }) => {
+	if (isAppealAction(entry.action)) {
+		return (
+			<Badge variant="warning" className="shrink-0">
+				Appeal
 			</Badge>
-		)}
-		{entry.type !== TIMELINE_TYPE.REFERRAL && (
-			<span className="whitespace-nowrap">
-				{ACTION_LABEL[entry.action] ?? stringToTitleCase(entry.action)}
-			</span>
-		)}
-	</span>
-);
+		);
+	}
+
+	if (entry.type === TIMELINE_TYPE.REFERRAL) {
+		return (
+			<Badge variant="outline" className="shrink-0 whitespace-nowrap">
+				Referral
+			</Badge>
+		);
+	}
+
+	return (
+		<Badge
+			variant={ACTION_VARIANT[entry.action] ?? "default"}
+			className="shrink-0 whitespace-nowrap"
+		>
+			{ACTION_LABEL[entry.action] ?? stringToTitleCase(entry.action)}
+		</Badge>
+	);
+};
+
+/** Subject cell for the table: appeal rows render as a sentence fragment (`appealSubjectLabel`); everything else is just the subject's name/"You". */
+const SubjectCell = ({
+	entry,
+	viewerId,
+}: {
+	entry: ManagerAudit;
+	viewerId: string;
+}) =>
+	isAppealAction(entry.action) ? (
+		<span className="font-medium">{appealSubjectLabel(entry, viewerId)}</span>
+	) : (
+		<ActorCell name={entry.subject.name} isSelf={entry.subject.id === viewerId} />
+	);
 
 /**
  * The "who did what to whom, and what was the verdict" sentence used at
@@ -388,10 +476,7 @@ const FacilityAuditPage = () => {
 										<ActionCell entry={entry} />
 									</TableCell>
 									<TableCell className="max-w-60 truncate">
-										<ActorCell
-											name={entry.subject.name}
-											isSelf={entry.subject.id === user.id}
-										/>
+										<SubjectCell entry={entry} viewerId={user.id} />
 									</TableCell>
 									<TableCell className="max-w-32 truncate">
 										{entry.next ? (
