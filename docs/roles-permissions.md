@@ -1480,10 +1480,13 @@ item above.
   [[project_backlog]], not started.
 - **New feature, not originally scoped in this doc: Manager
   facility-audit page** (`c17060b` through `eb82334`) — `GET /manager/
-  audit` (`AuditManager` in `api/src/management/audit.ts`) plus
-  `/facility-audit` frontend route: a facility-scoped activity feed over
-  the existing `timeline` table (who did what to whom, when, why),
-  gated to Manager via `isManager`. Went through many rounds of live
+  audit` (`AuditManager` in `api/src/management/audit.ts`) plus, at the
+  time, a dedicated `/facility-audit` frontend route: a facility-scoped
+  activity feed over the existing `timeline` table (who did what to
+  whom, when, why), gated to Manager via `isManager`. **Superseded
+  later the same session** — see the entry below; the route now lives
+  at `/audit`, merged with the Administrator's login-audit page. Went
+  through many rounds of live
   user-driven refinement in one sitting — worth knowing the *current*
   shape rather than the history: Performed-by/Action/Subject/Status/
   Why/When columns; Action is always exactly one badge, colored by what
@@ -1498,3 +1501,31 @@ item above.
   row-click dialog shows full untruncated detail. Fully committed,
   live-verified in-browser at each step, no known open items on this
   feature specifically.
+
+**2026-08-13, same session continued — appeal-phrasing consistency fix,
+user-cluster removal from the audit dialog, Administrator login-audit
+User column, and the Manager/Administrator audit-page merge (all
+committed).**
+
+- **Facility-audit dialog's appeal-row phrasing matched to the table**
+  (`a5c40b8`) — the dialog was still building its own inline appeal
+  sentence separately from the table's `appealSentenceFragment`/
+  `appealWhose` helpers and had drifted; now shares them.
+- **Dropped the name+role+"You"-badge cluster (`PersonCell`) from the
+  dialog's summary sentence and Subject field** for non-appeal rows,
+  replaced with a plain `ActorCell` (`1fb6d56`) — the cluster read as
+  visually noisy/redundant once the table itself had already been
+  simplified to plain names earlier in the session.
+- **Administrator's login-audit page now shows the user's name instead
+  of the raw `user_id`** on the User column (`5ab8b81`) — required
+  threading `name` through `shared/src/schema/logins.ts`'s nested
+  `user` object and `api/src/modules/audit/service.ts`'s query
+  `select`, not just a frontend change.
+- **Merged `/facility-audit` (Manager) and `/audit` (Administrator)
+  into one role-dispatching `/audit` route** (`2fa891a`) — one URL, one
+  sidebar entry ("Audit log", last in the nav for both roles), content
+  chosen by role in the loader, same per-role-dispatch pattern
+  `_authenticated/index.tsx` already uses for the dashboard. Removed
+  `FRONTEND_URLS.FACILITY_AUDIT` and the now-redundant route file.
+  Live-verified end-to-end as both roles (table render, row-click
+  dialog, pagination) with a clean console. No known open items.
