@@ -24,7 +24,6 @@ export const FRONTEND_URLS = {
 	USERS: "/users",
 	USER: "/users/$userId",
 	AUDIT: "/audit",
-	FACILITY_AUDIT: "/facility-audit",
 	FACILITIES: "/facilities",
 	FACILITY: "/facilities/$facilityId",
 	TRANSFERS: "/transfers",

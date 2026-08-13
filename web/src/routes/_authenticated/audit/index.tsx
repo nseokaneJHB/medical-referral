@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 import { z } from "zod";
 
 import { createFileRoute, useNavigate, redirect } from "@tanstack/react-router";
@@ -5,15 +7,26 @@ import { createFileRoute, useNavigate, redirect } from "@tanstack/react-router";
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 
 import {
+	ROLES,
+	USER_STATUS,
+	TIMELINE_TYPE,
 	LOGIN_STATUS,
 	FRONTEND_URLS,
+	TIMELINE_ACTION,
+	FACILITY_STATUS,
+	REFERRAL_STATUS,
+	formatDate,
 	getRelativeTime,
 	stringToTitleCase,
 	DEFAULT_PAGE_LIMIT,
 	DEFAULT_PAGE_NUMBER,
+	type ManagerAudit,
+	type TimelineAction,
+	type LoginsListResponse,
+	type ManagerAuditListResponse,
 } from "@referral-tracking/shared";
 
-import { isAdministrator } from "@/lib/permissions";
+import { isManager, isAdministrator } from "@/lib/permissions";
 
 import { Card, CardTitle, CardHeader, CardContent } from "@/components/ui/card";
 import {
@@ -26,28 +39,557 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+	Dialog,
+	DialogTitle,
+	DialogHeader,
+	DialogContent,
+	DialogDescription,
+} from "@/components/ui/dialog";
 
 import { Loader } from "@/components/custom/loader";
+import { ReadOnlyField } from "@/components/custom/read-only-field";
 
 import { QUERY_KEYS } from "@/api/constant";
-import { loginsRequest } from "@/api/audit";
+import { loginsRequest, managerAuditRequest } from "@/api/audit";
 
 const searchSchema = z.object({
 	page: z.string().default(`${DEFAULT_PAGE_NUMBER}`),
 	limit: z.string().default(`${DEFAULT_PAGE_LIMIT}`),
 });
 
-const STATUS_VARIANT: Record<string, "success" | "error" | "warning"> = {
+const LOGIN_STATUS_VARIANT: Record<
+	string,
+	"success" | "error" | "warning"
+> = {
 	[LOGIN_STATUS.SUCCESS]: "success",
 	[LOGIN_STATUS.FAILED]: "error",
 	[LOGIN_STATUS.LOCKED_OUT]: "warning",
 };
 
-const AuditPage = () => {
+const TYPE_VARIANT: Record<
+	string,
+	"info" | "suspended" | "outline" | "secondary"
+> = {
+	USER: "info",
+	FACILITY: "suspended",
+	REFERRAL: "outline",
+	PATIENT: "secondary",
+};
+
+/** Merged referral/user/facility status → badge variant, matching each entity's own list-page badges (referrals/users/facilities `index.tsx`). Values that mean the same thing across entities (PENDING, REJECTED, FLAGGED) already agree on variant in each source page, so this merge is conflict-free. */
+const STATUS_VARIANT: Record<
+	string,
+	"default" | "info" | "success" | "warning" | "error" | "locked"
+> = {
+	[REFERRAL_STATUS.PENDING]: "default",
+	[REFERRAL_STATUS.ACCEPTED]: "info",
+	[REFERRAL_STATUS.IN_PROGRESS]: "info",
+	[REFERRAL_STATUS.ON_HOLD]: "warning",
+	[REFERRAL_STATUS.COMPLETED]: "success",
+	[REFERRAL_STATUS.REJECTED]: "error",
+	[REFERRAL_STATUS.CANCELED]: "error",
+	[USER_STATUS.ACTIVE]: "success",
+	[USER_STATUS.DISABLED]: "locked",
+	[USER_STATUS.FLAGGED]: "warning",
+	[USER_STATUS.DEPARTED]: "default",
+	[FACILITY_STATUS.APPROVED]: "success",
+	[FACILITY_STATUS.SUSPENDED]: "error",
+};
+
+/**
+ * Short, standalone label per action for the "Action" column — distinct
+ * from the sentence-flow verb phrases below, which have trailing
+ * prepositions ("approved the appeal for") that only read correctly when
+ * immediately followed by the subject's name.
+ */
+const ACTION_LABEL: Record<TimelineAction, string> = {
+	STATUS_CHANGE: "Changed status",
+	DOCTOR_ASSIGNED: "Assigned doctor",
+	REDIRECTED: "Redirected",
+	TRANSFER_REQUESTED: "Requested transfer",
+	TRANSFER_APPROVED_ORIGIN: "Approved transfer (origin)",
+	TRANSFER_APPROVED_DESTINATION: "Approved transfer (destination)",
+	TRANSFER_REJECTED: "Rejected transfer",
+	APPROVED: "Approved",
+	REJECTED: "Rejected",
+	DISABLED: "Disabled",
+	FLAGGED: "Flagged",
+	UNFLAGGED: "Unflagged",
+	SUSPENDED: "Suspended",
+	DEPARTED: "Recorded departure",
+	APPEAL_SUBMITTED: "Submitted appeal",
+	APPEAL_APPROVED: "Approved appeal",
+	APPEAL_DENIED: "Denied appeal",
+};
+
+/**
+ * Natural-language verb phrase per action, so the dialog's summary sentence
+ * reads as "{actor} {verb} {subject}" — e.g. `STATUS_CHANGE` alone doesn't
+ * say who did what to what, "changed the status of" does.
+ */
+const ACTION_VERB: Record<TimelineAction, string> = {
+	STATUS_CHANGE: "changed the status of",
+	DOCTOR_ASSIGNED: "assigned a doctor to",
+	REDIRECTED: "redirected",
+	TRANSFER_REQUESTED: "requested a transfer for",
+	TRANSFER_APPROVED_ORIGIN: "approved the origin side of the transfer for",
+	TRANSFER_APPROVED_DESTINATION:
+		"approved the destination side of the transfer for",
+	TRANSFER_REJECTED: "rejected the transfer for",
+	APPROVED: "approved",
+	REJECTED: "rejected",
+	DISABLED: "disabled",
+	FLAGGED: "flagged",
+	UNFLAGGED: "unflagged",
+	SUSPENDED: "suspended",
+	DEPARTED: "recorded the departure of",
+	APPEAL_SUBMITTED: "submitted an appeal for",
+	APPEAL_APPROVED: "approved the appeal for",
+	APPEAL_DENIED: "denied the appeal for",
+};
+
+/**
+ * Action badge color, by what happened rather than which entity it
+ * happened to — so "Disabled" and "Flagged" read as different severities
+ * instead of both being the same "User" blue. STATUS_CHANGE and the
+ * APPEAL_* actions aren't listed here since `ActionCell` special-cases
+ * Referral and Appeal rows before this map is ever consulted. There are
+ * 13 actions here but only 8 non-reserved badge variants (`outline` is
+ * Referral's, `suspended` is Appeal's), so a few color pairs are
+ * unavoidable — each pair below is the two most closely related actions
+ * available, never two actions that could be confused for opposites.
+ */
+const ACTION_VARIANT: Record<
+	string,
+	| "default"
+	| "secondary"
+	| "destructive"
+	| "info"
+	| "success"
+	| "warning"
+	| "error"
+	| "locked"
+> = {
+	DOCTOR_ASSIGNED: "default",
+	REDIRECTED: "default",
+	TRANSFER_REQUESTED: "secondary",
+	TRANSFER_APPROVED_ORIGIN: "success",
+	TRANSFER_APPROVED_DESTINATION: "success",
+	TRANSFER_REJECTED: "error",
+	APPROVED: "info",
+	REJECTED: "error",
+	DISABLED: "locked",
+	FLAGGED: "warning",
+	UNFLAGGED: "info",
+	SUSPENDED: "destructive",
+	DEPARTED: "secondary",
+};
+
+const APPEAL_ACTIONS: TimelineAction[] = [
+	TIMELINE_ACTION.APPEAL_SUBMITTED,
+	TIMELINE_ACTION.APPEAL_APPROVED,
+	TIMELINE_ACTION.APPEAL_DENIED,
+];
+
+const isAppealAction = (action: TimelineAction): boolean =>
+	APPEAL_ACTIONS.includes(action);
+
+/**
+ * Shared "whose appeal" clause for appeal rows — "your" when the viewer
+ * is the appeal's subject, otherwise "{name}'s". Used by both the Subject
+ * column's label and the dialog's summary sentence so they can't drift.
+ */
+const appealWhose = (entry: ManagerAudit, viewerId: string): string =>
+	entry.subject.id === viewerId
+		? "your"
+		: `${entry.subject.name ?? "their"}'s`;
+
+/**
+ * Appeal rows read better as a single sentence fragment in the Subject
+ * column than as "{name} [role] [You]" — whose appeal it is matters more
+ * than the subject's role. `APPEAL_SUBMITTED`'s actor and subject are
+ * always the same person, so it never needs a "whose" clause.
+ */
+const appealSubjectLabel = (entry: ManagerAudit, viewerId: string): string => {
+	const whose = appealWhose(entry, viewerId);
+
+	switch (entry.action) {
+		case TIMELINE_ACTION.APPEAL_SUBMITTED:
+			return "Submitted appeal";
+		case TIMELINE_ACTION.APPEAL_APPROVED:
+			return `Approved ${whose} appeal`;
+		case TIMELINE_ACTION.APPEAL_DENIED:
+			return `Denied ${whose} appeal`;
+		default:
+			return entry.subject.name ?? "—";
+	}
+};
+
+/**
+ * Lowercase verb-continuation form of the same appeal phrasing, for the
+ * dialog's "{actor} {this}" summary sentence — e.g. "You submitted an
+ * appeal" / "Ava Administrator approved your appeal".
+ */
+const appealSentenceFragment = (
+	entry: ManagerAudit,
+	viewerId: string,
+): string => {
+	const whose = appealWhose(entry, viewerId);
+
+	switch (entry.action) {
+		case TIMELINE_ACTION.APPEAL_SUBMITTED:
+			return "submitted an appeal";
+		case TIMELINE_ACTION.APPEAL_APPROVED:
+			return `approved ${whose} appeal`;
+		case TIMELINE_ACTION.APPEAL_DENIED:
+			return `denied ${whose} appeal`;
+		default:
+			return "";
+	}
+};
+
+/**
+ * The actor's name — or just "You" when the viewer performed the action
+ * themselves, replacing the name entirely rather than appending a badge.
+ */
+const ActorCell = ({
+	name,
+	isSelf,
+}: {
+	name: string | null;
+	isSelf: boolean;
+}) => <span className="font-medium">{isSelf ? "You" : (name ?? "—")}</span>;
+
+/**
+ * Action cell for the table: always exactly one badge. Appeal rows show
+ * "Appeal" regardless of entity type (whose appeal it is is the Subject
+ * column's job — see `SubjectCell`). Referral rows show "Referral" rather
+ * than the action label, since STATUS_CHANGE/DOCTOR_ASSIGNED/REDIRECTED
+ * would just repeat "Changed status" on every row. Everything else shows
+ * the action label (Disabled/Flagged/Approved/etc.), colored by what
+ * happened via `ACTION_VARIANT` — not by entity type, so different
+ * severities of action don't all collapse into one color.
+ */
+const ActionCell = ({ entry }: { entry: ManagerAudit }) => {
+	if (isAppealAction(entry.action)) {
+		return (
+			<Badge variant="suspended" className="shrink-0">
+				Appeal
+			</Badge>
+		);
+	}
+
+	if (entry.type === TIMELINE_TYPE.REFERRAL) {
+		return (
+			<Badge variant="outline" className="shrink-0 whitespace-nowrap">
+				Referral
+			</Badge>
+		);
+	}
+
+	return (
+		<Badge
+			variant={ACTION_VARIANT[entry.action] ?? "default"}
+			className="shrink-0 whitespace-nowrap"
+		>
+			{ACTION_LABEL[entry.action] ?? stringToTitleCase(entry.action)}
+		</Badge>
+	);
+};
+
+/** Subject cell for the table: appeal rows render as a sentence fragment (`appealSubjectLabel`); everything else is just the subject's name/"You". */
+const SubjectCell = ({
+	entry,
+	viewerId,
+}: {
+	entry: ManagerAudit;
+	viewerId: string;
+}) =>
+	isAppealAction(entry.action) ? (
+		<span className="font-medium">{appealSubjectLabel(entry, viewerId)}</span>
+	) : (
+		<ActorCell name={entry.subject.name} isSelf={entry.subject.id === viewerId} />
+	);
+
+/**
+ * The "who did what to whom, and what was the verdict" sentence used at
+ * the top of the details dialog as a quick summary above the broken-out
+ * fields below it.
+ */
+const AuditSentence = ({
+	entry,
+	viewerId,
+}: {
+	entry: ManagerAudit;
+	viewerId: string;
+}) => {
+	if (isAppealAction(entry.action)) {
+		return (
+			<span className="inline-flex flex-wrap items-center gap-1.5">
+				<ActorCell
+					name={entry.changer.name}
+					isSelf={entry.changer.id === viewerId}
+				/>
+				<span className="text-muted-foreground">
+					{appealSentenceFragment(entry, viewerId)}
+				</span>
+			</span>
+		);
+	}
+
+	const verb = ACTION_VERB[entry.action] ?? stringToTitleCase(entry.action);
+
+	return (
+		<span className="inline-flex flex-wrap items-center gap-1.5">
+			<ActorCell
+				name={entry.changer.name}
+				isSelf={entry.changer.id === viewerId}
+			/>
+			<span className="text-muted-foreground">{verb}</span>
+			<ActorCell
+				name={entry.subject.name}
+				isSelf={entry.subject.id === viewerId}
+			/>
+			{entry.previous && entry.next && (
+				<span className="text-muted-foreground">
+					— {stringToTitleCase(entry.previous)} →{" "}
+					{stringToTitleCase(entry.next)}
+				</span>
+			)}
+		</span>
+	);
+};
+
+/** Full, untruncated audit entry details — the table's cells are clipped for layout. */
+const AuditDetailsDialog = ({
+	entry,
+	viewerId,
+	open,
+	onOpenChange,
+}: {
+	entry: ManagerAudit | null;
+	viewerId: string;
+	open: boolean;
+	onOpenChange: (open: boolean) => void;
+}) => {
+	return (
+		<Dialog open={open} onOpenChange={onOpenChange}>
+			{entry && (
+				<DialogContent className="sm:max-w-2xl">
+					<DialogHeader>
+						<DialogTitle>Audit entry details</DialogTitle>
+						<DialogDescription>
+							{formatDate(entry.changed_at as unknown as string, {
+								includeTime: true,
+							})}
+						</DialogDescription>
+					</DialogHeader>
+					<div className="space-y-4">
+						<p className="text-sm leading-relaxed">
+							<AuditSentence entry={entry} viewerId={viewerId} />
+						</p>
+						<div className="grid gap-4 sm:grid-cols-2">
+							<ReadOnlyField
+								label="Type"
+								value={
+									<Badge variant={TYPE_VARIANT[entry.type]}>
+										{stringToTitleCase(entry.type)}
+									</Badge>
+								}
+							/>
+							<ReadOnlyField
+								label="Action"
+								value={ACTION_LABEL[entry.action] ?? stringToTitleCase(entry.action)}
+							/>
+						</div>
+						<ReadOnlyField
+							label="Performed by"
+							value={
+								<ActorCell
+									name={entry.changer.name}
+									isSelf={entry.changer.id === viewerId}
+								/>
+							}
+						/>
+						<ReadOnlyField
+							label="Subject"
+							value={
+								isAppealAction(entry.action) ? (
+									<span className="font-medium">
+										{appealSubjectLabel(entry, viewerId)}
+									</span>
+								) : (
+									<ActorCell
+										name={entry.subject.name}
+										isSelf={entry.subject.id === viewerId}
+									/>
+								)
+							}
+						/>
+						<div className="flex w-full flex-col gap-1">
+							<span className="text-sm font-medium">Verdict</span>
+							<p className="text-foreground rounded-md border bg-transparent p-3 text-sm whitespace-pre-wrap">
+								{entry.previous && entry.next
+									? `${stringToTitleCase(entry.previous)} → ${stringToTitleCase(entry.next)}`
+									: "No value change recorded."}
+							</p>
+						</div>
+						<div className="flex w-full flex-col gap-1">
+							<span className="text-sm font-medium">Why</span>
+							<p className="text-foreground rounded-md border bg-transparent p-3 text-sm whitespace-pre-wrap">
+								{entry.reason ?? entry.notes ?? "No reason given."}
+							</p>
+						</div>
+					</div>
+				</DialogContent>
+			)}
+		</Dialog>
+	);
+};
+
+/** Manager's view: a facility-scoped activity feed over the timeline table. */
+const ManagerFacilityAudit = ({
+	response,
+}: {
+	response: ManagerAuditListResponse;
+}) => {
+	const navigate = useNavigate({ from: Route.fullPath });
+
+	const { user } = Route.useRouteContext();
+	const search = Route.useSearch();
+
+	const [viewing, setViewing] = useState<ManagerAudit | null>(null);
+
+	const page = Number(search.page);
+	const limit = Number(search.limit);
+	const totalPages = Math.max(1, Math.ceil(response.total / limit));
+
+	return (
+		<div className="space-y-4">
+			<Card className="border-0 bg-transparent px-0 py-1 shadow-none">
+				<CardHeader className="px-0 py-1">
+					<CardTitle className="text-2xl">Facility audit</CardTitle>
+				</CardHeader>
+			</Card>
+
+			<Card>
+				<CardContent>
+					<Table>
+						<TableHeader>
+							<TableRow>
+								<TableHead>Performed by</TableHead>
+								<TableHead>Action</TableHead>
+								<TableHead>Subject</TableHead>
+								<TableHead>Status</TableHead>
+								<TableHead>Why</TableHead>
+								<TableHead>When</TableHead>
+							</TableRow>
+						</TableHeader>
+						<TableBody>
+							{response.data.length === 0 && (
+								<TableRow>
+									<TableCell
+										colSpan={6}
+										className="text-muted-foreground text-center"
+									>
+										No activity recorded yet.
+									</TableCell>
+								</TableRow>
+							)}
+							{response.data.map((entry) => (
+								<TableRow
+									key={entry.id}
+									className="cursor-pointer"
+									onClick={() => setViewing(entry)}
+								>
+									<TableCell className="max-w-40 truncate">
+										<ActorCell
+											name={entry.changer.name}
+											isSelf={entry.changer.id === user.id}
+										/>
+									</TableCell>
+									<TableCell>
+										<ActionCell entry={entry} />
+									</TableCell>
+									<TableCell className="max-w-60 truncate">
+										<SubjectCell entry={entry} viewerId={user.id} />
+									</TableCell>
+									<TableCell className="max-w-32 truncate">
+										{entry.next ? (
+											<Badge variant={STATUS_VARIANT[entry.next] ?? "outline"}>
+												{stringToTitleCase(entry.next)}
+											</Badge>
+										) : (
+											"—"
+										)}
+									</TableCell>
+									<TableCell className="max-w-48 truncate text-muted-foreground italic">
+										{entry.reason ?? entry.notes ?? "—"}
+									</TableCell>
+									<TableCell className="text-muted-foreground whitespace-nowrap">
+										{getRelativeTime(entry.changed_at as unknown as string)}
+									</TableCell>
+								</TableRow>
+							))}
+						</TableBody>
+					</Table>
+				</CardContent>
+			</Card>
+
+			<div className="flex items-center justify-between">
+				<small className="text-muted-foreground">
+					Page {page} of {totalPages} &middot; {response.total} total
+				</small>
+				<div className="flex gap-2">
+					<Button
+						variant="outline"
+						title="Previous page"
+						disabled={page <= 1}
+						onClick={() =>
+							navigate({
+								search: (prev) => ({ ...prev, page: String(page - 1) }),
+							})
+						}
+					>
+						<ChevronLeftIcon />
+					</Button>
+					<Button
+						variant="outline"
+						title="Next page"
+						disabled={page >= totalPages}
+						onClick={() =>
+							navigate({
+								search: (prev) => ({ ...prev, page: String(page + 1) }),
+							})
+						}
+					>
+						<ChevronRightIcon />
+					</Button>
+				</div>
+			</div>
+
+			<AuditDetailsDialog
+				entry={viewing}
+				viewerId={user.id}
+				open={viewing !== null}
+				onOpenChange={(open) => {
+					if (!open) setViewing(null);
+				}}
+			/>
+		</div>
+	);
+};
+
+/** Administrator's view: per-attempt login history. */
+const AdministratorLoginAudit = ({
+	response,
+}: {
+	response: LoginsListResponse;
+}) => {
 	const navigate = useNavigate({ from: Route.fullPath });
 
 	const search = Route.useSearch();
-	const response = Route.useLoaderData();
 
 	const page = Number(search.page);
 	const limit = Number(search.limit);
@@ -96,7 +638,7 @@ const AuditPage = () => {
 										{entry.user?.email ?? "—"}
 									</TableCell>
 									<TableCell>
-										<Badge variant={STATUS_VARIANT[entry.status]}>
+										<Badge variant={LOGIN_STATUS_VARIANT[entry.status]}>
 											{stringToTitleCase(entry.status)}
 										</Badge>
 									</TableCell>
@@ -157,26 +699,53 @@ const AuditPage = () => {
 	);
 };
 
+/**
+ * Thin per-role dispatcher, same pattern `_authenticated/index.tsx` uses
+ * for the dashboard — one URL (`/audit`), two unrelated views. The loader
+ * tags its response with `role` using a literal comparison specifically so
+ * TypeScript can discriminate the union here; swapping either check for a
+ * predicate function (`isManager(...)`) breaks that narrowing — see the
+ * dashboard file's history for the same mistake made and reverted there.
+ */
+const AuditPage = () => {
+	const data = Route.useLoaderData();
+
+	if (data.role === ROLES.MANAGER) {
+		return <ManagerFacilityAudit response={data.response} />;
+	}
+
+	return <AdministratorLoginAudit response={data.response} />;
+};
+
 export const Route = createFileRoute("/_authenticated/audit/")({
 	component: AuditPage,
 	validateSearch: searchSchema,
 	loaderDeps: ({ search }) => search,
 	beforeLoad: ({ context }) => {
-		if (!isAdministrator(context.user)) {
+		if (!isManager(context.user) && !isAdministrator(context.user)) {
 			throw redirect({ to: FRONTEND_URLS.HOME });
 		}
 	},
 	loader: async ({ context, deps }) => {
+		if (context.user.role === ROLES.MANAGER) {
+			const response = await context.queryClient.ensureQueryData({
+				queryKey: [...QUERY_KEYS.FACILITY_AUDIT, deps],
+				queryFn: () => managerAuditRequest({ data: deps }),
+			});
+
+			return { role: context.user.role, response };
+		}
+
 		const response = await context.queryClient.ensureQueryData({
 			queryKey: [...QUERY_KEYS.AUDIT_LOGINS, deps],
 			queryFn: () => loginsRequest({ data: deps }),
 		});
 
-		return response;
+		return { role: context.user.role, response };
 	},
 	pendingComponent: () => (
 		<div className="flex h-64 items-center justify-center">
-			<Loader text="Loading login audit..." size="md" />
+			<Loader text="Loading audit..." size="md" />
 		</div>
 	),
 });
