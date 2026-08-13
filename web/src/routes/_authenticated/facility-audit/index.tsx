@@ -152,25 +152,36 @@ const ACTION_VERB: Record<TimelineAction, string> = {
  * happened to — so "Disabled" and "Flagged" read as different severities
  * instead of both being the same "User" blue. STATUS_CHANGE and the
  * APPEAL_* actions aren't listed here since `ActionCell` special-cases
- * Referral and Appeal rows before this map is ever consulted.
+ * Referral and Appeal rows before this map is ever consulted. There are
+ * 13 actions here but only 8 non-reserved badge variants (`outline` is
+ * Referral's, `suspended` is Appeal's), so a few color pairs are
+ * unavoidable — each pair below is the two most closely related actions
+ * available, never two actions that could be confused for opposites.
  */
 const ACTION_VARIANT: Record<
 	string,
-	"default" | "info" | "success" | "warning" | "error" | "locked"
+	| "default"
+	| "secondary"
+	| "destructive"
+	| "info"
+	| "success"
+	| "warning"
+	| "error"
+	| "locked"
 > = {
 	DOCTOR_ASSIGNED: "default",
 	REDIRECTED: "default",
-	TRANSFER_REQUESTED: "default",
+	TRANSFER_REQUESTED: "secondary",
 	TRANSFER_APPROVED_ORIGIN: "success",
 	TRANSFER_APPROVED_DESTINATION: "success",
 	TRANSFER_REJECTED: "error",
-	APPROVED: "success",
+	APPROVED: "info",
 	REJECTED: "error",
 	DISABLED: "locked",
 	FLAGGED: "warning",
-	UNFLAGGED: "default",
-	SUSPENDED: "error",
-	DEPARTED: "default",
+	UNFLAGGED: "info",
+	SUSPENDED: "destructive",
+	DEPARTED: "secondary",
 };
 
 const APPEAL_ACTIONS: TimelineAction[] = [
@@ -259,7 +270,7 @@ const PersonCell = ({
 const ActionCell = ({ entry }: { entry: ManagerAudit }) => {
 	if (isAppealAction(entry.action)) {
 		return (
-			<Badge variant="warning" className="shrink-0">
+			<Badge variant="suspended" className="shrink-0">
 				Appeal
 			</Badge>
 		);
