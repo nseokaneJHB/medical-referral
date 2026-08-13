@@ -35,7 +35,7 @@ export const logins = async (
 		limit,
 		order: { login_at: "desc" },
 		select: LOGINS_FIELDS,
-		include: { user: { select: { email: true } } },
+		include: { user: { select: { email: true, name: true } } },
 	});
 
 	const { status, code } = HTTP_RESPONSE_CODE.OK;

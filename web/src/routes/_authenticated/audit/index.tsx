@@ -90,7 +90,7 @@ const AuditPage = () => {
 							{response.data.map((entry) => (
 								<TableRow key={entry.id}>
 									<TableCell className="max-w-40 truncate">
-										{entry.user_id}
+										{entry.user?.name ?? "—"}
 									</TableCell>
 									<TableCell className="max-w-60 truncate">
 										{entry.user?.email ?? "—"}
