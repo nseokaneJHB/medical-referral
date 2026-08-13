@@ -261,12 +261,12 @@ Reference table (`specialties`) plus two many-to-many join tables, for
 tagging a facility or a Doctor/Nurse with clinical specialties
 (Cardiology, Orthopedics, etc.).
 
-**Schema and `core/specialty.ts` repository exist; nothing above that
-does.** No `management/` business logic, no routes, no frontend —
-fully unreachable from any API endpoint today. Tracked as an unscoped
-idea in `docs/backlog.md` ("Facility specialties"); this schema is
-further along than that backlog entry suggests, but still not wired to
-anything.
+**Fully wired as of 2026-08-13** — Administrator-managed vocabulary
+(`modules/specialties`) plus assignment sub-routes on `modules/facilities`
+and `modules/users` (`GET/POST .../specialties`,
+`DELETE .../specialties/:specialtyId`), surfaced on the `/specialties`
+admin page and on the facility/user detail pages. See `docs/backlog.md`
+("Facility specialties") for the resolved decisions.
 
 | Table | Columns beyond `id`/`created_at` |
 |---|---|

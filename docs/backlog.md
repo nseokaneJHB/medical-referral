@@ -31,25 +31,32 @@ ask the user what this idea actually entailed before it can be scoped.
 
 ## Facility specialties
 
-- Idea: add "specialty" as its own reference/metadata table (e.g. id + name),
-  many-to-many referenceable across facilities — a facility can have multiple
-  specialties, a specialty can be shared by multiple facilities.
-- Also assign specialties to doctors **and now nurses too** (extended
-  2026-08-08, mid permission-matrix walkthrough — not forgotten) — a
-  doctor/nurse <-> specialty relationship, separate from (or related to) the
-  facility <-> specialty one. Same shared reference table for all three
-  (facility, doctor, nurse), reusing the metadata rather than three separate
-  vocabularies.
-- Open questions for when this is picked up:
-  - Is a doctor/nurse's specialty constrained to a subset of their
-    facility's specialties, or fully independent?
-  - Where does it surface — facility profile, referral creation (e.g. route a
-    referral by specialty match), search/filter facilities by specialty?
-  - Admin-managed controlled vocabulary vs. free text?
-  - Possible overlap with the [[roles-permissions]] rework — if referrals get
-    routed/filtered by specialty, that likely touches the same
-    `referrals/service.ts` scoping logic already being redesigned there.
-- Status: early thought, not scoped.
+**Resolved — shipped 2026-08-13.** Administrator-managed `specialties`
+reference vocabulary (create/rename, no delete — same no-hard-delete stance
+as the rest of the app), assignable many-to-many to both facilities and
+Doctor/Nurse staff. Answers to the open questions below as actually built:
+
+- **Doctor/Nurse specialty is fully independent** of their facility's list —
+  a personal credential, not derived/constrained by what the facility has.
+- **Surfaced in three places**: a dedicated `/specialties` admin page
+  (Administrator-only, list/create/rename), a Specialties card on the
+  facility detail page (Administrator or that facility's own Manager), and a
+  Specialties card on the Doctor/Nurse user detail page (Administrator, or
+  the Manager of that Doctor/Nurse's own facility) — badges with inline
+  remove plus a searchable add-picker (`SpecialtyManager`, shared between
+  both detail pages).
+- **Admin-managed controlled vocabulary**, not free text — confirmed, matches
+  what the schema already committed to.
+- **Not built, deliberately out of scope**: referral-routing-by-specialty
+  and a facilities search/filter-by-specialty control. Both are real
+  candidate follow-ups but are matching/discovery features layered on top
+  of this, not part of the specialties CRUD itself.
+- Backend: `GET/POST /specialties`, `PATCH /specialties/:id` (Administrator
+  create/rename); `GET/POST /facilities/:id/specialties`,
+  `DELETE /facilities/:id/specialties/:specialtyId`; same three shapes under
+  `/users/:id/specialties`. Seed data (`api/script/seed.ts`) already covered
+  this before the UI did — 2-4 specialties per operational facility, 1-2 per
+  active Doctor/Nurse, including the standard test accounts.
 
 ## User profile pages
 

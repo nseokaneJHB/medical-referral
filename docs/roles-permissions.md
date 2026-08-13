@@ -1529,3 +1529,52 @@ committed).**
   `FRONTEND_URLS.FACILITY_AUDIT` and the now-redundant route file.
   Live-verified end-to-end as both roles (table render, row-click
   dialog, pagination) with a clean console. No known open items.
+
+**2026-08-13, new session — Facility specialties feature (resolves the
+`docs/backlog.md` item of the same name, fully committed).** The schema/
+`core/specialty.ts` repository and seed data already existed from an
+earlier session; this pass built everything that was still missing —
+routes, permissions, and frontend.
+
+- **Backend**: new `modules/specialties` (`GET/POST /specialties`,
+  `PATCH /specialties/:id` — Administrator-only create/rename, no delete,
+  same no-hard-delete stance as the rest of the app; reads open to any
+  authenticated role). New sub-routes on `modules/facilities`
+  (`GET/POST /facilities/:id/specialties`,
+  `DELETE /facilities/:id/specialties/:specialtyId`) and `modules/users`
+  (same three shapes under `/users/:id/specialties`), gated to
+  Administrator or the owning Manager (facility) / the target's own Manager
+  (staff, mirroring `canManagerActOnStaff`) — target role must be Doctor or
+  Nurse. `core.specialty.linkMany`'s `include`-joined `specialty` field
+  needed the same `as unknown as X` cast already used in `users/service.ts`'s
+  `user()` handler for the same reason (`include`-derived fields aren't
+  modeled by the repo helper's return type) — caught by independently
+  re-running `tsc` rather than trusting a delegate's "pre-existing issue"
+  claim, which was wrong.
+- **Frontend**: new Administrator-only `/specialties` page (list/create/
+  rename, react-hook-form + zodResolver dialog mirroring `CreateUserDialog`);
+  a new shared `SpecialtyManager` component (removable badges + searchable
+  add-picker) dropped into both the facility detail page (gated
+  `canManageFacilitySpecialties` — Administrator or that facility's own
+  Manager) and the Doctor/Nurse user detail page (gated
+  `canManageStaffSpecialties` — Administrator or that user's own Manager);
+  new sidebar nav item ("Specialties", Administrator-only, placed right
+  before "Audit log" to keep that entry last per the standing requirement).
+- **Deliberately out of scope**, flagged rather than silently dropped:
+  referral-routing-by-specialty-match and a facilities search/filter-by-
+  specialty control — both are matching/discovery features layered on top
+  of this, not part of specialties CRUD itself. Tracked in
+  `docs/backlog.md`.
+- Seed data needed no changes — `api/script/seed.ts` already assigned 2-4
+  specialties per operational facility and 1-2 per active Doctor/Nurse
+  (including the standard test accounts) from an earlier session. Reseeded
+  fresh anyway (`purge` left stale tables that collided with a regenerated
+  migration, so used `script/reset.ts`'s raw `DROP TABLE` instead, then
+  `migrate` + `seed`) to guarantee a consistent live-test baseline.
+- Live-verified end-to-end as both Administrator (vocabulary create/rename,
+  including the 409-conflict duplicate-name path) and Manager (own-facility
+  and own-staff assign/unassign; confirmed `/specialties` correctly
+  redirects Manager away and the nav item is hidden for them) — clean
+  console throughout. One UI polish caught by the user mid-verification:
+  the "Add" button in `SpecialtyManager` was `size="sm"` (h-8) next to the
+  picker's default-size trigger (h-10); fixed by dropping the explicit size.
