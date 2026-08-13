@@ -219,10 +219,12 @@ export const userHistory = async (
 };
 
 /**
- * Administrator manages any Doctor/Nurse's specialties; Manager only their
- * own facility's — mirrors `canManagerActOnStaff`'s existing moderation
- * gate. Specialties only make sense for clinical staff, so the target's
- * role is checked too (Manager/Administrator accounts have none).
+ * Manager-only, and only for their own facility's Doctors/Nurses — mirrors
+ * `canManagerActOnStaff`'s existing moderation gate. Administrator manages
+ * the specialty vocabulary itself (`modules/specialties`) but not any one
+ * user's assignments. Specialties only make sense for clinical staff, so
+ * the target's role is checked too (Manager/Administrator accounts have
+ * none).
  */
 const canManageStaffSpecialties = (
 	role: Role,
@@ -230,7 +232,6 @@ const canManageStaffSpecialties = (
 	target: Pick<UserModelSelect, "role" | "facility_id">,
 ): boolean => {
 	if (target.role !== ROLES.DOCTOR && target.role !== ROLES.NURSE) return false;
-	if (role === ROLES.ADMINISTRATOR) return true;
 	if (role === ROLES.MANAGER) return canManagerActOnStaff(caller, target);
 	return false;
 };
@@ -256,7 +257,7 @@ export const userSpecialties = async (
 		limit: 100,
 		where: { user_id: request.params.id },
 		select: { id: true, user_id: true, created_at: true },
-		include: { specialty: { select: { id: true, name: true } } },
+		include: { specialty: { select: { id: true, name: true, description: true } } },
 	});
 
 	const { status, code } = HTTP_RESPONSE_CODE.OK;
@@ -303,7 +304,7 @@ export const userSpecialtyAssign = async (
 
 	const specialty = await request.server.core.specialty.one({
 		where: { id: request.body.specialty_id },
-		select: { id: true, name: true },
+		select: { id: true, name: true, description: true },
 	});
 
 	if (!specialty) {

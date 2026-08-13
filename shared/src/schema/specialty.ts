@@ -19,18 +19,27 @@ import {
 export const SpecialtySchema = z.object({
 	id: uuidSchema,
 	name: stringSchema,
+	description: stringSchema,
 	created_at: z.date(),
 	updated_at: z.date(),
 });
 
-/** Minimal nested reference to a specialty — id + name, for display. */
+/** Minimal nested reference to a specialty — id, name, description, for display. */
 export const specialtyRefSchema = SpecialtySchema.pick({
 	id: true,
 	name: true,
+	description: true,
 });
 
 export const CreateSpecialtySchema = z.object({
-	name: stringSchema.min(1).max(255),
+	name: stringSchema
+		.min(1)
+		.max(255)
+		.regex(
+			/^(?!.*\s&\s)(?!.*\band\b).*$/i,
+			'Enter a single specialty — split combined names like "X & Y" into separate entries.',
+		),
+	description: stringSchema.min(1).max(1000),
 });
 
 export const UpdateSpecialtySchema = CreateSpecialtySchema.partial();

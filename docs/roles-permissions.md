@@ -1578,3 +1578,57 @@ routes, permissions, and frontend.
   console throughout. One UI polish caught by the user mid-verification:
   the "Add" button in `SpecialtyManager` was `size="sm"` (h-8) next to the
   picker's default-size trigger (h-10); fixed by dropping the explicit size.
+
+**2026-08-14, new session — Specialty description field + assignment
+narrowed to Manager-only.** Two user-driven corrections to the specialties
+feature above, done together since both touch the same files.
+
+- **Description field**: `specialties.description` (`text`, `NOT NULL`)
+  added to the Drizzle schema, `SpecialtySchema`/`specialtyRefSchema`/
+  `CreateSpecialtySchema` (required, max 1000 chars), `SPECIALTY_FIELDS`,
+  and the `facility`/`user` specialty-link `include`/`select` blocks (so
+  the nested `specialty` ref carries it too). Frontend: a `TextArea` field
+  in the `/specialties` create/rename dialog, a new "Description" table
+  column, and a `title` tooltip on `SpecialtyManager`'s assigned badges.
+- **Single-specialty naming rule**: the user flagged that a combined entry
+  ("Obstetrics & Gynecology") violates "one specialty per entry" — split
+  into two seed rows, and `CreateSpecialtySchema.name` now has a `.regex()`
+  rejecting `" & "` or a standalone `"and"` (word-boundary, case-
+  insensitive) with the message "Enter a single specialty — split combined
+  names like 'X & Y' into separate entries." Applies to rename too (via
+  `UpdateSpecialtySchema`'s `.partial()`).
+- **Assignment narrowed to Manager-only, viewing unchanged**: the user
+  decided Administrator should manage the specialty *vocabulary*
+  (`modules/specialties`) but never assign/unassign it to a specific
+  facility or Doctor/Nurse — that stays with the facility's own Manager.
+  Split `facilities/service.ts`'s `canManageFacility` into
+  `canViewFacilitySpecialties` (unchanged: Administrator or own-facility
+  Manager — still used by the `GET` handler) and
+  `canAssignFacilitySpecialties` (Manager-only, own facility — used by
+  assign/unassign); removed `users/service.ts`'s
+  `canManageStaffSpecialties` Administrator bypass entirely (used only by
+  assign/unassign there too — its `GET` handler already used the broader
+  `canViewUser` and is unaffected). Route-level `app.authorize` on all four
+  assign/unassign endpoints (`facilities` + `users`) narrowed from
+  `[ADMINISTRATOR, MANAGER]` to `[MANAGER]`; the `GET` list routes stay
+  `[ADMINISTRATOR, MANAGER]`. Frontend mirrors this: both
+  `canManageFacilitySpecialties` and `canManageStaffSpecialties` in
+  `web/src/lib/permissions.ts` dropped their `isAdministrator(...) ||`
+  branch, so `SpecialtyManager` renders read-only (badges, no picker) for
+  Administrator on facility/user detail pages.
+- **Layout**: on both the facility and user detail pages, the Specialties
+  card moved from a full-width stacked card to the right column
+  (`grid lg:grid-cols-3`, profile/edit form `col-span-2`, Specialties
+  `col-span-1`) — stacks back to a single column below the `lg` breakpoint.
+  The user detail page's profile card was factored into a local
+  `profileCard` JSX variable so it can be reused both inside the grid
+  (clinical staff) and standalone (non-clinical staff, no Specialties card).
+- Reseeded (`reset.ts` + `migrate` + `seed`) to populate `description` on
+  all 13 specialties (12 → 13 after the Obstetrics/Gynecology split) and
+  pick up the new column as `NOT NULL`. Live-verified: Manager assign/
+  unassign still works on their own facility; Administrator sees the same
+  facility read-only (badges only, no picker); the combined-name regex
+  correctly blocked "Ear & Nose" with the intended error and accepted
+  "Otolaryngology"; Add-button height now matches the picker (`h-12`
+  added directly, since the picker's trigger is a non-default `h-12`
+  override, not the Button default `h-10`) confirmed via zoomed screenshot.

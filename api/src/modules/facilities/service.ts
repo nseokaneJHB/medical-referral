@@ -258,21 +258,35 @@ export const facilityUpdate = async (
 
 /**
  * Same "Administrator, or the facility's own Manager" gate `facility()`/
- * `facilityUpdate()` enforce inline above — factored out here since
- * specialty list/assign/unassign makes it a 3rd-through-5th repeat.
+ * `facilityUpdate()` enforce inline above — factored out here since it's
+ * also what viewing a facility's specialties requires.
  */
-const canManageFacility = (
+const canViewFacilitySpecialties = (
 	role: Role,
 	callerFacilityId: string | null,
 	facilityId: string,
 ): boolean => role !== ROLES.MANAGER || callerFacilityId === facilityId;
+
+/**
+ * Unlike viewing, assigning/unassigning a facility's specialties is
+ * Manager-only for their own facility — Administrator manages the
+ * specialty vocabulary itself (`modules/specialties`) but not any one
+ * facility's assignments.
+ */
+const canAssignFacilitySpecialties = (
+	role: Role,
+	callerFacilityId: string | null,
+	facilityId: string,
+): boolean => role === ROLES.MANAGER && callerFacilityId === facilityId;
 
 export const facilitySpecialties = async (
 	request: FastifyRequest<FacilitySpecialtiesRequest>,
 	reply: FastifyReply<FacilitySpecialtiesRequest>,
 ): Promise<void> => {
 	const role = request.user!.role as Role;
-	if (!canManageFacility(role, request.user!.facility_id, request.params.id)) {
+	if (
+		!canViewFacilitySpecialties(role, request.user!.facility_id, request.params.id)
+	) {
 		const { status, code } = HTTP_RESPONSE_CODE.FORBIDDEN;
 		return reply.status(status).send({
 			code,
@@ -295,7 +309,7 @@ export const facilitySpecialties = async (
 		limit: 100,
 		where: { facility_id: request.params.id },
 		select: { id: true, facility_id: true, created_at: true },
-		include: { specialty: { select: { id: true, name: true } } },
+		include: { specialty: { select: { id: true, name: true, description: true } } },
 	});
 
 	const { status, code } = HTTP_RESPONSE_CODE.OK;
@@ -314,7 +328,13 @@ export const facilitySpecialtyAssign = async (
 	reply: FastifyReply<FacilitySpecialtyAssignRequest>,
 ): Promise<void> => {
 	const role = request.user!.role as Role;
-	if (!canManageFacility(role, request.user!.facility_id, request.params.id)) {
+	if (
+		!canAssignFacilitySpecialties(
+			role,
+			request.user!.facility_id,
+			request.params.id,
+		)
+	) {
 		const { status, code } = HTTP_RESPONSE_CODE.FORBIDDEN;
 		return reply.status(status).send({
 			code,
@@ -334,7 +354,7 @@ export const facilitySpecialtyAssign = async (
 
 	const specialty = await request.server.core.specialty.one({
 		where: { id: request.body.specialty_id },
-		select: { id: true, name: true },
+		select: { id: true, name: true, description: true },
 	});
 
 	if (!specialty) {
@@ -382,7 +402,13 @@ export const facilitySpecialtyUnassign = async (
 	reply: FastifyReply<FacilitySpecialtyUnassignRequest>,
 ): Promise<void> => {
 	const role = request.user!.role as Role;
-	if (!canManageFacility(role, request.user!.facility_id, request.params.id)) {
+	if (
+		!canAssignFacilitySpecialties(
+			role,
+			request.user!.facility_id,
+			request.params.id,
+		)
+	) {
 		const { status, code } = HTTP_RESPONSE_CODE.FORBIDDEN;
 		return reply.status(status).send({
 			code,

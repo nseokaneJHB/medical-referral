@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { index, varchar, timestamp, mysqlTable } from "drizzle-orm/mysql-core";
+import { index, varchar, text, timestamp, mysqlTable } from "drizzle-orm/mysql-core";
 
 /**
  * Reference table for clinical specialties (e.g. "Cardiology", "Orthopedics")
@@ -11,6 +11,7 @@ export const SpecialtyModel = mysqlTable(
 	{
 		id: varchar("id", { length: 36 }).primaryKey(),
 		name: varchar("name", { length: 255 }).notNull().unique(),
+		description: text("description").notNull(),
 
 		created_at: timestamp("created_at").notNull().defaultNow(),
 		updated_at: timestamp("updated_at")

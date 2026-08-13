@@ -22,6 +22,7 @@ import type {
 const SPECIALTY_FIELDS = {
 	id: true,
 	name: true,
+	description: true,
 	created_at: true,
 	updated_at: true,
 } as const;

@@ -70,7 +70,7 @@ export const SpecialtyManager = ({
 					<p className="text-muted-foreground text-sm">No specialties assigned.</p>
 				)}
 				{assigned.map((link) => (
-					<Badge key={link.id} variant="secondary">
+					<Badge key={link.id} variant="secondary" title={link.specialty.description}>
 						{link.specialty.name}
 						{editable && (
 							<button
@@ -103,6 +103,7 @@ export const SpecialtyManager = ({
 						title="Add specialty"
 						disabled={!selected || assigning}
 						onClick={handleAssign}
+						className="h-12"
 					>
 						{assigning ? <Spinner /> : <PlusIcon />}
 						<span>Add</span>

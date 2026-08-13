@@ -359,72 +359,74 @@ const FacilityDetailPage = () => {
 				fallbackTo={FRONTEND_URLS.FACILITIES}
 			/>
 
-			<form onSubmit={handleSubmit(onSubmit)}>
-				<Card>
-					<CardHeader className="flex items-center justify-between">
-						<CardTitle className="text-xl">{facility.name}</CardTitle>
-						<div className="flex items-center gap-3">
-							<Badge variant={STATUS_VARIANT[facility.status]}>
-								{stringToTitleCase(facility.status)}
-							</Badge>
-							{canModerate && (
-								<FacilityModerationActions
-									facilityId={facility.id}
-									status={facility.status}
-									onChanged={onChanged}
-								/>
-							)}
-						</div>
+			<div className="grid gap-4 lg:grid-cols-3">
+				<form onSubmit={handleSubmit(onSubmit)} className="lg:col-span-2">
+					<Card>
+						<CardHeader className="flex items-center justify-between">
+							<CardTitle className="text-xl">{facility.name}</CardTitle>
+							<div className="flex items-center gap-3">
+								<Badge variant={STATUS_VARIANT[facility.status]}>
+									{stringToTitleCase(facility.status)}
+								</Badge>
+								{canModerate && (
+									<FacilityModerationActions
+										facilityId={facility.id}
+										status={facility.status}
+										onChanged={onChanged}
+									/>
+								)}
+							</div>
+						</CardHeader>
+						<CardContent className="space-y-4">
+							<Input
+								required
+								name="name"
+								label="Name"
+								error={name.error}
+								value={name.value}
+								onChange={name.onChange}
+								disabled={isSaving}
+							/>
+
+							<TextArea
+								name="address"
+								label="Address"
+								error={address.error}
+								value={address.value}
+								onChange={address.onChange}
+								disabled={isSaving}
+							/>
+
+							<Button type="submit" title="Save facility" disabled={isSaving}>
+								{isSaving ? (
+									<>
+										<Spinner /> <span>Saving...</span>
+									</>
+								) : (
+									<>
+										<SaveIcon /> <span>Save changes</span>
+									</>
+								)}
+							</Button>
+						</CardContent>
+					</Card>
+				</form>
+
+				<Card className="lg:col-span-1">
+					<CardHeader>
+						<CardTitle className="text-lg">Specialties</CardTitle>
 					</CardHeader>
-					<CardContent className="space-y-4">
-						<Input
-							required
-							name="name"
-							label="Name"
-							error={name.error}
-							value={name.value}
-							onChange={name.onChange}
-							disabled={isSaving}
+					<CardContent>
+						<SpecialtyManager
+							assigned={specialtiesResponse?.data ?? []}
+							allSpecialties={allSpecialtiesResponse?.data ?? []}
+							editable={canManageFacilitySpecialties(user, facility)}
+							onAssign={handleAssignSpecialty}
+							onUnassign={handleUnassignSpecialty}
 						/>
-
-						<TextArea
-							name="address"
-							label="Address"
-							error={address.error}
-							value={address.value}
-							onChange={address.onChange}
-							disabled={isSaving}
-						/>
-
-						<Button type="submit" title="Save facility" disabled={isSaving}>
-							{isSaving ? (
-								<>
-									<Spinner /> <span>Saving...</span>
-								</>
-							) : (
-								<>
-									<SaveIcon /> <span>Save changes</span>
-								</>
-							)}
-						</Button>
 					</CardContent>
 				</Card>
-			</form>
-
-			<Card>
-				<CardHeader>
-					<CardTitle className="text-lg">Specialties</CardTitle>
-				</CardHeader>
-				<CardContent>
-					<SpecialtyManager
-						assigned={specialtiesResponse?.data ?? []}
-						allSpecialties={allSpecialtiesResponse?.data ?? []}
-						editable={canManageFacilitySpecialties(user, facility)}
-						onAssign={handleAssignSpecialty}
-						onUnassign={handleUnassignSpecialty}
-					/>
-				</CardContent>
-			</Card>
+			</div>
 
 			{canAppeal && <FacilityAppealForm onSubmitted={onChanged} />}
 

@@ -94,36 +94,60 @@ const UserDetailPage = () => {
 		});
 	};
 
+	const profileCard = (
+		<Card>
+			<CardHeader className="flex items-center justify-between">
+				<CardTitle className="text-xl">{user.name ?? user.email}</CardTitle>
+				<Badge
+					variant={user.status === USER_STATUS.ACTIVE ? "success" : "error"}
+				>
+					{stringToTitleCase(user.status)}
+				</Badge>
+			</CardHeader>
+			<CardContent className="space-y-4">
+				<div className="grid gap-4 sm:grid-cols-2">
+					<ReadOnlyField label="Name" value={user.name} />
+					<ReadOnlyField label="Email" value={user.email} />
+				</div>
+
+				<div className="grid gap-4 sm:grid-cols-2">
+					<ReadOnlyField label="Role" value={stringToTitleCase(user.role)} />
+					<ReadOnlyField label="Facility" value={user.facility?.name} />
+				</div>
+
+				<ReadOnlyField
+					label="Joined"
+					value={new Date(user.created_at).toLocaleDateString()}
+				/>
+			</CardContent>
+		</Card>
+	);
+
 	return (
 		<div className="space-y-4">
 			<BackLink label="Back to users" fallbackTo={FRONTEND_URLS.USERS} />
 
-			<Card>
-				<CardHeader className="flex items-center justify-between">
-					<CardTitle className="text-xl">{user.name ?? user.email}</CardTitle>
-					<Badge
-						variant={user.status === USER_STATUS.ACTIVE ? "success" : "error"}
-					>
-						{stringToTitleCase(user.status)}
-					</Badge>
-				</CardHeader>
-				<CardContent className="space-y-4">
-					<div className="grid gap-4 sm:grid-cols-2">
-						<ReadOnlyField label="Name" value={user.name} />
-						<ReadOnlyField label="Email" value={user.email} />
-					</div>
-
-					<div className="grid gap-4 sm:grid-cols-2">
-						<ReadOnlyField label="Role" value={stringToTitleCase(user.role)} />
-						<ReadOnlyField label="Facility" value={user.facility?.name} />
-					</div>
-
-					<ReadOnlyField
-						label="Joined"
-						value={new Date(user.created_at).toLocaleDateString()}
-					/>
-				</CardContent>
-			</Card>
+			{isClinical ? (
+				<div className="grid gap-4 lg:grid-cols-3">
+					<div className="lg:col-span-2">{profileCard}</div>
+					<Card className="lg:col-span-1">
+						<CardHeader>
+							<CardTitle className="text-lg">Specialties</CardTitle>
+						</CardHeader>
+						<CardContent>
+							<SpecialtyManager
+								assigned={specialtiesResponse?.data ?? []}
+								allSpecialties={allSpecialtiesResponse?.data ?? []}
+								editable={canManageStaffSpecialties(viewer, user)}
+								onAssign={handleAssignSpecialty}
+								onUnassign={handleUnassignSpecialty}
+							/>
+						</CardContent>
+					</Card>
+				</div>
+			) : (
+				profileCard
+			)}
 
 			{isDoctor(user) && user.stats && (
 				<div className="grid gap-4 sm:grid-cols-3">
@@ -143,23 +167,6 @@ const UserDetailPage = () => {
 						value={`${Math.round(user.stats.completion_rate * 100)}%`}
 					/>
 				</div>
-			)}
-
-			{isClinical && (
-				<Card>
-					<CardHeader>
-						<CardTitle className="text-lg">Specialties</CardTitle>
-					</CardHeader>
-					<CardContent>
-						<SpecialtyManager
-							assigned={specialtiesResponse?.data ?? []}
-							allSpecialties={allSpecialtiesResponse?.data ?? []}
-							editable={canManageStaffSpecialties(viewer, user)}
-							onAssign={handleAssignSpecialty}
-							onUnassign={handleUnassignSpecialty}
-						/>
-					</CardContent>
-				</Card>
 			)}
 		</div>
 	);

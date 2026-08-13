@@ -153,21 +153,21 @@ export const resolveModerationNamespace = (
 export const canManageFacilitySpecialties = (
 	user: Pick<AuthUser, "role" | "facility_id">,
 	facility: Pick<Facility, "id">,
-): boolean => isAdministrator(user) || isOwnFacilityManager(user, facility.id);
+): boolean => isOwnFacilityManager(user, facility.id);
 
 /**
  * Specialties only make sense for clinical staff — Manager/Administrator
- * accounts have none. Administrator manages any Doctor/Nurse's; Manager
- * only their own facility's, mirroring `canModerateUser`'s shape but keyed
- * on a nested `facility` ref (`UserDetail`'s shape) rather than a bare
- * `facility_id`.
+ * accounts have none. Manager-only, and only their own facility's,
+ * mirroring `canModerateUser`'s shape but keyed on a nested `facility` ref
+ * (`UserDetail`'s shape) rather than a bare `facility_id`. Administrator
+ * manages the specialty vocabulary itself but not any one facility/user's
+ * assignments.
  */
 export const canManageStaffSpecialties = (
 	viewer: Pick<AuthUser, "role" | "facility_id">,
 	target: { role: Role; facility: Pick<Facility, "id"> | null },
 ): boolean => {
 	if (target.role !== ROLES.DOCTOR && target.role !== ROLES.NURSE) return false;
-	if (isAdministrator(viewer)) return true;
 	return isManager(viewer) && viewer.facility_id === target.facility?.id;
 };
 

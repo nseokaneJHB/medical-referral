@@ -266,11 +266,13 @@ tagging a facility or a Doctor/Nurse with clinical specialties
 and `modules/users` (`GET/POST .../specialties`,
 `DELETE .../specialties/:specialtyId`), surfaced on the `/specialties`
 admin page and on the facility/user detail pages. See `docs/backlog.md`
-("Facility specialties") for the resolved decisions.
+("Facility specialties") for the resolved decisions. As of 2026-08-14,
+assigning/unassigning (not viewing) is Manager-only — Administrator
+manages the vocabulary but not any one facility/user's assignments.
 
 | Table | Columns beyond `id`/`created_at` |
 |---|---|
-| `specialties` | `name` (unique, indexed) |
+| `specialties` | `name` (unique, indexed), `description` (text, not null) |
 | `facility_specialties` | `facility_id` FK, `specialty_id` FK — unique on the pair |
 | `user_specialties` | `user_id` FK, `specialty_id` FK — unique on the pair |
 

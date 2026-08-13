@@ -119,7 +119,7 @@ export const route: FastifyPluginAsync = async (
 		preHandler: [
 			app.event(EVENT_NAMES.USER_SPECIALTY_ASSIGN),
 			app.authenticate,
-			app.authorize([ROLES.ADMINISTRATOR, ROLES.MANAGER]),
+			app.authorize([ROLES.MANAGER]),
 		],
 		schema: {
 			params: userParamsSchema,
@@ -142,7 +142,7 @@ export const route: FastifyPluginAsync = async (
 		preHandler: [
 			app.event(EVENT_NAMES.USER_SPECIALTY_UNASSIGN),
 			app.authenticate,
-			app.authorize([ROLES.ADMINISTRATOR, ROLES.MANAGER]),
+			app.authorize([ROLES.MANAGER]),
 		],
 		schema: {
 			params: userSpecialtyUnassignParamsSchema,

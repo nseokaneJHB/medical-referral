@@ -62,19 +62,58 @@ const chunk = <T>(items: T[], size: number): T[][] => {
 	return chunks;
 };
 
-const SPECIALTY_NAMES = [
-	"Cardiology",
-	"Orthopedics",
-	"Pediatrics",
-	"Neurology",
-	"Oncology",
-	"Radiology",
-	"General Surgery",
-	"Internal Medicine",
-	"Emergency Medicine",
-	"Psychiatry",
-	"Obstetrics & Gynecology",
-	"Dermatology",
+const SPECIALTY_DEFS = [
+	{
+		name: "Cardiology",
+		description: "Diagnosis and treatment of heart and blood vessel conditions.",
+	},
+	{
+		name: "Orthopedics",
+		description: "Care for bones, joints, ligaments, tendons, and muscles.",
+	},
+	{
+		name: "Pediatrics",
+		description: "Medical care for infants, children, and adolescents.",
+	},
+	{
+		name: "Neurology",
+		description:
+			"Diagnosis and treatment of disorders of the brain, spinal cord, and nervous system.",
+	},
+	{ name: "Oncology", description: "Diagnosis and treatment of cancer." },
+	{
+		name: "Radiology",
+		description: "Diagnostic imaging such as X-rays, CT, MRI, and ultrasound.",
+	},
+	{
+		name: "General Surgery",
+		description:
+			"Surgical treatment of a broad range of conditions affecting the abdomen, skin, and soft tissue.",
+	},
+	{
+		name: "Internal Medicine",
+		description: "Prevention, diagnosis, and treatment of adult diseases.",
+	},
+	{
+		name: "Emergency Medicine",
+		description: "Immediate evaluation and treatment of acute illness and injury.",
+	},
+	{
+		name: "Psychiatry",
+		description: "Diagnosis and treatment of mental health and behavioral disorders.",
+	},
+	{
+		name: "Obstetrics",
+		description: "Care for pregnancy, childbirth, and the postpartum period.",
+	},
+	{
+		name: "Gynecology",
+		description: "Care for the female reproductive system.",
+	},
+	{
+		name: "Dermatology",
+		description: "Diagnosis and treatment of skin, hair, and nail conditions.",
+	},
 ];
 
 const FACILITY_NAME_SUFFIXES = [
@@ -186,9 +225,9 @@ async function main(): Promise<void> {
 	console.log("🌱 Seeding a year of realistic usage data...");
 
 	// ---------- Specialties ----------
-	const specialtyRows: SpecialtyModelInsert[] = SPECIALTY_NAMES.map((name) => ({
+	const specialtyRows: SpecialtyModelInsert[] = SPECIALTY_DEFS.map((def) => ({
 		id: generateUuid(),
-		name,
+		...def,
 	}));
 	await connection.insert(SpecialtyModel).values(specialtyRows);
 	console.log(`✓ ${specialtyRows.length} specialties`);

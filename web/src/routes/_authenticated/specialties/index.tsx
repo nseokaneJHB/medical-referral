@@ -50,6 +50,7 @@ import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 
 import { Loader } from "@/components/custom/loader";
 import { Input as FormInput } from "@/components/custom/input";
+import { TextArea } from "@/components/custom/text-area";
 import { RowActionsMenu } from "@/components/custom/row-actions-menu";
 
 import { useFormField } from "@/hooks/use-form-field";
@@ -83,10 +84,14 @@ const SpecialtyDialog = ({
 	const { control, handleSubmit, reset } = useForm<CreateSpecialtyBody>({
 		mode: "onChange",
 		resolver: zodResolver(CreateSpecialtySchema),
-		values: { name: specialty?.name ?? "" },
+		values: {
+			name: specialty?.name ?? "",
+			description: specialty?.description ?? "",
+		},
 	});
 
 	const name = useFormField({ name: "name", control });
+	const description = useFormField({ name: "description", control });
 
 	const saveMutation = useMutation<
 		SpecialtyResponse,
@@ -101,7 +106,7 @@ const SpecialtyDialog = ({
 
 	const handleOpenChange = (next: boolean) => {
 		onOpenChange(next);
-		if (!next) reset({ name: "" });
+		if (!next) reset({ name: "", description: "" });
 	};
 
 	const onSubmit = async (payload: CreateSpecialtyBody) =>
@@ -147,6 +152,16 @@ const SpecialtyDialog = ({
 						value={name.value}
 						onChange={name.onChange}
 						placeholder="Cardiology"
+						disabled={isSaving}
+					/>
+					<TextArea
+						required
+						name="description"
+						label="Description"
+						error={description.error}
+						value={description.value}
+						onChange={description.onChange}
+						placeholder="Diagnosis and treatment of heart and blood vessel conditions."
 						disabled={isSaving}
 					/>
 					<DialogFooter>
@@ -244,6 +259,7 @@ const SpecialtiesPage = () => {
 						<TableHeader>
 							<TableRow>
 								<TableHead>Name</TableHead>
+								<TableHead>Description</TableHead>
 								<TableHead>Created</TableHead>
 								{isAdministrator(user) && <TableHead className="w-10" />}
 							</TableRow>
@@ -252,7 +268,7 @@ const SpecialtiesPage = () => {
 							{response.data.length === 0 && (
 								<TableRow>
 									<TableCell
-										colSpan={isAdministrator(user) ? 3 : 2}
+										colSpan={isAdministrator(user) ? 4 : 3}
 										className="text-muted-foreground text-center"
 									>
 										No specialties found.
@@ -262,6 +278,9 @@ const SpecialtiesPage = () => {
 							{response.data.map((specialty) => (
 								<TableRow key={specialty.id}>
 									<TableCell className="font-medium">{specialty.name}</TableCell>
+									<TableCell className="text-muted-foreground max-w-xs truncate">
+										{specialty.description}
+									</TableCell>
 									<TableCell>
 										{new Date(specialty.created_at).toLocaleDateString()}
 									</TableCell>
