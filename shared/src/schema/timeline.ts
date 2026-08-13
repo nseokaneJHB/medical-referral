@@ -66,6 +66,7 @@ export const appealListResponseSchema = paginatedGlobalResponseSchema.extend({
  */
 export const ManagerAuditSchema = TimelineSchema.extend({
 	subject: userRefSchema.extend({ role: roleSchema.nullable() }),
+	reason: stringSchema.nullable(),
 });
 
 export const managerAuditListResponseSchema = paginatedGlobalResponseSchema.extend({

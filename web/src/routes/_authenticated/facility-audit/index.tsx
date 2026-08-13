@@ -163,26 +163,17 @@ const PersonCell = ({
 );
 
 /**
- * Subject cell for the table: a small badge for which kind of entity it is
- * (User/Facility/Referral/Patient — "who/where/what"), then the subject
- * itself via `PersonCell`.
+ * Action cell for the table: a small badge for which kind of entity the
+ * row is about (User/Facility/Referral/Patient), then the action label.
  */
-const SubjectCell = ({
-	entry,
-	viewerId,
-}: {
-	entry: ManagerAudit;
-	viewerId: string;
-}) => (
+const ActionCell = ({ entry }: { entry: ManagerAudit }) => (
 	<span className="inline-flex flex-wrap items-center gap-1.5">
 		<Badge variant={TYPE_VARIANT[entry.type]} className="shrink-0">
 			{stringToTitleCase(entry.type)}
 		</Badge>
-		<PersonCell
-			name={entry.subject.name}
-			role={entry.subject.role}
-			isSelf={entry.subject.id === viewerId}
-		/>
+		<span className="whitespace-nowrap">
+			{ACTION_LABEL[entry.action] ?? stringToTitleCase(entry.action)}
+		</span>
 	</span>
 );
 
@@ -294,7 +285,7 @@ const AuditDetailsDialog = ({
 						<div className="flex w-full flex-col gap-1">
 							<span className="text-sm font-medium">Why</span>
 							<p className="text-foreground rounded-md border bg-transparent p-3 text-sm whitespace-pre-wrap">
-								{entry.notes ?? "No reason given."}
+								{entry.reason ?? entry.notes ?? "No reason given."}
 							</p>
 						</div>
 					</div>
@@ -333,7 +324,7 @@ const FacilityAuditPage = () => {
 								<TableHead>Performed by</TableHead>
 								<TableHead>Action</TableHead>
 								<TableHead>Subject</TableHead>
-								<TableHead>Verdict</TableHead>
+								<TableHead>Status</TableHead>
 								<TableHead>Why</TableHead>
 								<TableHead>When</TableHead>
 							</TableRow>
@@ -361,19 +352,21 @@ const FacilityAuditPage = () => {
 											isSelf={entry.changer.id === user.id}
 										/>
 									</TableCell>
-									<TableCell className="whitespace-nowrap">
-										{ACTION_LABEL[entry.action] ?? stringToTitleCase(entry.action)}
+									<TableCell>
+										<ActionCell entry={entry} />
 									</TableCell>
 									<TableCell className="max-w-60 truncate">
-										<SubjectCell entry={entry} viewerId={user.id} />
+										<PersonCell
+											name={entry.subject.name}
+											role={entry.subject.role}
+											isSelf={entry.subject.id === user.id}
+										/>
 									</TableCell>
-									<TableCell className="max-w-40 truncate">
-										{entry.previous && entry.next
-											? `${stringToTitleCase(entry.previous)} → ${stringToTitleCase(entry.next)}`
-											: "—"}
+									<TableCell className="max-w-32 truncate">
+										{entry.next ? stringToTitleCase(entry.next) : "—"}
 									</TableCell>
 									<TableCell className="max-w-48 truncate text-muted-foreground italic">
-										{entry.notes ?? "—"}
+										{entry.reason ?? entry.notes ?? "—"}
 									</TableCell>
 									<TableCell className="text-muted-foreground whitespace-nowrap">
 										{getRelativeTime(entry.changed_at as unknown as string)}

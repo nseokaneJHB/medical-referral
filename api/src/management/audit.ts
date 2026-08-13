@@ -118,7 +118,7 @@ export class AuditManager {
 		// `Timeline.many()`'s return type — present at runtime, invisible to
 		// this type. Same gap as `AppealManager.list`.
 		const rows = result.data as unknown as Timeline[];
-		const data = await this.hydrateSubjects(rows);
+		const data = await this.hydrateSubjects(rows, options.facilityId);
 
 		return {
 			data,
@@ -131,16 +131,27 @@ export class AuditManager {
 
 	/**
 	 * `entity` alone is a bare UUID — batch-fetches every distinct
-	 * user/patient/referral/facility name referenced by `rows` (one query
-	 * per type, not one per row) and attaches it as `subject`, normalized to
+	 * user/patient/facility name referenced by `rows` (one query per type,
+	 * not one per row) and attaches it as `subject`, normalized to
 	 * `{ id, name, role }` regardless of entity type: a patient's `name` is
-	 * its first + last name joined; a referral's is its `referral_reason`
-	 * (referrals have no display name of their own); `role` is only ever
-	 * populated for `type: USER` rows (Nurse/Doctor/Manager/Administrator),
-	 * null everywhere else — the frontend uses it to disambiguate which kind
-	 * of person a User-type row is about.
+	 * its first + last name joined; `role` is only ever populated for
+	 * `type: USER` rows (Nurse/Doctor/Manager/Administrator), null
+	 * everywhere else — the frontend uses it to disambiguate which kind of
+	 * person a User-type row is about.
+	 *
+	 * A REFERRAL row's `subject.name` isn't the referral's own reason text —
+	 * it's the two facilities it moves between ("{origin} → {destination}"),
+	 * since a referral has no display name of its own. `viewerFacilityId`
+	 * lets that read "Your facility" instead of the Manager's own facility's
+	 * name, since it's always them reading it. Resolving a referral's
+	 * facility names requires a second batch-fetch round (their ids aren't
+	 * known until the referral rows themselves come back), so this runs in
+	 * two sequential `Promise.all` phases rather than one.
 	 */
-	hydrateSubjects = async (rows: Timeline[]): Promise<ManagerAudit[]> => {
+	hydrateSubjects = async (
+		rows: Timeline[],
+		viewerFacilityId: string,
+	): Promise<ManagerAudit[]> => {
 		const userIds = rows
 			.filter((row) => row.type === TIMELINE_TYPE.USER)
 			.map((row) => row.entity);
@@ -154,7 +165,7 @@ export class AuditManager {
 			.filter((row) => row.type === TIMELINE_TYPE.FACILITY)
 			.map((row) => row.entity);
 
-		const [users, patients, referrals, facilities] = await Promise.all([
+		const [users, referrals] = await Promise.all([
 			userIds.length > 0
 				? this.core.user.many({
 						page: 1,
@@ -163,6 +174,33 @@ export class AuditManager {
 						select: { id: true, name: true, role: true },
 					})
 				: null,
+			referralIds.length > 0
+				? this.core.referral.many({
+						page: 1,
+						limit: referralIds.length,
+						where: { id: { in: referralIds } },
+						select: {
+							id: true,
+							origin_facility_id: true,
+							destination_facility_id: true,
+							referral_reason: true,
+						},
+					})
+				: null,
+		]);
+
+		const referralFacilityIds = (referrals?.data ?? []).flatMap(
+			(referral) => [
+				referral.origin_facility_id,
+				referral.destination_facility_id,
+			],
+		);
+
+		const allFacilityIds = [
+			...new Set([...facilityIds, ...referralFacilityIds]),
+		];
+
+		const [patients, facilities] = await Promise.all([
 			patientIds.length > 0
 				? this.core.patient.many({
 						page: 1,
@@ -171,19 +209,11 @@ export class AuditManager {
 						select: { id: true, first_name: true, last_name: true },
 					})
 				: null,
-			referralIds.length > 0
-				? this.core.referral.many({
-						page: 1,
-						limit: referralIds.length,
-						where: { id: { in: referralIds } },
-						select: { id: true, referral_reason: true },
-					})
-				: null,
-			facilityIds.length > 0
+			allFacilityIds.length > 0
 				? this.core.facility.many({
 						page: 1,
-						limit: facilityIds.length,
-						where: { id: { in: facilityIds } },
+						limit: allFacilityIds.length,
+						where: { id: { in: allFacilityIds } },
 						select: { id: true, name: true },
 					})
 				: null,
@@ -191,6 +221,7 @@ export class AuditManager {
 
 		const nameById = new Map<string, string | null>();
 		const roleById = new Map<string, Role | null>();
+		const reasonById = new Map<string, string | null>();
 		for (const user of users?.data ?? []) {
 			nameById.set(user.id, user.name);
 			roleById.set(user.id, user.role);
@@ -200,10 +231,21 @@ export class AuditManager {
 				patient.id,
 				`${patient.first_name} ${patient.last_name}`.trim(),
 			);
-		for (const referral of referrals?.data ?? [])
-			nameById.set(referral.id, referral.referral_reason);
 		for (const facility of facilities?.data ?? [])
 			nameById.set(facility.id, facility.name);
+
+		const facilityLabel = (facilityId: string): string =>
+			facilityId === viewerFacilityId
+				? "Your facility"
+				: (nameById.get(facilityId) ?? "an unknown facility");
+
+		for (const referral of referrals?.data ?? []) {
+			nameById.set(
+				referral.id,
+				`${facilityLabel(referral.origin_facility_id)} → ${facilityLabel(referral.destination_facility_id)}`,
+			);
+			reasonById.set(referral.id, referral.referral_reason);
+		}
 
 		return rows.map((row) => ({
 			...row,
@@ -212,6 +254,7 @@ export class AuditManager {
 				name: nameById.get(row.entity) ?? null,
 				role: roleById.get(row.entity) ?? null,
 			},
+			reason: reasonById.get(row.entity) ?? null,
 		}));
 	};
 }
