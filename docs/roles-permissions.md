@@ -1434,3 +1434,67 @@ with a plain `pnpm install`), no work was lost since it's all on disk/git.
   when done).
 - **No change to the still-open frontend permissions file thread** —
   still the only remaining item from this doc's original scope.
+
+**2026-08-13, new session — frontend permissions file (done), UI
+consistency pass, and Manager facility-audit feature (all committed).**
+Picked up the frontend permissions file thread flagged as the only open
+item above.
+
+- **Centralized frontend authorization predicates — done.**
+  `web/src/lib/permissions.ts` now holds the single source of truth for
+  frontend "who can do what": bare role predicates (`isAdministrator`/
+  `isManager`/`isDoctor`/`isNurse`), resource-shaped predicates
+  (`canActOnReferral`, `canEditReferralFull`, `canAssignDoctorToReferral`,
+  `canSelfAssignReferral`, `canRedirectReferral`, `canRequestTransfer`,
+  `canFileFacilityAppeal`, `canManageUsers`, `canModerateUser`), and nav
+  visibility (`canViewNavItem`). Mirrors `api/src/lib/permission.ts`'s
+  many-small-named-predicates pattern, but deliberately pure — every
+  function takes already-fetched client data (route context `user`,
+  loaded resource objects) rather than querying anything itself. Inline
+  `role === ROLES.X` checks across route guards, conditional rendering,
+  and `side-bar.tsx`'s nav visibility were replaced with calls into this
+  module (`e94eeb8`, `f486999`, `e4c1f41`).
+  **Not fully finished — 15 inline checks remain** in `referrals/
+  $referralId.tsx` (2), `appeals/index.tsx` (2), `transfers/index.tsx`
+  (2), `_authenticated/index.tsx` dashboard (7), and `side-bar.tsx` (2):
+  mostly a `user.role === ROLES.ADMINISTRATOR ? "ADMINISTRATOR" :
+  "MANAGER"` API-namespace-selector ternary duplicated 5x (not really an
+  authorization predicate — a routing decision — but still worth
+  centralizing to kill the duplication) and bare identity checks that
+  have direct `isNurse`/`isDoctor`/`isManager`/`isAdministrator`
+  equivalents already sitting unused at those call sites. Queued to
+  finish immediately after this log entry.
+- **Per-row action buttons collapsed into a single kebab menu** (Users,
+  Appeals, Transfers) — `web/src/components/custom/row-actions-menu.tsx`
+  (`1b4ad62`).
+- **Cross-page UI consistency pass** — sidebar pending-count badges
+  (filled circles, always shown including zero, destructive color),
+  filter/search rows wrapped in a `Card` with search pinned right via
+  `ml-auto`, status-badge color mapping made consistent across
+  Users/Facilities/Patients/Referrals, restored default card padding
+  around table lists (`18fdbf2`, `1872b1e`, `109c16f`, `8784780`,
+  `c41e265`, `3ab4288`, `9197b2e`, `187d00b`). Not itself part of this
+  doc's scope — a design-drift cleanup pass — but landed in the same
+  session; the *structural* follow-up (shared `FilterBar`/generic
+  `Table` components so pages can't drift like this again) is tracked in
+  [[project_backlog]], not started.
+- **New feature, not originally scoped in this doc: Manager
+  facility-audit page** (`c17060b` through `eb82334`) — `GET /manager/
+  audit` (`AuditManager` in `api/src/management/audit.ts`) plus
+  `/facility-audit` frontend route: a facility-scoped activity feed over
+  the existing `timeline` table (who did what to whom, when, why),
+  gated to Manager via `isManager`. Went through many rounds of live
+  user-driven refinement in one sitting — worth knowing the *current*
+  shape rather than the history: Performed-by/Action/Subject/Status/
+  Why/When columns; Action is always exactly one badge, colored by what
+  happened (`ACTION_VARIANT`) rather than which entity it happened to,
+  spread across all 10 available badge variants to avoid unrelated
+  actions colliding on the same color; Referral rows show a plain
+  "Referral" badge and their Subject reads as `"{origin} →
+  {destination}"` (facility "Your facility" substituted for the
+  viewer's own); Appeal actions (submit/approve/deny, which span both
+  User and Facility rows) get their own badge and a sentence-style
+  Subject ("Approved your appeal" / "Approved {name}'s appeal"); a
+  row-click dialog shows full untruncated detail. Fully committed,
+  live-verified in-browser at each step, no known open items on this
+  feature specifically.
