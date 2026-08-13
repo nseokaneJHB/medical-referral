@@ -18,6 +18,8 @@ import {
 	type TimelineResponse,
 	type FacilityResponse,
 	type UpdateFacilityBody,
+	type GlobalResponse,
+	type FacilitySpecialtyLinkResponse,
 } from "@referral-tracking/shared";
 
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +31,7 @@ import { Input } from "@/components/custom/input";
 import { TextArea } from "@/components/custom/text-area";
 import { BackLink } from "@/components/custom/back-link";
 import { TimelineList } from "@/components/custom/timeline-list";
+import { SpecialtyManager } from "@/components/custom/specialty-manager";
 import { ReasonActionButton } from "@/components/custom/reason-action-button";
 
 import { useFormField } from "@/hooks/use-form-field";
@@ -46,9 +49,16 @@ import {
 	facilityHistoryRequest,
 } from "@/api/facilities";
 import {
+	specialtiesRequest,
+	assignFacilitySpecialty,
+	unassignFacilitySpecialty,
+	facilitySpecialtiesRequest,
+} from "@/api/specialties";
+import {
 	isAdministrator,
 	isOwnFacilityManager,
 	canFileFacilityAppeal,
+	canManageFacilitySpecialties,
 } from "@/lib/permissions";
 
 const STATUS_VARIANT: Record<
@@ -244,6 +254,54 @@ const FacilityDetailPage = () => {
 		queryFn: () => facilityHistoryRequest({ data: { id: facility.id } }),
 	});
 
+	const { data: specialtiesResponse } = useQuery({
+		queryKey: [...QUERY_KEYS.FACILITY_SPECIALTIES, facility.id],
+		queryFn: () => facilitySpecialtiesRequest({ data: { id: facility.id } }),
+	});
+
+	const { data: allSpecialtiesResponse } = useQuery({
+		queryKey: [...QUERY_KEYS.SPECIALTIES, "picker"],
+		queryFn: () => specialtiesRequest({ data: { page: "1", limit: "100" } }),
+	});
+
+	const assignSpecialtyMutation = useMutation<
+		FacilitySpecialtyLinkResponse,
+		Error,
+		string
+	>({
+		mutationFn: (specialtyId) =>
+			assignFacilitySpecialty(facility.id, { specialty_id: specialtyId }),
+	});
+
+	const unassignSpecialtyMutation = useMutation<GlobalResponse, Error, string>({
+		mutationFn: (specialtyId) =>
+			unassignFacilitySpecialty(facility.id, specialtyId),
+	});
+
+	const onSpecialtiesChanged = async () => {
+		await queryClient.invalidateQueries({
+			queryKey: [...QUERY_KEYS.FACILITY_SPECIALTIES, facility.id],
+		});
+	};
+
+	const handleAssignSpecialty = async (specialtyId: string): Promise<void> => {
+		await useToastMutation({
+			loading: "Assigning specialty...",
+			promise: assignSpecialtyMutation.mutateAsync(specialtyId),
+			onSuccess: onSpecialtiesChanged,
+		});
+	};
+
+	const handleUnassignSpecialty = async (link: {
+		specialty: { id: string };
+	}): Promise<void> => {
+		await useToastMutation({
+			loading: "Removing specialty...",
+			promise: unassignSpecialtyMutation.mutateAsync(link.specialty.id),
+			onSuccess: onSpecialtiesChanged,
+		});
+	};
+
 	const { control, handleSubmit } = useForm<UpdateFacilityBody>({
 		mode: "onChange",
 		resolver: zodResolver(UpdateFacilitySchema),
@@ -352,6 +410,21 @@ const FacilityDetailPage = () => {
 					</CardContent>
 				</Card>
 			</form>
+
+			<Card>
+				<CardHeader>
+					<CardTitle className="text-lg">Specialties</CardTitle>
+				</CardHeader>
+				<CardContent>
+					<SpecialtyManager
+						assigned={specialtiesResponse?.data ?? []}
+						allSpecialties={allSpecialtiesResponse?.data ?? []}
+						editable={canManageFacilitySpecialties(user, facility)}
+						onAssign={handleAssignSpecialty}
+						onUnassign={handleUnassignSpecialty}
+					/>
+				</CardContent>
+			</Card>
 
 			{canAppeal && <FacilityAppealForm onSubmitted={onChanged} />}
 

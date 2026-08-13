@@ -11,9 +11,10 @@ import {
 	orderDirectionSchema,
 	facilityStatusSchema,
 	type Role,
+	type FacilitySpecialtyListResponse,
 } from "@referral-tracking/shared";
 
-import { normalizeNullableFields } from "../../lib/util";
+import { generateUuid, normalizeNullableFields } from "../../lib/util";
 import { parseEnumList, parseSortList } from "../../lib/validator";
 
 import { FacilityModel, type FacilityModelSelect } from "../../drizzle/schema";
@@ -25,6 +26,9 @@ import type {
 	FacilityUpdateRequest,
 	FacilityRequest,
 	FacilityHistoryRequest,
+	FacilitySpecialtiesRequest,
+	FacilitySpecialtyAssignRequest,
+	FacilitySpecialtyUnassignRequest,
 } from "./type";
 
 const FACILITY_FIELDS = {
@@ -250,4 +254,158 @@ export const facilityUpdate = async (
 	reply
 		.status(status)
 		.send({ code, message: "Facility updated.", data: facility });
+};
+
+/**
+ * Same "Administrator, or the facility's own Manager" gate `facility()`/
+ * `facilityUpdate()` enforce inline above — factored out here since
+ * specialty list/assign/unassign makes it a 3rd-through-5th repeat.
+ */
+const canManageFacility = (
+	role: Role,
+	callerFacilityId: string | null,
+	facilityId: string,
+): boolean => role !== ROLES.MANAGER || callerFacilityId === facilityId;
+
+export const facilitySpecialties = async (
+	request: FastifyRequest<FacilitySpecialtiesRequest>,
+	reply: FastifyReply<FacilitySpecialtiesRequest>,
+): Promise<void> => {
+	const role = request.user!.role as Role;
+	if (!canManageFacility(role, request.user!.facility_id, request.params.id)) {
+		const { status, code } = HTTP_RESPONSE_CODE.FORBIDDEN;
+		return reply.status(status).send({
+			code,
+			message: "You may only view your own facility's specialties.",
+		});
+	}
+
+	const facility = await request.server.core.facility.one({
+		where: { id: request.params.id },
+		select: { id: true },
+	});
+
+	if (!facility) {
+		const { status, code } = HTTP_RESPONSE_CODE.NOT_FOUND;
+		return reply.status(status).send({ code, message: "Facility not found." });
+	}
+
+	const result = await request.server.core.specialty.linkMany("facility", {
+		page: 1,
+		limit: 100,
+		where: { facility_id: request.params.id },
+		select: { id: true, facility_id: true, created_at: true },
+		include: { specialty: { select: { id: true, name: true } } },
+	});
+
+	const { status, code } = HTTP_RESPONSE_CODE.OK;
+	reply.status(status).send({
+		code,
+		message: "Facility specialties retrieved.",
+		// `include`-derived fields (`specialty`) aren't modeled by `linkMany`'s
+		// return type — present at runtime, just invisible to this type. See
+		// `core/helpers.ts`.
+		data: result.data as unknown as FacilitySpecialtyListResponse["data"],
+	});
+};
+
+export const facilitySpecialtyAssign = async (
+	request: FastifyRequest<FacilitySpecialtyAssignRequest>,
+	reply: FastifyReply<FacilitySpecialtyAssignRequest>,
+): Promise<void> => {
+	const role = request.user!.role as Role;
+	if (!canManageFacility(role, request.user!.facility_id, request.params.id)) {
+		const { status, code } = HTTP_RESPONSE_CODE.FORBIDDEN;
+		return reply.status(status).send({
+			code,
+			message: "You may only manage your own facility's specialties.",
+		});
+	}
+
+	const facility = await request.server.core.facility.one({
+		where: { id: request.params.id },
+		select: { id: true },
+	});
+
+	if (!facility) {
+		const { status, code } = HTTP_RESPONSE_CODE.NOT_FOUND;
+		return reply.status(status).send({ code, message: "Facility not found." });
+	}
+
+	const specialty = await request.server.core.specialty.one({
+		where: { id: request.body.specialty_id },
+		select: { id: true, name: true },
+	});
+
+	if (!specialty) {
+		const { status, code } = HTTP_RESPONSE_CODE.NOT_FOUND;
+		return reply.status(status).send({ code, message: "Specialty not found." });
+	}
+
+	const existing = await request.server.core.specialty.linkMany("facility", {
+		page: 1,
+		limit: 1,
+		where: {
+			facility_id: request.params.id,
+			specialty_id: request.body.specialty_id,
+		},
+		select: { id: true },
+	});
+
+	if (existing.data.length > 0) {
+		const { status, code } = HTTP_RESPONSE_CODE.CONFLICT;
+		return reply.status(status).send({
+			code,
+			message: "This specialty is already assigned to the facility.",
+		});
+	}
+
+	const [link] = await request.server.core.specialty.linkCreate("facility", {
+		data: {
+			id: generateUuid(),
+			facility_id: request.params.id,
+			specialty_id: request.body.specialty_id,
+		},
+		select: { id: true, facility_id: true, created_at: true },
+	});
+
+	const { status, code } = HTTP_RESPONSE_CODE.CREATED;
+	reply.status(status).send({
+		code,
+		message: "Specialty assigned.",
+		data: { ...link, specialty },
+	});
+};
+
+export const facilitySpecialtyUnassign = async (
+	request: FastifyRequest<FacilitySpecialtyUnassignRequest>,
+	reply: FastifyReply<FacilitySpecialtyUnassignRequest>,
+): Promise<void> => {
+	const role = request.user!.role as Role;
+	if (!canManageFacility(role, request.user!.facility_id, request.params.id)) {
+		const { status, code } = HTTP_RESPONSE_CODE.FORBIDDEN;
+		return reply.status(status).send({
+			code,
+			message: "You may only manage your own facility's specialties.",
+		});
+	}
+
+	const deleted = await request.server.core.specialty.linkDelete("facility", {
+		where: {
+			facility_id: request.params.id,
+			specialty_id: request.params.specialtyId,
+		},
+		select: { id: true },
+	});
+
+	if (deleted.length === 0) {
+		const { status, code } = HTTP_RESPONSE_CODE.NOT_FOUND;
+		return reply.status(status).send({
+			code,
+			message: "This specialty isn't assigned to the facility.",
+		});
+	}
+
+	const { status, code } = HTTP_RESPONSE_CODE.OK;
+	reply.status(status).send({ code, message: "Specialty unassigned." });
 };

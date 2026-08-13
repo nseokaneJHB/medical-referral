@@ -12,11 +12,12 @@ import {
 	orderDirectionSchema,
 	type Role,
 	type UserDetailResponse,
+	type UserSpecialtyListResponse,
 } from "@referral-tracking/shared";
 
-import { zeroFillCounts } from "../../lib/util";
+import { zeroFillCounts, generateUuid } from "../../lib/util";
 import { parseEnumList, parseSortList } from "../../lib/validator";
-import { canViewUser } from "../../lib/permission";
+import { canViewUser, canManagerActOnStaff } from "../../lib/permission";
 
 import { UserModel, type UserModelSelect } from "../../drizzle/schema";
 
@@ -24,7 +25,14 @@ import type { CoreService } from "../../core";
 
 import type { OrderClause, WhereClause } from "../../core/helpers";
 
-import type { UsersRequest, UserRequest, UserHistoryRequest } from "./type";
+import type {
+	UsersRequest,
+	UserRequest,
+	UserHistoryRequest,
+	UserSpecialtiesRequest,
+	UserSpecialtyAssignRequest,
+	UserSpecialtyUnassignRequest,
+} from "./type";
 
 const TIMELINE_FIELDS = {
 	id: true,
@@ -208,4 +216,183 @@ export const userHistory = async (
 		message: "User history retrieved.",
 		...result,
 	});
+};
+
+/**
+ * Administrator manages any Doctor/Nurse's specialties; Manager only their
+ * own facility's — mirrors `canManagerActOnStaff`'s existing moderation
+ * gate. Specialties only make sense for clinical staff, so the target's
+ * role is checked too (Manager/Administrator accounts have none).
+ */
+const canManageStaffSpecialties = (
+	role: Role,
+	caller: Pick<UserModelSelect, "facility_id">,
+	target: Pick<UserModelSelect, "role" | "facility_id">,
+): boolean => {
+	if (target.role !== ROLES.DOCTOR && target.role !== ROLES.NURSE) return false;
+	if (role === ROLES.ADMINISTRATOR) return true;
+	if (role === ROLES.MANAGER) return canManagerActOnStaff(caller, target);
+	return false;
+};
+
+export const userSpecialties = async (
+	request: FastifyRequest<UserSpecialtiesRequest>,
+	reply: FastifyReply<UserSpecialtiesRequest>,
+): Promise<void> => {
+	const role = request.user!.role as Role;
+
+	const target = await request.server.core.user.one({
+		where: { id: request.params.id },
+		select: { id: true, role: true, facility_id: true },
+	});
+
+	if (!target || !canViewUser(role, request.user!.facility_id, target)) {
+		const { status, code } = HTTP_RESPONSE_CODE.NOT_FOUND;
+		return reply.status(status).send({ code, message: "User not found." });
+	}
+
+	const result = await request.server.core.specialty.linkMany("user", {
+		page: 1,
+		limit: 100,
+		where: { user_id: request.params.id },
+		select: { id: true, user_id: true, created_at: true },
+		include: { specialty: { select: { id: true, name: true } } },
+	});
+
+	const { status, code } = HTTP_RESPONSE_CODE.OK;
+	reply.status(status).send({
+		code,
+		message: "User specialties retrieved.",
+		// `include`-derived fields (`specialty`) aren't modeled by `linkMany`'s
+		// return type — present at runtime, just invisible to this type. See
+		// `core/helpers.ts`.
+		data: result.data as unknown as UserSpecialtyListResponse["data"],
+	});
+};
+
+export const userSpecialtyAssign = async (
+	request: FastifyRequest<UserSpecialtyAssignRequest>,
+	reply: FastifyReply<UserSpecialtyAssignRequest>,
+): Promise<void> => {
+	const role = request.user!.role as Role;
+
+	const target = await request.server.core.user.one({
+		where: { id: request.params.id },
+		select: { id: true, role: true, facility_id: true },
+	});
+
+	if (!target) {
+		const { status, code } = HTTP_RESPONSE_CODE.NOT_FOUND;
+		return reply.status(status).send({ code, message: "User not found." });
+	}
+
+	if (
+		!canManageStaffSpecialties(
+			role,
+			{ facility_id: request.user!.facility_id },
+			target,
+		)
+	) {
+		const { status, code } = HTTP_RESPONSE_CODE.FORBIDDEN;
+		return reply.status(status).send({
+			code,
+			message:
+				"You may only manage specialties for your own facility's Doctors/Nurses.",
+		});
+	}
+
+	const specialty = await request.server.core.specialty.one({
+		where: { id: request.body.specialty_id },
+		select: { id: true, name: true },
+	});
+
+	if (!specialty) {
+		const { status, code } = HTTP_RESPONSE_CODE.NOT_FOUND;
+		return reply.status(status).send({ code, message: "Specialty not found." });
+	}
+
+	const existing = await request.server.core.specialty.linkMany("user", {
+		page: 1,
+		limit: 1,
+		where: {
+			user_id: request.params.id,
+			specialty_id: request.body.specialty_id,
+		},
+		select: { id: true },
+	});
+
+	if (existing.data.length > 0) {
+		const { status, code } = HTTP_RESPONSE_CODE.CONFLICT;
+		return reply.status(status).send({
+			code,
+			message: "This specialty is already assigned to this user.",
+		});
+	}
+
+	const [link] = await request.server.core.specialty.linkCreate("user", {
+		data: {
+			id: generateUuid(),
+			user_id: request.params.id,
+			specialty_id: request.body.specialty_id,
+		},
+		select: { id: true, user_id: true, created_at: true },
+	});
+
+	const { status, code } = HTTP_RESPONSE_CODE.CREATED;
+	reply.status(status).send({
+		code,
+		message: "Specialty assigned.",
+		data: { ...link, specialty },
+	});
+};
+
+export const userSpecialtyUnassign = async (
+	request: FastifyRequest<UserSpecialtyUnassignRequest>,
+	reply: FastifyReply<UserSpecialtyUnassignRequest>,
+): Promise<void> => {
+	const role = request.user!.role as Role;
+
+	const target = await request.server.core.user.one({
+		where: { id: request.params.id },
+		select: { id: true, role: true, facility_id: true },
+	});
+
+	if (!target) {
+		const { status, code } = HTTP_RESPONSE_CODE.NOT_FOUND;
+		return reply.status(status).send({ code, message: "User not found." });
+	}
+
+	if (
+		!canManageStaffSpecialties(
+			role,
+			{ facility_id: request.user!.facility_id },
+			target,
+		)
+	) {
+		const { status, code } = HTTP_RESPONSE_CODE.FORBIDDEN;
+		return reply.status(status).send({
+			code,
+			message:
+				"You may only manage specialties for your own facility's Doctors/Nurses.",
+		});
+	}
+
+	const deleted = await request.server.core.specialty.linkDelete("user", {
+		where: {
+			user_id: request.params.id,
+			specialty_id: request.params.specialtyId,
+		},
+		select: { id: true },
+	});
+
+	if (deleted.length === 0) {
+		const { status, code } = HTTP_RESPONSE_CODE.NOT_FOUND;
+		return reply.status(status).send({
+			code,
+			message: "This specialty isn't assigned to this user.",
+		});
+	}
+
+	const { status, code } = HTTP_RESPONSE_CODE.OK;
+	reply.status(status).send({ code, message: "Specialty unassigned." });
 };

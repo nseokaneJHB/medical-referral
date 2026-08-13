@@ -24,6 +24,7 @@ export const FRONTEND_URLS = {
 	USERS: "/users",
 	USER: "/users/$userId",
 	AUDIT: "/audit",
+	SPECIALTIES: "/specialties",
 	FACILITIES: "/facilities",
 	FACILITY: "/facilities/$facilityId",
 	TRANSFERS: "/transfers",
@@ -122,6 +123,7 @@ export const API_NAMESPACE = {
 	DASHBOARD: "DASHBOARD",
 	REPORTS: "REPORTS",
 	FACILITIES: "FACILITIES",
+	SPECIALTIES: "SPECIALTIES",
 	ACCOUNT: "ACCOUNT",
 	ADMINISTRATOR: "ADMINISTRATOR",
 	MANAGER: "MANAGER",
@@ -157,6 +159,7 @@ export const API_URLS = <V extends string>(
 		DASHBOARD: `/api/${version}/dashboard`,
 		REPORTS: `/api/${version}/reports`,
 		FACILITIES: `/api/${version}/facilities`,
+		SPECIALTIES: `/api/${version}/specialties`,
 		ACCOUNT: `/api/${version}/account`,
 		ADMINISTRATOR: `/api/${version}/administrator`,
 		MANAGER: `/api/${version}/manager`,
@@ -216,9 +219,15 @@ export const API_PATHS = {
 	DASHBOARD_ADMIN_SUMMARY: "/admin/summary",
 	DASHBOARD_MANAGER_SUMMARY: "/manager/summary",
 
+	SPECIALTY_LIST: "/",
+	SPECIALTY_BY_ID: "/:id",
+
 	FACILITY_LIST: "/",
 	FACILITY_BY_ID: "/:id",
 	FACILITY_HISTORY: "/:id/history",
+	FACILITY_SPECIALTY_LIST: "/:id/specialties",
+	FACILITY_SPECIALTY_ASSIGN: "/:id/specialties",
+	FACILITY_SPECIALTY_UNASSIGN: "/:id/specialties/:specialtyId",
 
 	MANAGER_STAFF_APPROVE: "/staff/:id/approve",
 	MANAGER_STAFF_REJECT: "/staff/:id/reject",
@@ -253,6 +262,9 @@ export const API_PATHS = {
 	USER_LIST: "/",
 	USER_BY_ID: "/:id",
 	USER_HISTORY: "/:id/history",
+	USER_SPECIALTY_LIST: "/:id/specialties",
+	USER_SPECIALTY_ASSIGN: "/:id/specialties",
+	USER_SPECIALTY_UNASSIGN: "/:id/specialties/:specialtyId",
 } as const;
 
 export const ROLES = {

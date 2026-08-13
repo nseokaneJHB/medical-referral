@@ -7,6 +7,10 @@ import type {
 	UserListResponse,
 	UserDetailResponse,
 	TimelineListResponse,
+	UserSpecialtyListResponse,
+	UserSpecialtyLinkResponse,
+	AssignUserSpecialtyBody,
+	UserSpecialtyUnassignParams,
 } from "@referral-tracking/shared";
 
 export interface UsersRequest extends RouteGenericInterface {
@@ -26,4 +30,20 @@ export interface UserHistoryRequest extends RouteGenericInterface {
 		limit?: string;
 	};
 	Reply: TimelineListResponse | GlobalResponse;
+}
+
+export interface UserSpecialtiesRequest extends RouteGenericInterface {
+	Params: UserParams;
+	Reply: UserSpecialtyListResponse | GlobalResponse;
+}
+
+export interface UserSpecialtyAssignRequest extends RouteGenericInterface {
+	Params: UserParams;
+	Body: AssignUserSpecialtyBody;
+	Reply: UserSpecialtyLinkResponse | GlobalResponse;
+}
+
+export interface UserSpecialtyUnassignRequest extends RouteGenericInterface {
+	Params: UserSpecialtyUnassignParams;
+	Reply: GlobalResponse;
 }

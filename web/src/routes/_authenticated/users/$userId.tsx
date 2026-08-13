@@ -1,3 +1,5 @@
+import { useMutation, useQuery } from "@tanstack/react-query";
+
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
 import { CheckCircleIcon, ClipboardListIcon, PercentIcon } from "lucide-react";
@@ -6,6 +8,8 @@ import {
 	USER_STATUS,
 	FRONTEND_URLS,
 	stringToTitleCase,
+	type GlobalResponse,
+	type UserSpecialtyLinkResponse,
 } from "@referral-tracking/shared";
 
 import { Badge } from "@/components/ui/badge";
@@ -14,15 +18,81 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BackLink } from "@/components/custom/back-link";
 import { StatCard } from "@/components/custom/stat-card";
 import { ReadOnlyField } from "@/components/custom/read-only-field";
+import { SpecialtyManager } from "@/components/custom/specialty-manager";
 
-import { isDoctor, canManageUsers } from "@/lib/permissions";
+import { useToastMutation } from "@/hooks/use-toast-mutation";
+
+import {
+	isDoctor,
+	isNurse,
+	canManageUsers,
+	canManageStaffSpecialties,
+} from "@/lib/permissions";
 
 import { QUERY_KEYS } from "@/api/constant";
 import { userRequest } from "@/api/users";
+import {
+	specialtiesRequest,
+	assignUserSpecialty,
+	unassignUserSpecialty,
+	userSpecialtiesRequest,
+} from "@/api/specialties";
 
 const UserDetailPage = () => {
+	const { user: viewer, queryClient } = Route.useRouteContext();
 	const response = Route.useLoaderData();
 	const user = response.data;
+
+	const isClinical = isDoctor(user) || isNurse(user);
+
+	const { data: specialtiesResponse } = useQuery({
+		queryKey: [...QUERY_KEYS.USER_SPECIALTIES, user.id],
+		queryFn: () => userSpecialtiesRequest({ data: { id: user.id } }),
+		enabled: isClinical,
+	});
+
+	const { data: allSpecialtiesResponse } = useQuery({
+		queryKey: [...QUERY_KEYS.SPECIALTIES, "picker"],
+		queryFn: () => specialtiesRequest({ data: { page: "1", limit: "100" } }),
+		enabled: isClinical,
+	});
+
+	const assignSpecialtyMutation = useMutation<
+		UserSpecialtyLinkResponse,
+		Error,
+		string
+	>({
+		mutationFn: (specialtyId) =>
+			assignUserSpecialty(user.id, { specialty_id: specialtyId }),
+	});
+
+	const unassignSpecialtyMutation = useMutation<GlobalResponse, Error, string>({
+		mutationFn: (specialtyId) => unassignUserSpecialty(user.id, specialtyId),
+	});
+
+	const onSpecialtiesChanged = async () => {
+		await queryClient.invalidateQueries({
+			queryKey: [...QUERY_KEYS.USER_SPECIALTIES, user.id],
+		});
+	};
+
+	const handleAssignSpecialty = async (specialtyId: string): Promise<void> => {
+		await useToastMutation({
+			loading: "Assigning specialty...",
+			promise: assignSpecialtyMutation.mutateAsync(specialtyId),
+			onSuccess: onSpecialtiesChanged,
+		});
+	};
+
+	const handleUnassignSpecialty = async (link: {
+		specialty: { id: string };
+	}): Promise<void> => {
+		await useToastMutation({
+			loading: "Removing specialty...",
+			promise: unassignSpecialtyMutation.mutateAsync(link.specialty.id),
+			onSuccess: onSpecialtiesChanged,
+		});
+	};
 
 	return (
 		<div className="space-y-4">
@@ -73,6 +143,23 @@ const UserDetailPage = () => {
 						value={`${Math.round(user.stats.completion_rate * 100)}%`}
 					/>
 				</div>
+			)}
+
+			{isClinical && (
+				<Card>
+					<CardHeader>
+						<CardTitle className="text-lg">Specialties</CardTitle>
+					</CardHeader>
+					<CardContent>
+						<SpecialtyManager
+							assigned={specialtiesResponse?.data ?? []}
+							allSpecialties={allSpecialtiesResponse?.data ?? []}
+							editable={canManageStaffSpecialties(viewer, user)}
+							onAssign={handleAssignSpecialty}
+							onUnassign={handleUnassignSpecialty}
+						/>
+					</CardContent>
+				</Card>
 			)}
 		</div>
 	);

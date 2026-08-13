@@ -8,6 +8,10 @@ import type {
 	FacilityResponse,
 	FacilityListResponse,
 	TimelineListResponse,
+	FacilitySpecialtyListResponse,
+	FacilitySpecialtyLinkResponse,
+	AssignFacilitySpecialtyBody,
+	FacilitySpecialtyUnassignParams,
 } from "@referral-tracking/shared";
 
 /** No `FacilityCreateRequest` — `POST /facilities` is removed, see `route.ts`. */
@@ -34,4 +38,20 @@ export interface FacilityHistoryRequest extends RouteGenericInterface {
 		limit?: string;
 	};
 	Reply: TimelineListResponse | GlobalResponse;
+}
+
+export interface FacilitySpecialtiesRequest extends RouteGenericInterface {
+	Params: FacilityParams;
+	Reply: FacilitySpecialtyListResponse | GlobalResponse;
+}
+
+export interface FacilitySpecialtyAssignRequest extends RouteGenericInterface {
+	Params: FacilityParams;
+	Body: AssignFacilitySpecialtyBody;
+	Reply: FacilitySpecialtyLinkResponse | GlobalResponse;
+}
+
+export interface FacilitySpecialtyUnassignRequest extends RouteGenericInterface {
+	Params: FacilitySpecialtyUnassignParams;
+	Reply: GlobalResponse;
 }

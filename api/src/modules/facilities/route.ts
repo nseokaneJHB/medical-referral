@@ -10,6 +10,10 @@ import {
 	facilityResponseSchema,
 	facilityListResponseSchema,
 	timelineListResponseSchema,
+	assignFacilitySpecialtySchema,
+	facilitySpecialtyListResponseSchema,
+	facilitySpecialtyLinkResponseSchema,
+	facilitySpecialtyUnassignParamsSchema,
 } from "@referral-tracking/shared";
 
 import {
@@ -17,6 +21,9 @@ import {
 	facilities,
 	facilityUpdate,
 	facilityHistory,
+	facilitySpecialties,
+	facilitySpecialtyAssign,
+	facilitySpecialtyUnassign,
 } from "./service";
 
 import { EVENT_NAMES } from "../../lib/constant";
@@ -102,6 +109,69 @@ export const route: FastifyPluginAsync = async (
 				403: globalResponseSchema,
 				404: globalResponseSchema,
 				422: globalResponseSchema,
+			},
+		},
+	});
+
+	app.route({
+		method: "GET",
+		url: API_PATHS.FACILITY_SPECIALTY_LIST,
+		handler: facilitySpecialties,
+		preHandler: [
+			app.event(EVENT_NAMES.FACILITY_SPECIALTY_LIST),
+			app.authenticate,
+			app.authorize([ROLES.ADMINISTRATOR, ROLES.MANAGER]),
+		],
+		schema: {
+			params: facilityParamsSchema,
+			response: {
+				200: facilitySpecialtyListResponseSchema,
+				401: globalResponseSchema,
+				403: globalResponseSchema,
+				404: globalResponseSchema,
+			},
+		},
+	});
+
+	app.route({
+		method: "POST",
+		url: API_PATHS.FACILITY_SPECIALTY_ASSIGN,
+		handler: facilitySpecialtyAssign,
+		preHandler: [
+			app.event(EVENT_NAMES.FACILITY_SPECIALTY_ASSIGN),
+			app.authenticate,
+			app.authorize([ROLES.ADMINISTRATOR, ROLES.MANAGER]),
+		],
+		schema: {
+			params: facilityParamsSchema,
+			body: assignFacilitySpecialtySchema,
+			response: {
+				201: facilitySpecialtyLinkResponseSchema,
+				401: globalResponseSchema,
+				403: globalResponseSchema,
+				404: globalResponseSchema,
+				409: globalResponseSchema,
+				422: globalResponseSchema,
+			},
+		},
+	});
+
+	app.route({
+		method: "DELETE",
+		url: API_PATHS.FACILITY_SPECIALTY_UNASSIGN,
+		handler: facilitySpecialtyUnassign,
+		preHandler: [
+			app.event(EVENT_NAMES.FACILITY_SPECIALTY_UNASSIGN),
+			app.authenticate,
+			app.authorize([ROLES.ADMINISTRATOR, ROLES.MANAGER]),
+		],
+		schema: {
+			params: facilitySpecialtyUnassignParamsSchema,
+			response: {
+				200: globalResponseSchema,
+				401: globalResponseSchema,
+				403: globalResponseSchema,
+				404: globalResponseSchema,
 			},
 		},
 	});

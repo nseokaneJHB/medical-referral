@@ -12,10 +12,14 @@ export const QUERY_KEYS = {
 	USERS: ["users"],
 	USER: ["users", "detail"],
 	USER_HISTORY: ["users", "history"],
+	USER_SPECIALTIES: ["users", "specialties"],
 
 	FACILITIES: ["facilities"],
 	FACILITY: ["facilities", "detail"],
 	FACILITY_HISTORY: ["facilities", "history"],
+	FACILITY_SPECIALTIES: ["facilities", "specialties"],
+
+	SPECIALTIES: ["specialties"],
 
 	AUDIT_LOGINS: ["audit", "logins"],
 

@@ -17,6 +17,7 @@ import {
 	LucideProps,
 	Building2Icon,
 	PanelLeftIcon,
+	StethoscopeIcon,
 	ClipboardListIcon,
 	ArrowLeftRightIcon,
 	ChevronsUpDownIcon,
@@ -121,6 +122,12 @@ const NAV_ITEMS: NavItem[] = [
 		icon: GavelIcon,
 		label: "Appeals",
 		roles: [ROLES.ADMINISTRATOR, ROLES.MANAGER],
+	},
+	{
+		to: FRONTEND_URLS.SPECIALTIES,
+		icon: StethoscopeIcon,
+		label: "Specialties",
+		roles: [ROLES.ADMINISTRATOR],
 	},
 	{
 		to: FRONTEND_URLS.AUDIT,

@@ -6,6 +6,7 @@ import { route as authRoute } from "../modules/authentication/route";
 import { route as patientsRoute } from "../modules/patients/route";
 import { route as referralsRoute } from "../modules/referrals/route";
 import { route as facilitiesRoute } from "../modules/facilities/route";
+import { route as specialtiesRoute } from "../modules/specialties/route";
 import { route as auditRoute } from "../modules/audit/route";
 import { route as usersRoute } from "../modules/users/route";
 import { route as dashboardRoute } from "../modules/dashboard/route";
@@ -22,6 +23,7 @@ export const route = async (app: FastifyInstance): Promise<void> => {
 		PATIENTS,
 		REFERRALS,
 		FACILITIES,
+		SPECIALTIES,
 		AUDIT,
 		USERS,
 		DASHBOARD,
@@ -48,6 +50,7 @@ export const route = async (app: FastifyInstance): Promise<void> => {
 	await app.register(patientsRoute, { prefix: PATIENTS });
 	await app.register(referralsRoute, { prefix: REFERRALS });
 	await app.register(facilitiesRoute, { prefix: FACILITIES });
+	await app.register(specialtiesRoute, { prefix: SPECIALTIES });
 	await app.register(auditRoute, { prefix: AUDIT });
 	await app.register(usersRoute, { prefix: USERS });
 	await app.register(dashboardRoute, { prefix: DASHBOARD });
