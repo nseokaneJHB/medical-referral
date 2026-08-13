@@ -85,16 +85,6 @@ const STATUS_VARIANT: Record<
 	[FACILITY_STATUS.SUSPENDED]: "error",
 };
 
-const ROLE_VARIANT: Record<
-	string,
-	"info" | "secondary" | "outline" | "suspended"
-> = {
-	[ROLES.NURSE]: "info",
-	[ROLES.DOCTOR]: "outline",
-	[ROLES.MANAGER]: "suspended",
-	[ROLES.ADMINISTRATOR]: "secondary",
-};
-
 /**
  * Short, standalone label per action for the "Action" column — distinct
  * from the sentence-flow verb phrases below, which have trailing
@@ -260,34 +250,6 @@ const ActorCell = ({
 }) => <span className="font-medium">{isSelf ? "You" : (name ?? "—")}</span>;
 
 /**
- * A subject's name, plus (when known) their role badge, plus a "You" tag
- * when the row is about the viewer themselves.
- */
-const PersonCell = ({
-	name,
-	role,
-	isSelf,
-}: {
-	name: string | null;
-	role?: string | null;
-	isSelf: boolean;
-}) => (
-	<span className="inline-flex flex-wrap items-center gap-1.5">
-		<span className="font-medium">{name ?? "—"}</span>
-		{role && (
-			<Badge variant={ROLE_VARIANT[role]} className="shrink-0">
-				{stringToTitleCase(role)}
-			</Badge>
-		)}
-		{isSelf && (
-			<Badge variant="outline" className="shrink-0">
-				You
-			</Badge>
-		)}
-	</span>
-);
-
-/**
  * Action cell for the table: always exactly one badge. Appeal rows show
  * "Appeal" regardless of entity type (whose appeal it is is the Subject
  * column's job — see `SubjectCell`). Referral rows show "Referral" rather
@@ -373,9 +335,8 @@ const AuditSentence = ({
 				isSelf={entry.changer.id === viewerId}
 			/>
 			<span className="text-muted-foreground">{verb}</span>
-			<PersonCell
+			<ActorCell
 				name={entry.subject.name}
-				role={entry.subject.role}
 				isSelf={entry.subject.id === viewerId}
 			/>
 			{entry.previous && entry.next && (
@@ -447,9 +408,8 @@ const AuditDetailsDialog = ({
 										{appealSubjectLabel(entry, viewerId)}
 									</span>
 								) : (
-									<PersonCell
+									<ActorCell
 										name={entry.subject.name}
-										role={entry.subject.role}
 										isSelf={entry.subject.id === viewerId}
 									/>
 								)
