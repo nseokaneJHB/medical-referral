@@ -284,7 +284,7 @@ const NurseDashboard = ({
 
 		<div className="grid gap-4 md:grid-cols-2">
 			<RecentActivityCard
-				title="Recent patients at your facility"
+				title="Recent patients"
 				to={FRONTEND_URLS.PATIENTS}
 				items={recentPatients}
 			/>
@@ -459,7 +459,7 @@ const ManagerDashboard = ({
 		<div className="space-y-6">
 			<DateRangeFilter />
 
-			<div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+			<div className="grid grid-cols-2 gap-4 md:grid-cols-4">
 				<StatCard
 					icon={UsersIcon}
 					label="Total Staff"

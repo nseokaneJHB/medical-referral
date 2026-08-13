@@ -171,7 +171,11 @@ const ReferralsPage = () => {
 				<CardHeader className="flex items-center justify-between px-0 py-1">
 					<CardTitle className="text-2xl">Referrals</CardTitle>
 					{canCreate && (
-						<Link title="Create referral" to={FRONTEND_URLS.NEW_REFERRAL}>
+						<Link
+							variant="default"
+							title="Create referral"
+							to={FRONTEND_URLS.NEW_REFERRAL}
+						>
 							<PlusIcon />
 							<span>Create referral</span>
 						</Link>
@@ -255,7 +259,7 @@ const ReferralsPage = () => {
 					<div className="ml-auto flex items-end gap-2">
 						<Input
 							value={searchInput}
-							placeholder="Search reason..."
+							placeholder="Search by reason..."
 							onChange={(event) => setSearchInput(event.target.value)}
 							onKeyDown={(event) => {
 								if (event.key === "Enter") commitSearch();

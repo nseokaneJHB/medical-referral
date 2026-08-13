@@ -102,18 +102,11 @@ const PatientsPage = () => {
 	const limit = Number(search.limit ?? DEFAULT_PAGE_LIMIT);
 	const totalPages = Math.max(1, Math.ceil(response.total / limit));
 
-	const [dobFromYear, setDobFromYear] = useState(
-		search.dob_from?.slice(0, 4) ?? "",
-	);
-	const [dobToYear, setDobToYear] = useState(search.dob_to?.slice(0, 4) ?? "");
-
 	const commitSearch = () => {
 		navigate({
 			search: (prev) => ({
 				...prev,
 				search: searchInput || undefined,
-				dob_from: dobFromYear.length === 4 ? `${dobFromYear}-01-01` : undefined,
-				dob_to: dobToYear.length === 4 ? `${dobToYear}-12-31` : undefined,
 				page: "1",
 			}),
 		});
@@ -135,7 +128,11 @@ const PatientsPage = () => {
 				<CardHeader className="flex items-center justify-between px-0 py-1">
 					<CardTitle className="text-2xl">Patients</CardTitle>
 					{canCreate && (
-						<Link title="Register patient" to={FRONTEND_URLS.NEW_PATIENT}>
+						<Link
+							variant="default"
+							title="Register patient"
+							to={FRONTEND_URLS.NEW_PATIENT}
+						>
 							<PlusIcon />
 							<span>Register patient</span>
 						</Link>
@@ -166,27 +163,35 @@ const PatientsPage = () => {
 					<Field className="w-fit gap-1">
 						<FieldLabel>Born from</FieldLabel>
 						<Input
-							type="number"
-							placeholder="Year"
-							value={dobFromYear}
-							onChange={(event) => setDobFromYear(event.target.value)}
-							onKeyDown={(event) => {
-								if (event.key === "Enter") commitSearch();
-							}}
-							className="h-10 w-28 text-base"
+							type="date"
+							value={search.dob_from ?? ""}
+							onChange={(event) =>
+								navigate({
+									search: (prev) => ({
+										...prev,
+										dob_from: event.target.value || undefined,
+										page: "1",
+									}),
+								})
+							}
+							className="h-10 text-base"
 						/>
 					</Field>
 					<Field className="w-fit gap-1">
 						<FieldLabel>Born to</FieldLabel>
 						<Input
-							type="number"
-							placeholder="Year"
-							value={dobToYear}
-							onChange={(event) => setDobToYear(event.target.value)}
-							onKeyDown={(event) => {
-								if (event.key === "Enter") commitSearch();
-							}}
-							className="h-10 w-28 text-base"
+							type="date"
+							value={search.dob_to ?? ""}
+							onChange={(event) =>
+								navigate({
+									search: (prev) => ({
+										...prev,
+										dob_to: event.target.value || undefined,
+										page: "1",
+									}),
+								})
+							}
+							className="h-10 text-base"
 						/>
 					</Field>
 

@@ -65,6 +65,7 @@ import { canViewNavItem } from "@/lib/permissions";
 import { QUERY_KEYS } from "@/api/constant";
 import { usersRequest } from "@/api/users";
 import { appealsRequest } from "@/api/appeals";
+import { patientsRequest } from "@/api/patients";
 import { transfersRequest } from "@/api/transfers";
 import { referralsRequest } from "@/api/referrals";
 import { facilitiesRequest } from "@/api/facilities";
@@ -155,6 +156,9 @@ export const SideBar = () => {
 	const showReferralsBadge = visibleNavItems.some(
 		(item) => item.to === FRONTEND_URLS.REFERRALS,
 	);
+	const showPatientsBadge = visibleNavItems.some(
+		(item) => item.to === FRONTEND_URLS.PATIENTS,
+	);
 
 	const namespace = user.role === ROLES.ADMINISTRATOR ? "ADMINISTRATOR" : "MANAGER";
 
@@ -197,12 +201,22 @@ export const SideBar = () => {
 		enabled: showReferralsBadge,
 	});
 
+	const { data: patientsTotal } = useQuery({
+		queryKey: [...QUERY_KEYS.PATIENTS, "total-count"],
+		queryFn: () => patientsRequest({ data: { page: "1", limit: "1" } }),
+		enabled: showPatientsBadge,
+	});
+
 	const badgeCounts: Record<string, number | undefined> = {
 		[FRONTEND_URLS.USERS]: usersPending?.total,
 		[FRONTEND_URLS.FACILITIES]: facilitiesPending?.total,
 		[FRONTEND_URLS.TRANSFERS]: transfersPending?.total,
 		[FRONTEND_URLS.APPEALS]: appealsPending?.total,
 		[FRONTEND_URLS.REFERRALS]: referralsPending?.total,
+	};
+
+	const totalBadgeCounts: Record<string, number | undefined> = {
+		[FRONTEND_URLS.PATIENTS]: patientsTotal?.total,
 	};
 
 	return (
@@ -271,8 +285,13 @@ export const SideBar = () => {
 										</Link>
 									</SidebarMenuButton>
 									{(item.to as string) in badgeCounts && (
-										<SidebarMenuBadge className="right-2 min-w-5 rounded-full bg-destructive px-1.5 text-destructive-foreground">
+										<SidebarMenuBadge className="right-2 min-w-5 rounded-full bg-destructive px-1.5 text-destructive-foreground top-1/2! -translate-y-1/2!">
 											{badgeCounts[item.to as string] ?? 0}
+										</SidebarMenuBadge>
+									)}
+									{(item.to as string) in totalBadgeCounts && (
+										<SidebarMenuBadge className="right-2 min-w-5 rounded-full bg-muted px-1.5 text-muted-foreground top-1/2! -translate-y-1/2!">
+											{totalBadgeCounts[item.to as string] ?? 0}
 										</SidebarMenuBadge>
 									)}
 								</SidebarMenuItem>

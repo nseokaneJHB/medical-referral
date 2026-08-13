@@ -193,6 +193,46 @@ on, and this is the only prior decision about one existing.
   placement for the policy evaluation logic, above) to settle once this is
   actually built.
 
+## Shared list-page components (filter bar, status badges, action buttons)
+
+- **Raised 2026-08-13**, mid a cross-page consistency pass (sidebar badges,
+  filter row layout, status colors, button variants) across
+  Users/Facilities/Patients/Referrals. Root cause of most of the drift found
+  in that pass: each list page's filter row, status-badge color mapping, and
+  page-header "create" button were copy-pasted independently rather than
+  shared, so they drifted (e.g. Users' status badge collapsed to a binary
+  success/error while Referrals/Facilities used a full per-status color map;
+  Referrals/Patients' create button defaulted to `Link`'s ghost variant while
+  Users' used `Button`'s default filled variant).
+- Direction, not yet scoped: extract a shared `FilterBar`-style component for
+  the search+filters Card row (search pinned right via `ml-auto`, filters
+  left), a generic status-badge-variant mapper keyed by enum, and a
+  consistent page-header "create/add" action button.
+- **Tables too — user pointed to a concrete prior implementation** (raised
+  same session, right after the component list above): a generic
+  `Table<TData, TValue>` component from an earlier project
+  (`ubuntu-stories-monorepo`, commit `b566fb73e767fc2774d3614b9c3808f9b0e2a13e`,
+  present locally at `~/Desktop/ubuntu-stories` — GitHub is inaccessible from
+  here, no `gh` auth). Worth reading directly from that local clone when this
+  gets picked up rather than re-deriving:
+  - `web/src/components/custom/table.tsx` — owns the filter/search Card row,
+    a column-visibility dropdown, the actual `<Table>` render, and a
+    pagination footer, all driven by reading/writing TanStack Router search
+    params itself (`page`/`limit`/`sort`/`order`). Props: `id`, `data`,
+    `columns`, `filters?`, `pagination?`, `visibility?`.
+  - `web/src/components/custom/table-column.tsx` — `createDefaultColumn`/
+    `createAvatarColumn`-style factory helpers that produce `ColumnDef`s with
+    a built-in sortable header (dropdown: Ascending/Descending/Hide).
+  - Don't copy verbatim — that version couples to that app's own
+    `SelectFilter`/`DateFilter`/`SearchFilter` components and a
+    `manualPagination`/`manualSorting` react-table setup that would need
+    adapting to this repo's existing search-schema/loader pattern, but the
+    props shape and column-factory idea are the right reference.
+- Deliberately not done as part of the 2026-08-13 pass — that pass fixed the
+  symptoms per-page with exact, scoped diffs; this is the follow-up
+  structural fix so they can't drift again.
+- Status: **parked, not started.**
+
 ## Backend API URL structure — role-first paths
 
 - **Raised 2026-08-09.** User wants backend endpoints to lead with the role,

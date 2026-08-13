@@ -280,6 +280,18 @@ const UserModerationMenuItems = ({
 	return null;
 };
 
+const STATUS_VARIANT: Record<
+	string,
+	"default" | "success" | "warning" | "error" | "locked"
+> = {
+	[USER_STATUS.PENDING]: "default",
+	[USER_STATUS.ACTIVE]: "success",
+	[USER_STATUS.REJECTED]: "error",
+	[USER_STATUS.DISABLED]: "locked",
+	[USER_STATUS.FLAGGED]: "warning",
+	[USER_STATUS.DEPARTED]: "default",
+};
+
 const columnHelper = createColumnHelper<User>();
 
 const columns = [
@@ -297,9 +309,7 @@ const columns = [
 	columnHelper.accessor("status", {
 		header: "Status",
 		cell: (info) => (
-			<Badge
-				variant={info.getValue() === USER_STATUS.ACTIVE ? "success" : "error"}
-			>
+			<Badge variant={STATUS_VARIANT[info.getValue()]}>
 				{stringToTitleCase(info.getValue())}
 			</Badge>
 		),
