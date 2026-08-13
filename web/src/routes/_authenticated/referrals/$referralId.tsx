@@ -59,6 +59,8 @@ import {
 	referralHistoryRequest,
 } from "@/api/referrals";
 import {
+	isNurse,
+	isDoctor,
 	canActOnReferral,
 	canEditReferralFull,
 	canAssignDoctorToReferral,
@@ -240,12 +242,11 @@ const ReferralDetailPage = () => {
 	const canRedirect = canRedirectReferral(user, referral);
 
 	const legalNextStates = STATUS_TRANSITIONS[referral.status] ?? [];
-	const roleTargets =
-		user.role === ROLES.NURSE
-			? NURSE_STATUS_TARGETS
-			: user.role === ROLES.DOCTOR
-				? (DOCTOR_STATUS_TARGETS_BY_STATUS[referral.status] ?? [])
-				: null;
+	const roleTargets = isNurse(user)
+		? NURSE_STATUS_TARGETS
+		: isDoctor(user)
+			? (DOCTOR_STATUS_TARGETS_BY_STATUS[referral.status] ?? [])
+			: null;
 	const availableTransitions = canAct
 		? roleTargets
 			? legalNextStates.filter((state) => roleTargets.includes(state))

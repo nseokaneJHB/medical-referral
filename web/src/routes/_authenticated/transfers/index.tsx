@@ -6,7 +6,6 @@ import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
 import { CheckIcon, XIcon } from "lucide-react";
 
 import {
-	ROLES,
 	TIMELINE_ACTION,
 	FRONTEND_URLS,
 	type Transfer,
@@ -49,7 +48,7 @@ import {
 	approveTransferDestination,
 } from "@/api/transfers";
 
-import { canManageUsers } from "@/lib/permissions";
+import { canManageUsers, resolveModerationNamespace } from "@/lib/permissions";
 
 /** Per-row decide buttons — which side (origin/destination) depends on the row's current stage. */
 const TransferActions = ({
@@ -159,7 +158,7 @@ const TransferActions = ({
 const TransfersPage = () => {
 	const { user, queryClient } = Route.useRouteContext();
 
-	const namespace = user.role === ROLES.ADMINISTRATOR ? "ADMINISTRATOR" : "MANAGER";
+	const namespace = resolveModerationNamespace(user);
 
 	/**
 	 * `useSuspenseQuery` (not `Route.useLoaderData()`) deliberately — the
@@ -256,8 +255,7 @@ export const Route = createFileRoute("/_authenticated/transfers/")({
 		}
 	},
 	loader: async ({ context }) => {
-		const namespace =
-			context.user.role === ROLES.ADMINISTRATOR ? "ADMINISTRATOR" : "MANAGER";
+		const namespace = resolveModerationNamespace(context.user);
 
 		const response = await context.queryClient.ensureQueryData({
 			queryKey: [...QUERY_KEYS.TRANSFERS, namespace],

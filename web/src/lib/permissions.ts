@@ -138,6 +138,16 @@ export const canModerateUser = (
 	return false;
 };
 
+/**
+ * Which role-scoped API namespace ("ADMINISTRATOR" or "MANAGER") a viewer's
+ * moderation requests (appeals/transfers) should hit — every non-Administrator
+ * moderator is a Manager by definition, so this collapses to a binary check.
+ */
+export const resolveModerationNamespace = (
+	user: Pick<AuthUser, "role">,
+): "ADMINISTRATOR" | "MANAGER" =>
+	isAdministrator(user) ? "ADMINISTRATOR" : "MANAGER";
+
 // --- Nav ---
 
 export const canViewNavItem = (

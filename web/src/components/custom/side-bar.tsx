@@ -60,7 +60,7 @@ import { ThemeToggle } from "@/components/custom/theme-toggle";
 
 import { SignOutButton } from "@/components/sign-out-button";
 
-import { canViewNavItem } from "@/lib/permissions";
+import { isManager, canViewNavItem, resolveModerationNamespace } from "@/lib/permissions";
 
 import { QUERY_KEYS } from "@/api/constant";
 import { usersRequest } from "@/api/users";
@@ -166,7 +166,7 @@ export const SideBar = () => {
 		(item) => item.to === FRONTEND_URLS.PATIENTS,
 	);
 
-	const namespace = user.role === ROLES.ADMINISTRATOR ? "ADMINISTRATOR" : "MANAGER";
+	const namespace = resolveModerationNamespace(user);
 
 	const { data: usersPending } = useQuery({
 		queryKey: [...QUERY_KEYS.USERS, "pending-count"],
@@ -302,7 +302,7 @@ export const SideBar = () => {
 									)}
 								</SidebarMenuItem>
 							))}
-							{user.role === ROLES.MANAGER && user.facility_id && (
+							{isManager(user) && user.facility_id && (
 								<SidebarMenuItem>
 									<SidebarMenuButton
 										asChild

@@ -7,7 +7,6 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { CheckIcon, EyeIcon, XIcon } from "lucide-react";
 
 import {
-	ROLES,
 	FRONTEND_URLS,
 	getRelativeTime,
 	stringToTitleCase,
@@ -46,7 +45,7 @@ import {
 	appealsRequest,
 } from "@/api/appeals";
 
-import { canManageUsers } from "@/lib/permissions";
+import { canManageUsers, resolveModerationNamespace } from "@/lib/permissions";
 
 /** Per-row decide menu items. */
 const AppealMenuItems = ({
@@ -156,7 +155,7 @@ const AppealDetailsDialog = ({
 const AppealsPage = () => {
 	const { user, queryClient } = Route.useRouteContext();
 
-	const namespace = user.role === ROLES.ADMINISTRATOR ? "ADMINISTRATOR" : "MANAGER";
+	const namespace = resolveModerationNamespace(user);
 
 	/**
 	 * `useSuspenseQuery` (not `Route.useLoaderData()`) deliberately — see
@@ -266,8 +265,7 @@ export const Route = createFileRoute("/_authenticated/appeals/")({
 		}
 	},
 	loader: async ({ context }) => {
-		const namespace =
-			context.user.role === ROLES.ADMINISTRATOR ? "ADMINISTRATOR" : "MANAGER";
+		const namespace = resolveModerationNamespace(context.user);
 
 		await context.queryClient.ensureQueryData({
 			queryKey: [...QUERY_KEYS.APPEALS, namespace],
