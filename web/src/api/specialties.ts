@@ -18,6 +18,10 @@ import {
 	type UserSpecialtyListResponse,
 	type UserSpecialtyLinkResponse,
 	type AssignUserSpecialtyBody,
+	type ReferralParams,
+	type ReferralSpecialtyListResponse,
+	type ReferralSpecialtyLinkResponse,
+	type AssignReferralSpecialtyBody,
 	type GlobalResponse,
 } from "@referral-tracking/shared";
 
@@ -28,6 +32,7 @@ import { env } from "@/lib/env";
 const specialtiesBaseUrl = API_URLS(env.VITE_API_VERSION).SPECIALTIES;
 const facilitiesBaseUrl = API_URLS(env.VITE_API_VERSION).FACILITIES;
 const usersBaseUrl = API_URLS(env.VITE_API_VERSION).USERS;
+const referralsBaseUrl = API_URLS(env.VITE_API_VERSION).REFERRALS;
 
 const forwardedRequestOptions = () => {
 	const request = getRequest();
@@ -75,6 +80,19 @@ export const userSpecialtiesRequest = createServerFn({ method: "GET" })
 		);
 		return data;
 	});
+
+export const referralSpecialtiesRequest = createServerFn({ method: "GET" })
+	.inputValidator((params: ReferralParams) => params)
+	.handler(
+		async ({ data: params }): Promise<ReferralSpecialtyListResponse> => {
+			const url = `${referralsBaseUrl}${buildUrlWithParams(API_PATHS.REFERRAL_SPECIALTY_LIST, params)}`;
+			const { data } = await api.get<ReferralSpecialtyListResponse>(
+				url,
+				forwardedRequestOptions(),
+			);
+			return data;
+		},
+	);
 
 // Write (client-side)
 export const createSpecialty = async (
@@ -136,6 +154,27 @@ export const unassignUserSpecialty = async (
 ): Promise<GlobalResponse> => {
 	const { data } = await api.delete<GlobalResponse>(
 		`${usersBaseUrl}${buildUrlWithParams(API_PATHS.USER_SPECIALTY_UNASSIGN, { id: userId, specialtyId })}`,
+	);
+	return data;
+};
+
+export const assignReferralSpecialty = async (
+	referralId: string,
+	payload: AssignReferralSpecialtyBody,
+): Promise<ReferralSpecialtyLinkResponse> => {
+	const { data } = await api.post<ReferralSpecialtyLinkResponse>(
+		`${referralsBaseUrl}${buildUrlWithParams(API_PATHS.REFERRAL_SPECIALTY_ASSIGN, { id: referralId })}`,
+		payload,
+	);
+	return data;
+};
+
+export const unassignReferralSpecialty = async (
+	referralId: string,
+	specialtyId: string,
+): Promise<GlobalResponse> => {
+	const { data } = await api.delete<GlobalResponse>(
+		`${referralsBaseUrl}${buildUrlWithParams(API_PATHS.REFERRAL_SPECIALTY_UNASSIGN, { id: referralId, specialtyId })}`,
 	);
 	return data;
 };

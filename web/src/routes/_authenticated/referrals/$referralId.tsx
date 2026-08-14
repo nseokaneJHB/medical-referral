@@ -19,9 +19,12 @@ import {
 	NURSE_STATUS_TARGETS,
 	TERMINAL_REFERRAL_STATUSES,
 	DOCTOR_STATUS_TARGETS_BY_STATUS,
+	type GlobalResponse,
 	type ReferralResponse,
 	type UpdateReferralBody,
 	type ReferralStatus,
+	type SpecialtyRef,
+	type ReferralSpecialtyLinkResponse,
 } from "@referral-tracking/shared";
 
 import { Badge } from "@/components/ui/badge";
@@ -43,6 +46,7 @@ import { SelectInput } from "@/components/custom/select-input";
 import { ReadOnlyField } from "@/components/custom/read-only-field";
 import { BackLink } from "@/components/custom/back-link";
 import { TimelineList } from "@/components/custom/timeline-list";
+import { SpecialtyManager } from "@/components/custom/specialty-manager";
 
 import { useFormField } from "@/hooks/use-form-field";
 import { useToastMutation } from "@/hooks/use-toast-mutation";
@@ -59,6 +63,12 @@ import {
 	referralHistoryRequest,
 } from "@/api/referrals";
 import {
+	specialtiesRequest,
+	referralSpecialtiesRequest,
+	assignReferralSpecialty,
+	unassignReferralSpecialty,
+} from "@/api/specialties";
+import {
 	isNurse,
 	isDoctor,
 	canActOnReferral,
@@ -66,6 +76,7 @@ import {
 	canAssignDoctorToReferral,
 	canSelfAssignReferral,
 	canRedirectReferral,
+	canManageReferralSpecialties,
 } from "@/lib/permissions";
 
 const PRIORITY_ITEMS = Object.values(PRIORITY).map((value) => ({
@@ -124,11 +135,19 @@ const RedirectReferralAction = ({
 	referralId,
 	currentDestinationId,
 	facilityItems,
+	specialties,
+	allSpecialties,
+	onAssignSpecialty,
+	onUnassignSpecialty,
 	onChanged,
 }: {
 	referralId: string;
 	currentDestinationId: string;
 	facilityItems: { value: string; label: string }[];
+	specialties: { id: string; specialty: SpecialtyRef }[];
+	allSpecialties: SpecialtyRef[];
+	onAssignSpecialty: (specialtyId: string) => Promise<void>;
+	onUnassignSpecialty: (link: { specialty: { id: string } }) => Promise<void>;
 	onChanged: () => Promise<void>;
 }) => {
 	const [open, setOpen] = useState(false);
@@ -181,6 +200,16 @@ const RedirectReferralAction = ({
 						the new facility triages it fresh.
 					</DialogDescription>
 				</DialogHeader>
+				<div className="space-y-2">
+					<p className="text-sm font-medium">Specialties needed</p>
+					<SpecialtyManager
+						assigned={specialties}
+						allSpecialties={allSpecialties}
+						editable
+						onAssign={onAssignSpecialty}
+						onUnassign={onUnassignSpecialty}
+					/>
+				</div>
 				<SelectInput
 					searchable
 					label="New destination facility"
@@ -241,6 +270,8 @@ const ReferralDetailPage = () => {
 
 	const canRedirect = canRedirectReferral(user, referral);
 
+	const canManageSpecialties = canManageReferralSpecialties(user, referral);
+
 	const legalNextStates = STATUS_TRANSITIONS[referral.status] ?? [];
 	const roleTargets = isNurse(user)
 		? NURSE_STATUS_TARGETS
@@ -279,6 +310,16 @@ const ReferralDetailPage = () => {
 			value: doctor.id,
 			label: doctor.name ?? doctor.email,
 		})) ?? [];
+
+	const { data: specialtiesResponse } = useQuery({
+		queryKey: [...QUERY_KEYS.REFERRAL_SPECIALTIES, referral.id],
+		queryFn: () => referralSpecialtiesRequest({ data: { id: referral.id } }),
+	});
+
+	const { data: allSpecialtiesResponse } = useQuery({
+		queryKey: [...QUERY_KEYS.SPECIALTIES, "picker"],
+		queryFn: () => specialtiesRequest({ data: { page: "1", limit: "100" } }),
+	});
 
 	const { control, handleSubmit } = useForm<UpdateReferralBody>({
 		mode: "onChange",
@@ -326,6 +367,20 @@ const ReferralDetailPage = () => {
 		mutationFn: () => assignReferral(referral.id),
 	});
 
+	const assignSpecialtyMutation = useMutation<
+		ReferralSpecialtyLinkResponse,
+		Error,
+		string
+	>({
+		mutationFn: (specialtyId) =>
+			assignReferralSpecialty(referral.id, { specialty_id: specialtyId }),
+	});
+
+	const unassignSpecialtyMutation = useMutation<GlobalResponse, Error, string>({
+		mutationFn: (specialtyId) =>
+			unassignReferralSpecialty(referral.id, specialtyId),
+	});
+
 	const invalidateReferral = async () => {
 		await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.REFERRALS });
 		await queryClient.invalidateQueries({
@@ -335,6 +390,30 @@ const ReferralDetailPage = () => {
 			queryKey: [...QUERY_KEYS.REFERRAL_HISTORY, referral.id],
 		});
 		await router.invalidate({ sync: true });
+	};
+
+	const onSpecialtiesChanged = async () => {
+		await queryClient.invalidateQueries({
+			queryKey: [...QUERY_KEYS.REFERRAL_SPECIALTIES, referral.id],
+		});
+	};
+
+	const handleAssignSpecialty = async (specialtyId: string): Promise<void> => {
+		await useToastMutation({
+			loading: "Tagging specialty...",
+			promise: assignSpecialtyMutation.mutateAsync(specialtyId),
+			onSuccess: onSpecialtiesChanged,
+		});
+	};
+
+	const handleUnassignSpecialty = async (link: {
+		specialty: { id: string };
+	}): Promise<void> => {
+		await useToastMutation({
+			loading: "Removing specialty...",
+			promise: unassignSpecialtyMutation.mutateAsync(link.specialty.id),
+			onSuccess: onSpecialtiesChanged,
+		});
 	};
 
 	const onSubmit = async (payload: UpdateReferralBody) =>
@@ -543,10 +622,29 @@ const ReferralDetailPage = () => {
 								referralId={referral.id}
 								currentDestinationId={referral.destination_facility.id}
 								facilityItems={facilityItems}
+								specialties={specialtiesResponse?.data ?? []}
+								allSpecialties={allSpecialtiesResponse?.data ?? []}
+								onAssignSpecialty={handleAssignSpecialty}
+								onUnassignSpecialty={handleUnassignSpecialty}
 								onChanged={invalidateReferral}
 							/>
 						)}
 					</div>
+				</CardContent>
+			</Card>
+
+			<Card>
+				<CardHeader>
+					<CardTitle className="text-lg">Specialties needed</CardTitle>
+				</CardHeader>
+				<CardContent>
+					<SpecialtyManager
+						assigned={specialtiesResponse?.data ?? []}
+						allSpecialties={allSpecialtiesResponse?.data ?? []}
+						editable={canManageSpecialties}
+						onAssign={handleAssignSpecialty}
+						onUnassign={handleUnassignSpecialty}
+					/>
 				</CardContent>
 			</Card>
 

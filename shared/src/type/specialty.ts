@@ -19,6 +19,11 @@ import {
 	userSpecialtyListResponseSchema,
 	userSpecialtyLinkResponseSchema,
 	userSpecialtyUnassignParamsSchema,
+	ReferralSpecialtyLinkSchema,
+	assignReferralSpecialtySchema,
+	referralSpecialtyListResponseSchema,
+	referralSpecialtyLinkResponseSchema,
+	referralSpecialtyUnassignParamsSchema,
 } from "../schema/specialty";
 
 export type Specialty = z.infer<typeof SpecialtySchema>;
@@ -54,4 +59,18 @@ export type UserSpecialtyLinkResponse = z.infer<
 >;
 export type UserSpecialtyUnassignParams = z.infer<
 	typeof userSpecialtyUnassignParamsSchema
+>;
+
+export type ReferralSpecialtyLink = z.infer<typeof ReferralSpecialtyLinkSchema>;
+export type AssignReferralSpecialtyBody = z.infer<
+	typeof assignReferralSpecialtySchema
+>;
+export type ReferralSpecialtyListResponse = z.infer<
+	typeof referralSpecialtyListResponseSchema
+>;
+export type ReferralSpecialtyLinkResponse = z.infer<
+	typeof referralSpecialtyLinkResponseSchema
+>;
+export type ReferralSpecialtyUnassignParams = z.infer<
+	typeof referralSpecialtyUnassignParamsSchema
 >;

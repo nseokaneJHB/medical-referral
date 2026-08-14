@@ -19,6 +19,7 @@ import {
 	stringToTitleCase,
 	type Role,
 	type ReferralResponse,
+	type ReferralSpecialtyListResponse,
 } from "@referral-tracking/shared";
 
 import { generateUuid } from "../../lib/util";
@@ -27,6 +28,7 @@ import {
 	canActOnReferral,
 	canViewReferral,
 	canRedirectReferral,
+	canManageReferralSpecialties,
 } from "../../lib/permission";
 
 import { ReferralModel, type ReferralModelSelect } from "../../drizzle/schema";
@@ -46,6 +48,9 @@ import type {
 	ReferralHistoryRequest,
 	ReferralRedirectRequest,
 	ReferralStatusUpdateRequest,
+	ReferralSpecialtiesRequest,
+	ReferralSpecialtyAssignRequest,
+	ReferralSpecialtyUnassignRequest,
 } from "./type";
 
 // Raw FK columns stay selected for internal access-check logic — the Zod
@@ -615,6 +620,223 @@ export const referralRedirect = async (
 			message: "Referral redirected.",
 			data: referral as unknown as ReferralResponse["data"],
 		});
+};
+
+/**
+ * Which clinical specialties a referral needs. Viewable by anyone who can
+ * view the referral (`canViewReferral`); tagging/untagging is narrower
+ * (`canManageReferralSpecialties`) — the referring Nurse, or an assigned/
+ * eligible-unassigned Doctor, and only while the referral is still open.
+ */
+export const referralSpecialties = async (
+	request: FastifyRequest<ReferralSpecialtiesRequest>,
+	reply: FastifyReply<ReferralSpecialtiesRequest>,
+): Promise<void> => {
+	const { core } = request.server;
+
+	const existing = await core.referral.one({
+		where: { id: request.params.id },
+		select: {
+			id: true,
+			referrer_id: true,
+			doctor: true,
+			origin_facility_id: true,
+			destination_facility_id: true,
+		},
+	});
+
+	const role = request.user!.role as Role;
+	if (
+		!existing ||
+		!canViewReferral(
+			role,
+			request.user!.id,
+			request.user!.facility_id,
+			existing,
+		)
+	) {
+		const { status, code } = HTTP_RESPONSE_CODE.NOT_FOUND;
+		return reply.status(status).send({ code, message: "Referral not found." });
+	}
+
+	const result = await core.specialty.linkMany("referral", {
+		page: 1,
+		limit: 100,
+		where: { referral_id: request.params.id },
+		select: { id: true, referral_id: true, created_at: true },
+		include: {
+			specialty: { select: { id: true, name: true, description: true } },
+		},
+	});
+
+	const { status, code } = HTTP_RESPONSE_CODE.OK;
+	reply.status(status).send({
+		code,
+		message: "Referral specialties retrieved.",
+		// `include`-derived fields (`specialty`) aren't modeled by `linkMany`'s
+		// return type — present at runtime, just invisible to this type. See
+		// `core/helpers.ts`.
+		data: result.data as unknown as ReferralSpecialtyListResponse["data"],
+	});
+};
+
+export const referralSpecialtyAssign = async (
+	request: FastifyRequest<ReferralSpecialtyAssignRequest>,
+	reply: FastifyReply<ReferralSpecialtyAssignRequest>,
+): Promise<void> => {
+	const { core } = request.server;
+
+	const existing = await core.referral.one({
+		where: { id: request.params.id },
+		select: {
+			id: true,
+			status: true,
+			referrer_id: true,
+			doctor: true,
+			destination_facility_id: true,
+		},
+	});
+
+	if (!existing) {
+		const { status, code } = HTTP_RESPONSE_CODE.NOT_FOUND;
+		return reply.status(status).send({ code, message: "Referral not found." });
+	}
+
+	const role = request.user!.role as Role;
+	if (
+		!canManageReferralSpecialties(
+			role,
+			request.user!.id,
+			request.user!.facility_id,
+			existing,
+		)
+	) {
+		const { status, code } = HTTP_RESPONSE_CODE.FORBIDDEN;
+		return reply.status(status).send({
+			code,
+			message:
+				"You may only tag specialties on a referral you created or are assigned to.",
+		});
+	}
+
+	if (isTerminal(existing.status)) {
+		const { status, code } = HTTP_RESPONSE_CODE.CONFLICT;
+		return reply.status(status).send({
+			code,
+			message: `This referral has already reached a terminal status ("${stringToTitleCase(existing.status)}").`,
+		});
+	}
+
+	const specialty = await core.specialty.one({
+		where: { id: request.body.specialty_id },
+		select: { id: true, name: true, description: true },
+	});
+
+	if (!specialty) {
+		const { status, code } = HTTP_RESPONSE_CODE.NOT_FOUND;
+		return reply.status(status).send({ code, message: "Specialty not found." });
+	}
+
+	const existingLink = await core.specialty.linkMany("referral", {
+		page: 1,
+		limit: 1,
+		where: {
+			referral_id: request.params.id,
+			specialty_id: request.body.specialty_id,
+		},
+		select: { id: true },
+	});
+
+	if (existingLink.data.length > 0) {
+		const { status, code } = HTTP_RESPONSE_CODE.CONFLICT;
+		return reply.status(status).send({
+			code,
+			message: "This specialty is already tagged on the referral.",
+		});
+	}
+
+	const [link] = await core.specialty.linkCreate("referral", {
+		data: {
+			id: generateUuid(),
+			referral_id: request.params.id,
+			specialty_id: request.body.specialty_id,
+		},
+		select: { id: true, referral_id: true, created_at: true },
+	});
+
+	const { status, code } = HTTP_RESPONSE_CODE.CREATED;
+	reply.status(status).send({
+		code,
+		message: "Specialty tagged.",
+		data: { ...link, specialty },
+	});
+};
+
+export const referralSpecialtyUnassign = async (
+	request: FastifyRequest<ReferralSpecialtyUnassignRequest>,
+	reply: FastifyReply<ReferralSpecialtyUnassignRequest>,
+): Promise<void> => {
+	const { core } = request.server;
+
+	const existing = await core.referral.one({
+		where: { id: request.params.id },
+		select: {
+			id: true,
+			status: true,
+			referrer_id: true,
+			doctor: true,
+			destination_facility_id: true,
+		},
+	});
+
+	if (!existing) {
+		const { status, code } = HTTP_RESPONSE_CODE.NOT_FOUND;
+		return reply.status(status).send({ code, message: "Referral not found." });
+	}
+
+	const role = request.user!.role as Role;
+	if (
+		!canManageReferralSpecialties(
+			role,
+			request.user!.id,
+			request.user!.facility_id,
+			existing,
+		)
+	) {
+		const { status, code } = HTTP_RESPONSE_CODE.FORBIDDEN;
+		return reply.status(status).send({
+			code,
+			message:
+				"You may only tag specialties on a referral you created or are assigned to.",
+		});
+	}
+
+	if (isTerminal(existing.status)) {
+		const { status, code } = HTTP_RESPONSE_CODE.CONFLICT;
+		return reply.status(status).send({
+			code,
+			message: `This referral has already reached a terminal status ("${stringToTitleCase(existing.status)}").`,
+		});
+	}
+
+	const deleted = await core.specialty.linkDelete("referral", {
+		where: {
+			referral_id: request.params.id,
+			specialty_id: request.params.specialtyId,
+		},
+		select: { id: true },
+	});
+
+	if (deleted.length === 0) {
+		const { status, code } = HTTP_RESPONSE_CODE.NOT_FOUND;
+		return reply.status(status).send({
+			code,
+			message: "This specialty isn't tagged on the referral.",
+		});
+	}
+
+	const { status, code } = HTTP_RESPONSE_CODE.OK;
+	reply.status(status).send({ code, message: "Specialty untagged." });
 };
 
 /**

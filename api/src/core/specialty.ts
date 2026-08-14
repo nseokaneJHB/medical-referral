@@ -15,7 +15,7 @@ import {
 	type FindUniqueOptions,
 } from "./helpers";
 
-type SpecialtyLinkOwner = "user" | "facility";
+type SpecialtyLinkOwner = "user" | "facility" | "referral";
 
 interface UserSpecialtyRelations {
 	user: schema.UserModelSelect;
@@ -27,28 +27,40 @@ interface FacilitySpecialtyRelations {
 	specialty: schema.SpecialtyModelSelect;
 }
 
+interface ReferralSpecialtyRelations {
+	referral: schema.ReferralModelSelect;
+	specialty: schema.SpecialtyModelSelect;
+}
+
 type LinkSelect<TOwner extends SpecialtyLinkOwner> = TOwner extends "user"
 	? schema.UserSpecialtyModelSelect
-	: schema.FacilitySpecialtyModelSelect;
+	: TOwner extends "facility"
+		? schema.FacilitySpecialtyModelSelect
+		: schema.ReferralSpecialtyModelSelect;
 
 type LinkInsert<TOwner extends SpecialtyLinkOwner> = TOwner extends "user"
 	? schema.UserSpecialtyModelInsert
-	: schema.FacilitySpecialtyModelInsert;
+	: TOwner extends "facility"
+		? schema.FacilitySpecialtyModelInsert
+		: schema.ReferralSpecialtyModelInsert;
 
 type LinkRelations<TOwner extends SpecialtyLinkOwner> = TOwner extends "user"
 	? UserSpecialtyRelations
-	: FacilitySpecialtyRelations;
+	: TOwner extends "facility"
+		? FacilitySpecialtyRelations
+		: ReferralSpecialtyRelations;
 
 /**
- * Repository for the `specialties` reference table, plus the two link
+ * Repository for the `specialties` reference table, plus the three link
  * tables that exist only to attach a specialty to something else —
- * `user_specialties` (Doctor/Nurse) and `facility_specialties`. Both link
- * tables are structurally identical (owner ↔ specialty, no `update` — a
- * link either exists or doesn't) and have no reason to exist independently
- * of `specialties`, which is why they're handled here as `link*` methods
- * (keyed by an `owner: "user" | "facility"` argument that conditionally
- * selects the table/relation config) rather than their own top-level
- * `core/*.ts` classes.
+ * `user_specialties` (Doctor/Nurse), `facility_specialties`, and
+ * `referral_specialties` (which clinical specialty a referral needs). All
+ * three link tables are structurally identical (owner ↔ specialty, no
+ * `update` — a link either exists or doesn't) and have no reason to exist
+ * independently of `specialties`, which is why they're handled here as
+ * `link*` methods (keyed by an `owner: "user" | "facility" | "referral"`
+ * argument that conditionally selects the table/relation config) rather
+ * than their own top-level `core/*.ts` classes.
  *
  * Bound to a single `Executor` (a `Database` or an open Drizzle transaction)
  * at construction time. The singleton instance on `CoreService` is bound to
@@ -82,6 +94,19 @@ export class Specialty {
 		},
 	};
 
+	private readonly referralLinkCountConfigs = {
+		referral: {
+			foreignKey: "id",
+			table: schema.ReferralModel,
+			references: "referral_id",
+		},
+		specialty: {
+			foreignKey: "id",
+			table: schema.SpecialtyModel,
+			references: "specialty_id",
+		},
+	};
+
 	private readonly userLinkRelationConfigs = {
 		user: { ...this.userLinkCountConfigs.user, type: "one" as const },
 		specialty: { ...this.userLinkCountConfigs.specialty, type: "one" as const },
@@ -94,6 +119,17 @@ export class Specialty {
 		},
 		specialty: {
 			...this.facilityLinkCountConfigs.specialty,
+			type: "one" as const,
+		},
+	};
+
+	private readonly referralLinkRelationConfigs = {
+		referral: {
+			...this.referralLinkCountConfigs.referral,
+			type: "one" as const,
+		},
+		specialty: {
+			...this.referralLinkCountConfigs.specialty,
 			type: "one" as const,
 		},
 	};
@@ -155,8 +191,8 @@ export class Specialty {
 	};
 
 	/**
-	 * Find multiple rows from `user_specialties` or `facility_specialties`,
-	 * whichever `owner` selects.
+	 * Find multiple rows from `user_specialties`, `facility_specialties`, or
+	 * `referral_specialties`, whichever `owner` selects.
 	 */
 	linkMany = async <
 		TOwner extends SpecialtyLinkOwner,
@@ -167,15 +203,23 @@ export class Specialty {
 		options: TOptions,
 	): Promise<Pagination<Pick<LinkSelect<TOwner>, TSelect>>> => {
 		const table =
-			owner === "user" ? schema.UserSpecialtyModel : schema.FacilitySpecialtyModel;
+			owner === "user"
+				? schema.UserSpecialtyModel
+				: owner === "facility"
+					? schema.FacilitySpecialtyModel
+					: schema.ReferralSpecialtyModel;
 		const relationConfigs =
 			owner === "user"
 				? this.userLinkRelationConfigs
-				: this.facilityLinkRelationConfigs;
+				: owner === "facility"
+					? this.facilityLinkRelationConfigs
+					: this.referralLinkRelationConfigs;
 		const countConfigs =
 			owner === "user"
 				? this.userLinkCountConfigs
-				: this.facilityLinkCountConfigs;
+				: owner === "facility"
+					? this.facilityLinkCountConfigs
+					: this.referralLinkCountConfigs;
 
 		return (await manyRecords(
 			this.executor,
@@ -186,7 +230,7 @@ export class Specialty {
 		)) as unknown as Pagination<Pick<LinkSelect<TOwner>, TSelect>>;
 	};
 
-	/** Create a link row in `user_specialties` or `facility_specialties`. */
+	/** Create a link row in `user_specialties`, `facility_specialties`, or `referral_specialties`. */
 	linkCreate = async <
 		TOwner extends SpecialtyLinkOwner,
 		TSelect extends keyof LinkSelect<TOwner>,
@@ -195,14 +239,19 @@ export class Specialty {
 		options: CreateOptions<LinkInsert<TOwner>, LinkSelect<TOwner>>,
 	): Promise<Pick<LinkSelect<TOwner>, TSelect>[]> => {
 		const table =
-			owner === "user" ? schema.UserSpecialtyModel : schema.FacilitySpecialtyModel;
+			owner === "user"
+				? schema.UserSpecialtyModel
+				: owner === "facility"
+					? schema.FacilitySpecialtyModel
+					: schema.ReferralSpecialtyModel;
 
 		return await createRecords(this.executor, table, options);
 	};
 
 	/**
-	 * Delete link row(s) from `user_specialties` or `facility_specialties`
-	 * — unlinking a specialty either has no `update`, it's a `delete`.
+	 * Delete link row(s) from `user_specialties`, `facility_specialties`, or
+	 * `referral_specialties` — unlinking a specialty either has no `update`,
+	 * it's a `delete`.
 	 */
 	linkDelete = async <
 		TOwner extends SpecialtyLinkOwner,
@@ -212,7 +261,11 @@ export class Specialty {
 		options: DeleteOptions<LinkSelect<TOwner>>,
 	): Promise<Pick<LinkSelect<TOwner>, TSelect>[]> => {
 		const table =
-			owner === "user" ? schema.UserSpecialtyModel : schema.FacilitySpecialtyModel;
+			owner === "user"
+				? schema.UserSpecialtyModel
+				: owner === "facility"
+					? schema.FacilitySpecialtyModel
+					: schema.ReferralSpecialtyModel;
 
 		return await deleteRecords(this.executor, table, options);
 	};

@@ -13,6 +13,10 @@ import {
 	UpdateReferralStatusSchema,
 	referralListResponseSchema,
 	timelineListResponseSchema,
+	assignReferralSpecialtySchema,
+	referralSpecialtyListResponseSchema,
+	referralSpecialtyLinkResponseSchema,
+	referralSpecialtyUnassignParamsSchema,
 } from "@referral-tracking/shared";
 
 import {
@@ -24,6 +28,9 @@ import {
 	referralHistory,
 	referralRedirect,
 	referralStatusUpdate,
+	referralSpecialties,
+	referralSpecialtyAssign,
+	referralSpecialtyUnassign,
 } from "./service";
 
 import { EVENT_NAMES } from "../../lib/constant";
@@ -197,6 +204,70 @@ export const route: FastifyPluginAsync = async (
 				401: globalResponseSchema,
 				403: globalResponseSchema,
 				404: globalResponseSchema,
+			},
+		},
+	});
+
+	app.route({
+		method: "GET",
+		url: API_PATHS.REFERRAL_SPECIALTY_LIST,
+		handler: referralSpecialties,
+		preHandler: [
+			app.event(EVENT_NAMES.REFERRAL_SPECIALTY_LIST),
+			app.authenticate,
+			app.authorize([ROLES.NURSE, ROLES.DOCTOR, ROLES.MANAGER]),
+		],
+		schema: {
+			params: referralParamsSchema,
+			response: {
+				200: referralSpecialtyListResponseSchema,
+				401: globalResponseSchema,
+				403: globalResponseSchema,
+				404: globalResponseSchema,
+			},
+		},
+	});
+
+	app.route({
+		method: "POST",
+		url: API_PATHS.REFERRAL_SPECIALTY_ASSIGN,
+		handler: referralSpecialtyAssign,
+		preHandler: [
+			app.event(EVENT_NAMES.REFERRAL_SPECIALTY_ASSIGN),
+			app.authenticate,
+			app.authorize([ROLES.NURSE, ROLES.DOCTOR]),
+		],
+		schema: {
+			params: referralParamsSchema,
+			body: assignReferralSpecialtySchema,
+			response: {
+				201: referralSpecialtyLinkResponseSchema,
+				401: globalResponseSchema,
+				403: globalResponseSchema,
+				404: globalResponseSchema,
+				409: globalResponseSchema,
+				422: globalResponseSchema,
+			},
+		},
+	});
+
+	app.route({
+		method: "DELETE",
+		url: API_PATHS.REFERRAL_SPECIALTY_UNASSIGN,
+		handler: referralSpecialtyUnassign,
+		preHandler: [
+			app.event(EVENT_NAMES.REFERRAL_SPECIALTY_UNASSIGN),
+			app.authenticate,
+			app.authorize([ROLES.NURSE, ROLES.DOCTOR]),
+		],
+		schema: {
+			params: referralSpecialtyUnassignParamsSchema,
+			response: {
+				200: globalResponseSchema,
+				401: globalResponseSchema,
+				403: globalResponseSchema,
+				404: globalResponseSchema,
+				409: globalResponseSchema,
 			},
 		},
 	});

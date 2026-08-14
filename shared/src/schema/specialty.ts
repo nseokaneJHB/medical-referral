@@ -121,3 +121,31 @@ export const userSpecialtyUnassignParamsSchema = z.object({
 	id: uuidSchema,
 	specialtyId: uuidSchema,
 });
+
+/**
+ * A referral's specialty link — one row per referral/specialty pairing.
+ * Same nested-ref shape as the facility/user links above.
+ */
+export const ReferralSpecialtyLinkSchema = z.object({
+	id: uuidSchema,
+	referral_id: uuidSchema,
+	specialty: specialtyRefSchema,
+	created_at: z.date(),
+});
+
+export const assignReferralSpecialtySchema = z.object({
+	specialty_id: uuidSchema,
+});
+
+export const referralSpecialtyListResponseSchema = globalResponseSchema.extend({
+	data: z.array(ReferralSpecialtyLinkSchema),
+});
+
+export const referralSpecialtyLinkResponseSchema = globalResponseSchema.extend({
+	data: ReferralSpecialtyLinkSchema,
+});
+
+export const referralSpecialtyUnassignParamsSchema = z.object({
+	id: uuidSchema,
+	specialtyId: uuidSchema,
+});

@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 import { createFileRoute, useNavigate, redirect } from "@tanstack/react-router";
 import { useQuery, useMutation } from "@tanstack/react-query";
 
@@ -13,6 +15,7 @@ import {
 	stringToTitleCase,
 	CreateReferralSchema,
 	TERMINAL_REFERRAL_STATUSES,
+	type SpecialtyRef,
 	type ReferralResponse,
 	type CreateReferralBody,
 } from "@referral-tracking/shared";
@@ -24,6 +27,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TextArea } from "@/components/custom/text-area";
 import { BackLink } from "@/components/custom/back-link";
 import { SelectInput } from "@/components/custom/select-input";
+import { SpecialtyManager } from "@/components/custom/specialty-manager";
 
 import { useFormField } from "@/hooks/use-form-field";
 import { useToastMutation } from "@/hooks/use-toast-mutation";
@@ -32,6 +36,7 @@ import { QUERY_KEYS } from "@/api/constant";
 import { patientsRequest } from "@/api/patients";
 import { createReferral, referralsRequest } from "@/api/referrals";
 import { facilitiesRequest } from "@/api/facilities";
+import { specialtiesRequest, assignReferralSpecialty } from "@/api/specialties";
 import { canCreateReferral } from "@/lib/permissions";
 
 const PRIORITY_ITEMS = Object.values(PRIORITY).map((value) => ({
@@ -71,6 +76,35 @@ const NewReferralPage = () => {
 			value: facility.id,
 			label: facility.name,
 		})) ?? [];
+
+	const { data: allSpecialties } = useQuery({
+		queryKey: [...QUERY_KEYS.SPECIALTIES, "picker"],
+		queryFn: () => specialtiesRequest({ data: { page: "1", limit: "100" } }),
+	});
+
+	// Staged locally — the referral doesn't exist yet, so there's nothing to
+	// assign against until `onSubmit` creates it and fires one assign call
+	// per staged specialty. Reuses `SpecialtyManager`'s chip-picker UI with
+	// local-state `onAssign`/`onUnassign` in place of its usual remote ones.
+	const [stagedSpecialties, setStagedSpecialties] = useState<
+		{ id: string; specialty: SpecialtyRef }[]
+	>([]);
+
+	const handleStageSpecialty = async (specialtyId: string): Promise<void> => {
+		const specialty = allSpecialties?.data.find(
+			(item) => item.id === specialtyId,
+		);
+		if (!specialty) return;
+		setStagedSpecialties((prev) => [...prev, { id: specialtyId, specialty }]);
+	};
+
+	const handleUnstageSpecialty = async (link: {
+		specialty: { id: string };
+	}): Promise<void> => {
+		setStagedSpecialties((prev) =>
+			prev.filter((item) => item.specialty.id !== link.specialty.id),
+		);
+	};
 
 	const { control, handleSubmit } = useForm<ReferralFormValues>({
 		mode: "onChange",
@@ -128,7 +162,19 @@ const NewReferralPage = () => {
 				...payload,
 				priority: payload.priority ?? PRIORITY.MEDIUM,
 			}),
-			onSuccess: async () => {
+			onSuccess: async (data) => {
+				for (const staged of stagedSpecialties) {
+					try {
+						await assignReferralSpecialty(data.data.id, {
+							specialty_id: staged.specialty.id,
+						});
+					} catch (error) {
+						console.error(
+							"Failed to tag a specialty on the new referral:",
+							error,
+						);
+					}
+				}
 				await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.REFERRALS });
 				navigate({ to: FRONTEND_URLS.REFERRALS });
 			},
@@ -224,6 +270,23 @@ const NewReferralPage = () => {
 								priority.onChange as (value: string | undefined) => void
 							}
 						/>
+
+						<div className="space-y-2">
+							<p className="text-sm font-medium">
+								Specialties needed (optional)
+							</p>
+							<p className="text-muted-foreground text-sm">
+								Not sure? Leave this blank — the receiving doctor can tag
+								specialties later.
+							</p>
+							<SpecialtyManager
+								assigned={stagedSpecialties}
+								allSpecialties={allSpecialties?.data ?? []}
+								editable
+								onAssign={handleStageSpecialty}
+								onUnassign={handleUnstageSpecialty}
+							/>
+						</div>
 
 						<Button type="submit" title="Create referral" disabled={isLoading}>
 							{isLoading ? (

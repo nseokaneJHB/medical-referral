@@ -8,6 +8,7 @@ export const QUERY_KEYS = {
 	REFERRALS: ["referrals"],
 	REFERRAL: ["referrals", "detail"],
 	REFERRAL_HISTORY: ["referrals", "history"],
+	REFERRAL_SPECIALTIES: ["referrals", "specialties"],
 
 	USERS: ["users"],
 	USER: ["users", "detail"],

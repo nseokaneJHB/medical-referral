@@ -134,6 +134,26 @@ export const canRedirectReferral = (
 			referral.destination_facility_id === userFacilityId));
 
 /**
+ * Whether `role` may add/remove a referral's needed-specialty tags — same
+ * reach as `canRedirectReferral` for a Doctor (assigned, or unassigned at
+ * the destination facility), plus the referring Nurse. Deliberately
+ * independent of redirect itself — a Doctor may tag specialties whether or
+ * not they also redirect.
+ */
+export const canManageReferralSpecialties = (
+	role: Role,
+	userId: string,
+	userFacilityId: string | null,
+	referral: Pick<
+		ReferralModelSelect,
+		"referrer_id" | "doctor" | "destination_facility_id"
+	>,
+): boolean => {
+	if (role === ROLES.NURSE) return referral.referrer_id === userId;
+	return canRedirectReferral(role, userId, userFacilityId, referral);
+};
+
+/**
  * Nurse/Doctor see a patient if it's their own facility's, or their
  * facility has an active referral for that patient (origin or
  * destination) — `hasActiveReferral` is the caller's pre-fetched answer

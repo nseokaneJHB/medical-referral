@@ -11,6 +11,10 @@ import type {
 	ReferralListResponse,
 	TimelineListResponse,
 	UpdateReferralStatusBody,
+	ReferralSpecialtyListResponse,
+	ReferralSpecialtyLinkResponse,
+	AssignReferralSpecialtyBody,
+	ReferralSpecialtyUnassignParams,
 } from "@referral-tracking/shared";
 
 export interface ReferralCreateRequest extends RouteGenericInterface {
@@ -58,4 +62,20 @@ export interface ReferralHistoryRequest extends RouteGenericInterface {
 		limit?: string;
 	};
 	Reply: TimelineListResponse | GlobalResponse;
+}
+
+export interface ReferralSpecialtiesRequest extends RouteGenericInterface {
+	Params: ReferralParams;
+	Reply: ReferralSpecialtyListResponse | GlobalResponse;
+}
+
+export interface ReferralSpecialtyAssignRequest extends RouteGenericInterface {
+	Params: ReferralParams;
+	Body: AssignReferralSpecialtyBody;
+	Reply: ReferralSpecialtyLinkResponse | GlobalResponse;
+}
+
+export interface ReferralSpecialtyUnassignRequest extends RouteGenericInterface {
+	Params: ReferralSpecialtyUnassignParams;
+	Reply: GlobalResponse;
 }

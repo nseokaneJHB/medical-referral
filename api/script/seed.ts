@@ -33,6 +33,7 @@ import {
 	SpecialtyModel,
 	UserSpecialtyModel,
 	FacilitySpecialtyModel,
+	ReferralSpecialtyModel,
 	type PatientModelInsert,
 	type ReferralModelInsert,
 	type TimelineModelInsert,
@@ -41,6 +42,7 @@ import {
 	type LoginsModelInsert,
 	type UserSpecialtyModelInsert,
 	type FacilitySpecialtyModelInsert,
+	type ReferralSpecialtyModelInsert,
 } from "../src/drizzle/schema";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -1055,6 +1057,7 @@ async function main(): Promise<void> {
 
 	const REFERRAL_COUNT = 300;
 	const referralRows: ReferralModelInsert[] = [];
+	const referralSpecialtyRows: ReferralSpecialtyModelInsert[] = [];
 
 	for (let i = 0; i < REFERRAL_COUNT; i++) {
 		const origin = faker.helpers.arrayElement(facilitiesWithPatients);
@@ -1117,6 +1120,26 @@ async function main(): Promise<void> {
 			updated_at: updatedAt,
 		});
 
+		referralSpecialtyRows.push({
+			id: generateUuid(),
+			referral_id: referralId,
+			specialty_id: specialty.id,
+			created_at: createdAt,
+		});
+
+		if (faker.number.float({ min: 0, max: 1 }) < 0.3) {
+			const secondPool = specialtyPool.filter((s) => s.id !== specialty.id);
+			if (secondPool.length > 0) {
+				const second = faker.helpers.arrayElement(secondPool);
+				referralSpecialtyRows.push({
+					id: generateUuid(),
+					referral_id: referralId,
+					specialty_id: second.id,
+					created_at: createdAt,
+				});
+			}
+		}
+
 		for (const step of steps) {
 			const changer =
 				doctorTargets.has(step.next) && assignedDoctor
@@ -1140,6 +1163,11 @@ async function main(): Promise<void> {
 		await connection.insert(ReferralModel).values(batch);
 	}
 	console.log(`✓ ${referralRows.length} referrals`);
+
+	for (const batch of chunk(referralSpecialtyRows, 300)) {
+		await connection.insert(ReferralSpecialtyModel).values(batch);
+	}
+	console.log(`✓ ${referralSpecialtyRows.length} referral specialty links`);
 
 	for (const batch of chunk(timelineRows, 300)) {
 		await connection.insert(TimelineModel).values(batch);

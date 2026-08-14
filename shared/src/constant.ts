@@ -256,6 +256,9 @@ export const API_PATHS = {
 	REFERRAL_ASSIGN: "/:id/assign",
 	REFERRAL_REDIRECT: "/:id/redirect",
 	REFERRAL_HISTORY: "/:id/history",
+	REFERRAL_SPECIALTY_LIST: "/:id/specialties",
+	REFERRAL_SPECIALTY_ASSIGN: "/:id/specialties",
+	REFERRAL_SPECIALTY_UNASSIGN: "/:id/specialties/:specialtyId",
 
 	REPORTS_REFERRALS: "/referrals",
 

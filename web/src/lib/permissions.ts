@@ -101,6 +101,22 @@ export const canRedirectReferral = (
 		(!referral.assignedDoctor &&
 			user.facility_id === referral.destination_facility.id));
 
+/**
+ * Whether the viewer may add/remove a referral's needed-specialty tags —
+ * same reach as `canEditReferralFull` (the referring Nurse) or
+ * `canRedirectReferral` (an assigned, or unassigned-at-destination, Doctor).
+ * Deliberately independent of redirect itself — a Doctor can tag
+ * specialties whether or not they also redirect.
+ */
+export const canManageReferralSpecialties = (
+	user: Pick<AuthUser, "id" | "role" | "facility_id">,
+	referral: Pick<
+		Referral,
+		"referrer" | "assignedDoctor" | "destination_facility" | "status"
+	>,
+): boolean =>
+	canEditReferralFull(user, referral) || canRedirectReferral(user, referral);
+
 // --- Facilities ---
 
 export const isOwnFacilityManager = (

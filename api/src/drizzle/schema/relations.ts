@@ -11,6 +11,7 @@ import { FacilityModel } from "./facility";
 import { SpecialtyModel } from "./specialty";
 import { UserSpecialtyModel } from "./user-specialty";
 import { FacilitySpecialtyModel } from "./facility-specialty";
+import { ReferralSpecialtyModel } from "./referral-specialty";
 
 export const UserModelRelations = relations(UserModel, ({ one, many }) => ({
 	facility: one(FacilityModel, {
@@ -96,6 +97,7 @@ export const ReferralRelations = relations(ReferralModel, ({ one, many }) => ({
 		references: [FacilityModel.id],
 		fields: [ReferralModel.destination_facility_id],
 	}),
+	specialties: many(ReferralSpecialtyModel),
 }));
 
 export const TimelineRelations = relations(TimelineModel, ({ one }) => ({
@@ -115,6 +117,7 @@ export const LoginsRelations = relations(LoginsModel, ({ one }) => ({
 export const SpecialtyRelations = relations(SpecialtyModel, ({ many }) => ({
 	facilities: many(FacilitySpecialtyModel),
 	users: many(UserSpecialtyModel),
+	referrals: many(ReferralSpecialtyModel),
 }));
 
 export const FacilitySpecialtyRelations = relations(
@@ -141,6 +144,20 @@ export const UserSpecialtyRelations = relations(
 		specialty: one(SpecialtyModel, {
 			references: [SpecialtyModel.id],
 			fields: [UserSpecialtyModel.specialty_id],
+		}),
+	}),
+);
+
+export const ReferralSpecialtyRelations = relations(
+	ReferralSpecialtyModel,
+	({ one }) => ({
+		referral: one(ReferralModel, {
+			references: [ReferralModel.id],
+			fields: [ReferralSpecialtyModel.referral_id],
+		}),
+		specialty: one(SpecialtyModel, {
+			references: [SpecialtyModel.id],
+			fields: [ReferralSpecialtyModel.specialty_id],
 		}),
 	}),
 );

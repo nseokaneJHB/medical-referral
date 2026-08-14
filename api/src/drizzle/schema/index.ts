@@ -11,6 +11,7 @@ export * from "./logins";
 export * from "./specialty";
 export * from "./facility-specialty";
 export * from "./user-specialty";
+export * from "./referral-specialty";
 
 // Relations
 export * from "./relations";
