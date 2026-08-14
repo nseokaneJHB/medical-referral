@@ -1632,3 +1632,81 @@ feature above, done together since both touch the same files.
   "Otolaryngology"; Add-button height now matches the picker (`h-12`
   added directly, since the picker's trigger is a non-default `h-12`
   override, not the Button default `h-10`) confirmed via zoomed screenshot.
+
+**2026-08-14, same session — Referral specialty tagging.** New feature:
+a Nurse creating a referral can now say up front which clinical
+specialty/specialties the patient needs, and a Doctor can add or remove
+those tags on the referral independently of redirecting it — redirect and
+specialty-tagging are two separate capabilities that happen to live on the
+same page, not one threaded through the other.
+
+- **Data model**: new `referral_specialties` many-to-many join table
+  (`referral_id`, `specialty_id`, unique on the pair) — structurally
+  identical to `facility_specialties`/`user_specialties`. `core/specialty.ts`'s
+  `SpecialtyLinkOwner` union grew a third `"referral"` branch (the existing
+  `link*` methods, config maps, and conditional types were extended rather
+  than building a parallel repository — the class was already built to
+  scale this way; a third branch is mechanical, not a redesign). No
+  standalone `core/referral-specialty.ts` was created.
+- **Backend routes**: `GET/POST /referrals/:id/specialties`,
+  `DELETE /referrals/:id/specialties/:specialtyId` — mirrors the facility/
+  user specialty sub-route shape exactly. New predicate
+  `canManageReferralSpecialties` in `api/src/lib/permission.ts`: the
+  referring Nurse (unconditionally — no separate `isTerminal` bake-in, that
+  check stays a handler-level 409 like every other referral mutation), or
+  reuses `canRedirectReferral`'s existing Doctor reach (assigned, or
+  unassigned at the destination facility) unchanged. Route-level
+  `app.authorize` is `[NURSE, DOCTOR]` for assign/unassign (Manager can
+  view a referral's specialties via the broader `[NURSE, DOCTOR, MANAGER]`
+  `GET`, same as the referral itself, but never assign/unassign — which
+  clinical specialty a referral needs is the referring Nurse's or treating
+  Doctor's call, not administrative, the opposite reasoning from
+  facility/user specialties where Manager is the assigner and
+  Administrator is read-only).
+  Both assign and unassign 409 on a terminal referral, matching
+  `referralUpdate`/`referralAssign`/`referralRedirect`'s existing pattern.
+- **Nurse tagging at creation is non-atomic with the create call**: the
+  create form stages picked specialties in local component state (reusing
+  `SpecialtyManager`'s chip-picker UI with local `onAssign`/`onUnassign` in
+  place of its usual remote mutations — no backend schema change, no new
+  "array in create payload" pattern), then fires one `POST .../specialties`
+  per staged pick after the referral itself is created successfully. A
+  specialty-assign failure after a successful create doesn't block
+  navigation (best-effort, logged to console) — the referral is still
+  fully valid without its tags, and the Doctor/Nurse can add them from the
+  detail page afterward via the same `SpecialtyManager` widget. This is a
+  deliberate simplicity-over-atomicity tradeoff (no new "array in create
+  payload" pattern, reuses the existing assign endpoint as-is) made without
+  a live round-trip back to the user during this session; flagging it here
+  rather than presenting it as a settled requirement.
+- **Doctor tagging is independent of redirect, and reachable from both
+  places**: the referral detail page always renders a "Specialties needed"
+  card (`SpecialtyManager`, editable when `canManageReferralSpecialties` —
+  mirrors the backend predicate, built as
+  `canEditReferralFull(...) || canRedirectReferral(...)` reusing both
+  existing frontend predicates rather than duplicating their logic). The
+  same live widget (same query data, same assign/unassign mutations — not
+  a second copy or a separate mutation path) is *also* rendered inside the
+  Redirect dialog itself, above the destination-facility picker, so a
+  Doctor can tag specialties in the same motion as redirecting, matching
+  the original request's phrasing ("when a doctor redirects the referral,
+  the doctor has the option to update the specialty"). Confirmed live: a
+  tag added from inside the open Redirect dialog immediately appeared on
+  the page's Specialties card underneath it, without submitting the
+  redirect — proving it's the same mutation, not a disconnected control.
+- Seed data: `api/script/seed.ts` already picked a `specialty` per referral
+  (previously only to flavor the `referral_reason` text) — now also writes
+  it as a real `referral_specialties` row, plus a second distinct pick 30%
+  of the time for variety. 398 links across 300 referrals after reseed.
+- Live-verified end-to-end: signed in as Nurse, created a referral with a
+  staged "Cardiology" tag, confirmed it persisted as a real tag on the
+  referral detail page after creation; signed in as Doctor on an
+  unassigned referral at their own facility (not redirecting), added and
+  then removed a specialty tag directly — confirmed both the "Specialty
+  tagged."/"Specialty untagged." toasts and the persisted state, with no
+  Redirect action involved; signed in as Manager on the same referral and
+  confirmed the Specialties card renders read-only (badge only, no Add
+  picker, no remove icon); opened the Redirect dialog as Doctor and added a
+  specialty tag from within it (dialog stayed open, no redirect submitted),
+  then closed the dialog and confirmed the tag persisted on the page's
+  Specialties card.

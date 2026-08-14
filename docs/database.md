@@ -32,6 +32,8 @@ erDiagram
 
     specialties ||--o{ facility_specialties : "assigned to"
     specialties ||--o{ user_specialties : "assigned to"
+    specialties ||--o{ referral_specialties : "needed by"
+    referrals ||--o{ referral_specialties : "needs"
 
     timeline }o..o| user : "entity, if type=USER"
     timeline }o..o| facilities : "entity, if type=FACILITY"
@@ -105,6 +107,11 @@ erDiagram
     user_specialties {
         varchar id PK
         varchar user_id FK
+        varchar specialty_id FK
+    }
+    referral_specialties {
+        varchar id PK
+        varchar referral_id FK
         varchar specialty_id FK
     }
 ```
@@ -255,10 +262,10 @@ Per-attempt login history (success/failure/lockout), separate from
 | `status` | enum `LOGIN_STATUS` | `success` \| `failed` \| `locked_out` |
 | `reason` | text | nullable |
 
-### `specialties`, `facility_specialties`, `user_specialties`
+### `specialties`, `facility_specialties`, `user_specialties`, `referral_specialties`
 
-Reference table (`specialties`) plus two many-to-many join tables, for
-tagging a facility or a Doctor/Nurse with clinical specialties
+Reference table (`specialties`) plus three many-to-many join tables, for
+tagging a facility, a Doctor/Nurse, or a referral with clinical specialties
 (Cardiology, Orthopedics, etc.).
 
 **Fully wired as of 2026-08-13** — Administrator-managed vocabulary
@@ -270,11 +277,21 @@ admin page and on the facility/user detail pages. See `docs/backlog.md`
 assigning/unassigning (not viewing) is Manager-only — Administrator
 manages the vocabulary but not any one facility/user's assignments.
 
+**`referral_specialties` added 2026-08-14** — which clinical specialty a
+referral needs. Same sub-route shape as above
+(`GET/POST/DELETE /referrals/:id/specialties...`), but gated differently:
+the referring Nurse or an eligible Doctor (assigned, or unassigned at the
+destination facility — same reach as redirect) can assign/unassign;
+Manager can view but not edit. Set at referral creation (optional) and
+editable afterward from the referral detail page, independent of
+redirecting. See `docs/roles-permissions.md`.
+
 | Table | Columns beyond `id`/`created_at` |
 |---|---|
 | `specialties` | `name` (unique, indexed), `description` (text, not null) |
 | `facility_specialties` | `facility_id` FK, `specialty_id` FK — unique on the pair |
 | `user_specialties` | `user_id` FK, `specialty_id` FK — unique on the pair |
+| `referral_specialties` | `referral_id` FK, `specialty_id` FK — unique on the pair |
 
 ## Notes
 
