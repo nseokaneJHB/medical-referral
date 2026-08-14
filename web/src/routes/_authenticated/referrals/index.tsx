@@ -9,15 +9,7 @@ import {
 	getCoreRowModel,
 } from "@tanstack/react-table";
 
-import {
-	PlusIcon,
-	SearchIcon,
-	ArrowUpIcon,
-	ArrowDownIcon,
-	ChevronLeftIcon,
-	ChevronRightIcon,
-	ArrowUpDownIcon,
-} from "lucide-react";
+import { PlusIcon } from "lucide-react";
 
 import {
 	PRIORITY,
@@ -30,51 +22,23 @@ import {
 } from "@referral-tracking/shared";
 
 import { Card, CardTitle, CardHeader, CardContent } from "@/components/ui/card";
-import {
-	Table,
-	TableRow,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-} from "@/components/ui/table";
+import { Table, TableRow, TableBody, TableCell } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Field, FieldLabel } from "@/components/ui/field";
 
 import { Link } from "@/components/custom/link";
 import { Loader } from "@/components/custom/loader";
 import { SelectInput } from "@/components/custom/select-input";
+import { SearchField } from "@/components/custom/search-field";
+import { VariantBadge } from "@/components/custom/variant-badge";
+import { PaginationFooter } from "@/components/custom/pagination-footer";
+import { SortableTableHeader } from "@/components/custom/sortable-table-header";
 
 import { QUERY_KEYS } from "@/api/constant";
 import { referralsRequest } from "@/api/referrals";
 import { canCreateReferral } from "@/lib/permissions";
 
 const columnHelper = createColumnHelper<Referral>();
-
-const PRIORITY_VARIANT: Record<
-	string,
-	"default" | "info" | "warning" | "error"
-> = {
-	[PRIORITY.LOW]: "default",
-	[PRIORITY.MEDIUM]: "info",
-	[PRIORITY.HIGH]: "warning",
-	[PRIORITY.URGENT]: "error",
-};
-
-const STATUS_VARIANT: Record<
-	string,
-	"default" | "info" | "success" | "warning" | "error"
-> = {
-	[REFERRAL_STATUS.PENDING]: "default",
-	[REFERRAL_STATUS.ACCEPTED]: "info",
-	[REFERRAL_STATUS.IN_PROGRESS]: "info",
-	[REFERRAL_STATUS.ON_HOLD]: "warning",
-	[REFERRAL_STATUS.COMPLETED]: "success",
-	[REFERRAL_STATUS.REJECTED]: "error",
-	[REFERRAL_STATUS.CANCELED]: "error",
-};
 
 const SORTABLE_COLUMNS = ["priority", "status", "created"];
 
@@ -119,19 +83,11 @@ const ReferralsPage = () => {
 		}),
 		columnHelper.accessor("priority", {
 			header: "Priority",
-			cell: (info) => (
-				<Badge variant={PRIORITY_VARIANT[info.getValue()]}>
-					{stringToTitleCase(info.getValue())}
-				</Badge>
-			),
+			cell: (info) => <VariantBadge value={info.getValue()} type="priority" />,
 		}),
 		columnHelper.accessor("status", {
 			header: "Status",
-			cell: (info) => (
-				<Badge variant={STATUS_VARIANT[info.getValue()]}>
-					{stringToTitleCase(info.getValue())}
-				</Badge>
-			),
+			cell: (info) => <VariantBadge value={info.getValue()} type="referralStatus" />,
 		}),
 	];
 
@@ -256,69 +212,25 @@ const ReferralsPage = () => {
 						/>
 					</Field>
 
-					<div className="ml-auto flex items-end gap-2">
-						<Input
-							value={searchInput}
-							placeholder="Search by reason..."
-							onChange={(event) => setSearchInput(event.target.value)}
-							onKeyDown={(event) => {
-								if (event.key === "Enter") commitSearch();
-							}}
-							className="h-10 max-w-sm text-base"
-						/>
-						<Button variant="outline" title="Search" onClick={commitSearch}>
-							<SearchIcon />
-						</Button>
-					</div>
+					<SearchField
+						value={searchInput}
+						onChange={setSearchInput}
+						onCommit={commitSearch}
+						placeholder="Search by reason..."
+					/>
 				</CardContent>
 			</Card>
 
 			<Card>
 				<CardContent>
 					<Table>
-						<TableHeader>
-							{table.getHeaderGroups().map((headerGroup) => (
-								<TableRow key={headerGroup.id}>
-									{headerGroup.headers.map((header) => {
-										const columnId = header.column.id;
-										const sortable = SORTABLE_COLUMNS.includes(columnId);
-										const isActive = search.sort === columnId;
-
-										return (
-											<TableHead key={header.id}>
-												{sortable ? (
-													<button
-														type="button"
-														onClick={() => toggleSort(columnId)}
-														className="flex items-center gap-1 hover:cursor-pointer"
-													>
-														{flexRender(
-															header.column.columnDef.header,
-															header.getContext(),
-														)}
-														{isActive ? (
-															search.order === "asc" ? (
-																<ArrowUpIcon className="h-4! w-4!" />
-															) : (
-																<ArrowDownIcon className="h-4! w-4!" />
-															)
-														) : (
-															<ArrowUpDownIcon className="h-4! w-4! opacity-70" />
-														)}
-													</button>
-												) : (
-													flexRender(
-														header.column.columnDef.header,
-														header.getContext(),
-													)
-												)}
-											</TableHead>
-										);
-									})}
-									<TableHead />
-								</TableRow>
-							))}
-						</TableHeader>
+						<SortableTableHeader
+							table={table}
+							sortableColumns={SORTABLE_COLUMNS}
+							activeSort={search.sort}
+							activeOrder={search.order}
+							onSort={toggleSort}
+						/>
 						<TableBody>
 							{table.getRowModel().rows.length === 0 && (
 								<TableRow>
@@ -357,37 +269,17 @@ const ReferralsPage = () => {
 				</CardContent>
 			</Card>
 
-			<div className="flex items-center justify-between">
-				<small className="text-muted-foreground">
-					Page {page} of {totalPages} &middot; {response.total} total
-				</small>
-				<div className="flex gap-2">
-					<Button
-						variant="outline"
-						title="Previous page"
-						disabled={page <= 1}
-						onClick={() =>
-							navigate({
-								search: (prev) => ({ ...prev, page: String(page - 1) }),
-							})
-						}
-					>
-						<ChevronLeftIcon />
-					</Button>
-					<Button
-						variant="outline"
-						title="Next page"
-						disabled={page >= totalPages}
-						onClick={() =>
-							navigate({
-								search: (prev) => ({ ...prev, page: String(page + 1) }),
-							})
-						}
-					>
-						<ChevronRightIcon />
-					</Button>
-				</div>
-			</div>
+			<PaginationFooter
+				page={page}
+				totalPages={totalPages}
+				total={response.total}
+				onPrevious={() =>
+					navigate({ search: (prev) => ({ ...prev, page: String(page - 1) }) })
+				}
+				onNext={() =>
+					navigate({ search: (prev) => ({ ...prev, page: String(page + 1) }) })
+				}
+			/>
 		</div>
 	);
 };

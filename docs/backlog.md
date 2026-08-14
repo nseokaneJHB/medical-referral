@@ -230,43 +230,72 @@ on, and this is the only prior decision about one existing.
 
 ## Shared list-page components (filter bar, status badges, action buttons)
 
-- **Raised 2026-08-13**, mid a cross-page consistency pass (sidebar badges,
-  filter row layout, status colors, button variants) across
-  Users/Facilities/Patients/Referrals. Root cause of most of the drift found
-  in that pass: each list page's filter row, status-badge color mapping, and
-  page-header "create" button were copy-pasted independently rather than
-  shared, so they drifted (e.g. Users' status badge collapsed to a binary
-  success/error while Referrals/Facilities used a full per-status color map;
-  Referrals/Patients' create button defaulted to `Link`'s ghost variant while
-  Users' used `Button`'s default filled variant).
-- Direction, not yet scoped: extract a shared `FilterBar`-style component for
-  the search+filters Card row (search pinned right via `ml-auto`, filters
-  left), a generic status-badge-variant mapper keyed by enum, and a
-  consistent page-header "create/add" action button.
-- **Tables too — user pointed to a concrete prior implementation** (raised
-  same session, right after the component list above): a generic
-  `Table<TData, TValue>` component from an earlier project
-  (`ubuntu-stories-monorepo`, commit `b566fb73e767fc2774d3614b9c3808f9b0e2a13e`,
-  present locally at `~/Desktop/ubuntu-stories` — GitHub is inaccessible from
-  here, no `gh` auth). Worth reading directly from that local clone when this
-  gets picked up rather than re-deriving:
-  - `web/src/components/custom/table.tsx` — owns the filter/search Card row,
-    a column-visibility dropdown, the actual `<Table>` render, and a
-    pagination footer, all driven by reading/writing TanStack Router search
-    params itself (`page`/`limit`/`sort`/`order`). Props: `id`, `data`,
-    `columns`, `filters?`, `pagination?`, `visibility?`.
-  - `web/src/components/custom/table-column.tsx` — `createDefaultColumn`/
-    `createAvatarColumn`-style factory helpers that produce `ColumnDef`s with
-    a built-in sortable header (dropdown: Ascending/Descending/Hide).
-  - Don't copy verbatim — that version couples to that app's own
-    `SelectFilter`/`DateFilter`/`SearchFilter` components and a
-    `manualPagination`/`manualSorting` react-table setup that would need
-    adapting to this repo's existing search-schema/loader pattern, but the
-    props shape and column-factory idea are the right reference.
-- Deliberately not done as part of the 2026-08-13 pass — that pass fixed the
-  symptoms per-page with exact, scoped diffs; this is the follow-up
-  structural fix so they can't drift again.
-- Status: **parked, not started.**
+**Resolved — shipped 2026-08-15.** Picked up after the facilities-picker
+hybrid search (above). A fresh survey at pickup time found the original
+2026-08-13 framing was partly stale — Users' status badge was never a binary
+success/error (it's a full 6-way map, same shape as Referrals/Facilities),
+and Referrals/Patients' create button was never `Link`'s ghost variant (both
+already used the filled `default` variant) — so the actual build targeted
+the duplication that was real and verified, not the original symptom list:
+
+- **`VariantBadge`** (`web/src/components/custom/variant-badge.tsx`) —
+  replaces 5 identical `<Badge variant={MAP[value]}>{stringToTitleCase(value)}</Badge>`
+  cell renderers (Users' role/status, Facilities' status, Referrals'
+  priority/status) with `<VariantBadge value={x} type="userStatus" />` etc.
+  Centralizes all 5 variant maps into one file, keyed by an explicit `type`
+  discriminator — deliberately *not* auto-dispatched by scanning which enum
+  a value belongs to, because this app's enums genuinely collide on value
+  (`PENDING` appears in `USER_STATUS`, `FACILITY_STATUS`, *and*
+  `REFERRAL_STATUS`; `REJECTED` the same three; `FLAGGED` in both
+  `USER_STATUS` and `FACILITY_STATUS`) — an auto-dispatch design would
+  silently pick the wrong variant for at least two of the three colliding
+  domains. `type` makes the lookup an exact `VARIANT_MAPS[type][value]`
+  double hash-lookup instead of a guess. No icons — considered (a similar
+  component, `BadgeWithIcon`, exists in the `ubuntu-stories` reference
+  project) and explicitly deferred; would need ~26 icons picked from
+  scratch since none of that project's enum values overlap with this app's.
+- **`SortableTableHeader`** (`web/src/components/custom/sortable-table-header.tsx`) —
+  the sort-icon-toggling header row, byte-identical across all 4 pages
+  (confirmed by diff, the single largest duplicated block found). Takes
+  `table`, `sortableColumns`, `activeSort`/`activeOrder`, `onSort`, and an
+  optional `trailingHeader` (defaults to a blank `<TableHead />`; Users
+  passes a custom right-aligned "Actions" cell instead of forcing
+  uniformity where the pages genuinely differ).
+- **`PaginationFooter`** (`web/src/components/custom/pagination-footer.tsx`) —
+  the "Page X of Y · N total" + Prev/Next block, confirmed byte-identical
+  across all 4 pages before extracting.
+- **`SearchField`** (`web/src/components/custom/search-field.tsx`) — the
+  search-input-plus-button pinned right (`ml-auto`). Normalized one small
+  accidental divergence: Users/Facilities had drifted to `items-center`,
+  Referrals/Patients to `items-end` — not a deliberate choice either place,
+  now uniformly `items-center`.
+- **Explicitly not built**, against the original framing:
+  - **No generic `Table<TData, TValue>` wrapper** from the `ubuntu-stories`
+    reference. That component owns sort/page state internally via
+    `manualSorting`/`manualPagination: true` react-table config; this app
+    owns that state externally, in the URL via each route's Zod search
+    schema, with the loader doing the actual server-side sort/page and
+    react-table just rendering whatever `data` it's handed. Wrapping the
+    reference component here would mean either fighting its internal
+    state-ownership assumptions inert, or ripping out the loader/search-
+    schema pattern to feed its `pagination` prop (whose shape doesn't match
+    this app's API responses anyway) — real risk on no upside, especially
+    on `users/index.tsx` (831 lines, real moderation logic). Column defs
+    stay inline `columnHelper.accessor(...)` per page, not a factory.
+  - **No generic `FilterBar` wrapper.** The actual filter *controls* differ
+    genuinely per page (gender/DOB range vs status/specialty vs
+    priority/status/date-range vs role/status) — only the search-box piece
+    was truly shared, which `SearchField` covers.
+  - Facilities' missing create button (no `POST /facilities` route exists —
+    facilities are created via sign-up) and Patients' missing status column
+    (Patient has no status field) both stayed as-is — not drift to fix, the
+    shared pieces are opt-in per page, not forced onto every page.
+- Verified: `git diff` exact-match on every generated edit (no delegate
+  self-report trusted), a full `pnpm typecheck` pass, and live browser
+  testing (signed in as Administrator/Manager) across all 4 pages —
+  confirmed badge colors match pre-refactor exactly, sort-toggle updates
+  the URL and re-fetches, pagination advances pages, and Enter-to-search
+  round-trips through the URL to a filtered result.
 
 ## Backend API URL structure — role-first paths
 
@@ -380,3 +409,17 @@ on, and this is the only prior decision about one existing.
   (corrected the stale "6 screens" claim to the real 5, and decoupled
   `referrals/$referralId.tsx`'s dual-consumer picker into two independent
   searches in the process). Shared list-page components picked up next.
+- **2026-08-15**: shared list-page components shipped, see the entry above.
+  Scoped down from the original ask after a fresh survey found some of the
+  2026-08-13 framing (binary Users badge, ghost-variant create buttons) was
+  stale — built `VariantBadge`/`SortableTableHeader`/`PaginationFooter`/
+  `SearchField` against the duplication that was actually still there,
+  explicitly skipped a generic `Table` wrapper and `FilterBar` (real
+  architectural mismatch + genuinely-different-per-page filter controls,
+  not worth forcing). Also referenced the `ubuntu-stories` project's badge
+  component at its *current* HEAD (not just the originally-pinned commit,
+  which turned out to no longer reflect that project's own direction) —
+  found it evolved into an auto-dispatch design that would have been an
+  actual bug here, since this app's status enums collide on value
+  (`PENDING`/`REJECTED` each appear in 3 different enums) in a way that
+  project's enums don't.

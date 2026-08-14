@@ -9,15 +9,7 @@ import {
 	getCoreRowModel,
 } from "@tanstack/react-table";
 
-import {
-	PlusIcon,
-	SearchIcon,
-	ArrowUpIcon,
-	ArrowDownIcon,
-	ChevronLeftIcon,
-	ChevronRightIcon,
-	ArrowUpDownIcon,
-} from "lucide-react";
+import { PlusIcon } from "lucide-react";
 
 import {
 	GENDER,
@@ -29,21 +21,16 @@ import {
 } from "@referral-tracking/shared";
 
 import { Card, CardTitle, CardHeader, CardContent } from "@/components/ui/card";
-import {
-	Table,
-	TableRow,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-} from "@/components/ui/table";
+import { Table, TableRow, TableBody, TableCell } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
 
 import { Link } from "@/components/custom/link";
 import { Loader } from "@/components/custom/loader";
 import { SelectInput } from "@/components/custom/select-input";
+import { SearchField } from "@/components/custom/search-field";
+import { PaginationFooter } from "@/components/custom/pagination-footer";
+import { SortableTableHeader } from "@/components/custom/sortable-table-header";
 
 import { QUERY_KEYS } from "@/api/constant";
 import { patientsRequest } from "@/api/patients";
@@ -195,69 +182,25 @@ const PatientsPage = () => {
 						/>
 					</Field>
 
-					<div className="ml-auto flex items-end gap-2">
-						<Input
-							value={searchInput}
-							placeholder="Search by name or phone..."
-							onChange={(event) => setSearchInput(event.target.value)}
-							onKeyDown={(event) => {
-								if (event.key === "Enter") commitSearch();
-							}}
-							className="h-10 max-w-sm text-base"
-						/>
-						<Button variant="outline" title="Search" onClick={commitSearch}>
-							<SearchIcon />
-						</Button>
-					</div>
+					<SearchField
+						value={searchInput}
+						onChange={setSearchInput}
+						onCommit={commitSearch}
+						placeholder="Search by name or phone..."
+					/>
 				</CardContent>
 			</Card>
 
 			<Card>
 				<CardContent>
 					<Table>
-						<TableHeader>
-							{table.getHeaderGroups().map((headerGroup) => (
-								<TableRow key={headerGroup.id}>
-									{headerGroup.headers.map((header) => {
-										const columnId = header.column.id;
-										const sortable = SORTABLE_COLUMNS.includes(columnId);
-										const isActive = search.sort === columnId;
-
-										return (
-											<TableHead key={header.id}>
-												{sortable ? (
-													<button
-														type="button"
-														onClick={() => toggleSort(columnId)}
-														className="flex items-center gap-1 hover:cursor-pointer"
-													>
-														{flexRender(
-															header.column.columnDef.header,
-															header.getContext(),
-														)}
-														{isActive ? (
-															search.order === "asc" ? (
-																<ArrowUpIcon className="h-4! w-4!" />
-															) : (
-																<ArrowDownIcon className="h-4! w-4!" />
-															)
-														) : (
-															<ArrowUpDownIcon className="h-4! w-4! opacity-70" />
-														)}
-													</button>
-												) : (
-													flexRender(
-														header.column.columnDef.header,
-														header.getContext(),
-													)
-												)}
-											</TableHead>
-										);
-									})}
-									<TableHead />
-								</TableRow>
-							))}
-						</TableHeader>
+						<SortableTableHeader
+							table={table}
+							sortableColumns={SORTABLE_COLUMNS}
+							activeSort={search.sort}
+							activeOrder={search.order}
+							onSort={toggleSort}
+						/>
 						<TableBody>
 							{table.getRowModel().rows.length === 0 && (
 								<TableRow>
@@ -296,37 +239,17 @@ const PatientsPage = () => {
 				</CardContent>
 			</Card>
 
-			<div className="flex items-center justify-between">
-				<small className="text-muted-foreground">
-					Page {page} of {totalPages} &middot; {response.total} total
-				</small>
-				<div className="flex gap-2">
-					<Button
-						variant="outline"
-						title="Previous page"
-						disabled={page <= 1}
-						onClick={() =>
-							navigate({
-								search: (prev) => ({ ...prev, page: String(page - 1) }),
-							})
-						}
-					>
-						<ChevronLeftIcon />
-					</Button>
-					<Button
-						variant="outline"
-						title="Next page"
-						disabled={page >= totalPages}
-						onClick={() =>
-							navigate({
-								search: (prev) => ({ ...prev, page: String(page + 1) }),
-							})
-						}
-					>
-						<ChevronRightIcon />
-					</Button>
-				</div>
-			</div>
+			<PaginationFooter
+				page={page}
+				totalPages={totalPages}
+				total={response.total}
+				onPrevious={() =>
+					navigate({ search: (prev) => ({ ...prev, page: String(page - 1) }) })
+				}
+				onNext={() =>
+					navigate({ search: (prev) => ({ ...prev, page: String(page + 1) }) })
+				}
+			/>
 		</div>
 	);
 };

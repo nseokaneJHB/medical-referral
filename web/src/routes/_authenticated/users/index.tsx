@@ -19,13 +19,7 @@ import {
 	CheckIcon,
 	XIcon,
 	CopyIcon,
-	SearchIcon,
-	ArrowUpIcon,
-	ArrowDownIcon,
 	UserPlusIcon,
-	ChevronLeftIcon,
-	ChevronRightIcon,
-	ArrowUpDownIcon,
 } from "lucide-react";
 
 import {
@@ -60,11 +54,8 @@ import {
 	TableBody,
 	TableCell,
 	TableHead,
-	TableHeader,
 } from "@/components/ui/table";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import {
 	Dialog,
@@ -79,8 +70,12 @@ import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Loader } from "@/components/custom/loader";
 import { Input as FormInput } from "@/components/custom/input";
 import { SelectInput } from "@/components/custom/select-input";
+import { SearchField } from "@/components/custom/search-field";
+import { VariantBadge } from "@/components/custom/variant-badge";
 import { RowActionsMenu } from "@/components/custom/row-actions-menu";
+import { PaginationFooter } from "@/components/custom/pagination-footer";
 import { ReasonActionButton } from "@/components/custom/reason-action-button";
+import { SortableTableHeader } from "@/components/custom/sortable-table-header";
 
 import { useFormField } from "@/hooks/use-form-field";
 import { useToastMutation } from "@/hooks/use-toast-mutation";
@@ -280,28 +275,6 @@ const UserModerationMenuItems = ({
 	return null;
 };
 
-const STATUS_VARIANT: Record<
-	string,
-	"default" | "success" | "warning" | "error" | "locked"
-> = {
-	[USER_STATUS.PENDING]: "default",
-	[USER_STATUS.ACTIVE]: "success",
-	[USER_STATUS.REJECTED]: "error",
-	[USER_STATUS.DISABLED]: "locked",
-	[USER_STATUS.FLAGGED]: "warning",
-	[USER_STATUS.DEPARTED]: "default",
-};
-
-const ROLE_VARIANT: Record<
-	string,
-	"info" | "secondary" | "outline" | "suspended"
-> = {
-	[ROLES.NURSE]: "info",
-	[ROLES.DOCTOR]: "outline",
-	[ROLES.MANAGER]: "suspended",
-	[ROLES.ADMINISTRATOR]: "secondary",
-};
-
 const columnHelper = createColumnHelper<User>();
 
 const columns = [
@@ -312,19 +285,11 @@ const columns = [
 	columnHelper.accessor("email", { header: "Email" }),
 	columnHelper.accessor("role", {
 		header: "Role",
-		cell: (info) => (
-			<Badge variant={ROLE_VARIANT[info.getValue()]}>
-				{stringToTitleCase(info.getValue())}
-			</Badge>
-		),
+		cell: (info) => <VariantBadge value={info.getValue()} type="role" />,
 	}),
 	columnHelper.accessor("status", {
 		header: "Status",
-		cell: (info) => (
-			<Badge variant={STATUS_VARIANT[info.getValue()]}>
-				{stringToTitleCase(info.getValue())}
-			</Badge>
-		),
+		cell: (info) => <VariantBadge value={info.getValue()} type="userStatus" />,
 	}),
 ];
 
@@ -657,69 +622,28 @@ const UsersPage = () => {
 						containerClassName="w-48"
 					/>
 
-					<div className="ml-auto flex items-center gap-2">
-						<Input
-							value={searchInput}
-							placeholder="Search by name or email..."
-							onChange={(event) => setSearchInput(event.target.value)}
-							onKeyDown={(event) => {
-								if (event.key === "Enter") commitSearch();
-							}}
-							className="h-10 max-w-sm text-base"
-						/>
-						<Button variant="outline" title="Search" onClick={commitSearch}>
-							<SearchIcon />
-						</Button>
-					</div>
+					<SearchField
+						value={searchInput}
+						onChange={setSearchInput}
+						onCommit={commitSearch}
+						placeholder="Search by name or email..."
+					/>
 				</CardContent>
 			</Card>
 
 			<Card>
 				<CardContent>
 					<Table>
-						<TableHeader>
-							{table.getHeaderGroups().map((headerGroup) => (
-								<TableRow key={headerGroup.id}>
-									{headerGroup.headers.map((header) => {
-										const columnId = header.column.id;
-										const sortable = SORTABLE_COLUMNS.includes(columnId);
-										const isActive = search.sort === columnId;
-
-										return (
-											<TableHead key={header.id}>
-												{sortable ? (
-													<button
-														type="button"
-														onClick={() => toggleSort(columnId)}
-														className="flex items-center gap-1 hover:cursor-pointer"
-													>
-														{flexRender(
-															header.column.columnDef.header,
-															header.getContext(),
-														)}
-														{isActive ? (
-															search.order === "asc" ? (
-																<ArrowUpIcon className="h-4! w-4!" />
-															) : (
-																<ArrowDownIcon className="h-4! w-4!" />
-															)
-														) : (
-															<ArrowUpDownIcon className="h-4! w-4! opacity-70" />
-														)}
-													</button>
-												) : (
-													flexRender(
-														header.column.columnDef.header,
-														header.getContext(),
-													)
-												)}
-											</TableHead>
-										);
-									})}
-									<TableHead className="text-right">Actions</TableHead>
-								</TableRow>
-							))}
-						</TableHeader>
+						<SortableTableHeader
+							table={table}
+							sortableColumns={SORTABLE_COLUMNS}
+							activeSort={search.sort}
+							activeOrder={search.order}
+							onSort={toggleSort}
+							trailingHeader={
+								<TableHead className="text-right">Actions</TableHead>
+							}
+						/>
 						<TableBody>
 							{table.getRowModel().rows.length === 0 && (
 								<TableRow>
@@ -768,37 +692,17 @@ const UsersPage = () => {
 				</CardContent>
 			</Card>
 
-			<div className="flex items-center justify-between">
-				<small className="text-muted-foreground">
-					Page {page} of {totalPages} &middot; {response.total} total
-				</small>
-				<div className="flex gap-2">
-					<Button
-						variant="outline"
-						title="Previous page"
-						disabled={page <= 1}
-						onClick={() =>
-							navigate({
-								search: (prev) => ({ ...prev, page: String(page - 1) }),
-							})
-						}
-					>
-						<ChevronLeftIcon />
-					</Button>
-					<Button
-						variant="outline"
-						title="Next page"
-						disabled={page >= totalPages}
-						onClick={() =>
-							navigate({
-								search: (prev) => ({ ...prev, page: String(page + 1) }),
-							})
-						}
-					>
-						<ChevronRightIcon />
-					</Button>
-				</div>
-			</div>
+			<PaginationFooter
+				page={page}
+				totalPages={totalPages}
+				total={response.total}
+				onPrevious={() =>
+					navigate({ search: (prev) => ({ ...prev, page: String(page - 1) }) })
+				}
+				onNext={() =>
+					navigate({ search: (prev) => ({ ...prev, page: String(page + 1) }) })
+				}
+			/>
 		</div>
 	);
 };
