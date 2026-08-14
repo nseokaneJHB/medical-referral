@@ -52,8 +52,17 @@ Doctor/Nurse staff. Answers to the open questions below as actually built:
   specialties at creation; a Doctor can add/remove tags independently of
   redirecting, from the detail page or from inside the Redirect dialog.
   New `referral_specialties` join table, `canManageReferralSpecialties`
-  permission. Still not built: a facilities search/filter-by-specialty
-  control — that remains a separate, unscoped follow-up.
+  permission.
+- **Facilities filter-by-specialty — picked up and shipped 2026-08-14.** A
+  multi-select `Specialty` filter on the Administrator `/facilities` list,
+  next to the existing `Status` filter — narrows to facilities offering any
+  of the picked specialties. Backend: comma-separated `specialty` query
+  param on `GET /facilities`, resolved via `facility_specialties` (batch
+  id lookup, same pattern as `getPatientFlagStatuses`) then ANDed into the
+  existing visibility/status where-clause. Distinct from the still-parked
+  "Facilities picker — searchable select (hybrid)" item above — that one is
+  about the plain facility-picker dropdowns silently capping at 100
+  results, not about filtering by specialty.
 - Backend: `GET/POST /specialties`, `PATCH /specialties/:id` (Administrator
   create/rename); `GET/POST /facilities/:id/specialties`,
   `DELETE /facilities/:id/specialties/:specialtyId`; same three shapes under
@@ -343,3 +352,10 @@ on, and this is the only prior decision about one existing.
 - **2026-08-14**: referral-routing-by-specialty, previously logged here as
   deliberately out of scope, picked up and shipped — see the Facility
   specialties entry above and `docs/roles-permissions.md`.
+- **2026-08-14 (later same day)**: facilities filter-by-specialty picked up
+  and shipped too — see the Facility specialties entry above. Also fixed,
+  unrelated to any backlog item: `SelectInput` single-select had no way to
+  clear a made selection, discovered while testing the specialty picker;
+  added a `clearable` prop (shows an "x" next to the chevron, grouped in
+  its own flex container so the trigger's `justify-between` doesn't spread
+  it away from the chevron) and wired it into `SpecialtyManager`.
