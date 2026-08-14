@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import { createFileRoute, useNavigate, redirect } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 
 import {
 	flexRender,
@@ -46,6 +47,7 @@ import { SelectInput } from "@/components/custom/select-input";
 
 import { QUERY_KEYS } from "@/api/constant";
 import { facilitiesRequest } from "@/api/facilities";
+import { specialtiesRequest } from "@/api/specialties";
 import { isAdministrator } from "@/lib/permissions";
 
 const STATUS_VARIANT: Record<
@@ -89,6 +91,17 @@ const FacilitiesPage = () => {
 
 	const search = Route.useSearch();
 	const response = Route.useLoaderData();
+
+	const { data: allSpecialties } = useQuery({
+		queryKey: [...QUERY_KEYS.SPECIALTIES, "picker"],
+		queryFn: () => specialtiesRequest({ data: { page: "1", limit: "100" } }),
+	});
+
+	const specialtyItems =
+		allSpecialties?.data.map((specialty) => ({
+			value: specialty.id,
+			label: specialty.name,
+		})) ?? [];
 
 	const [searchInput, setSearchInput] = useState(search.search ?? "");
 
@@ -142,6 +155,25 @@ const FacilitiesPage = () => {
 								search: (prev) => ({
 									...prev,
 									status: value.length > 0 ? value.join(",") : undefined,
+									page: "1",
+								}),
+							})
+						}
+						className="h-10 w-48"
+						containerClassName="w-48"
+					/>
+
+					<SelectInput
+						multiple
+						searchable
+						items={specialtyItems}
+						placeholder="Specialty"
+						value={search.specialty ? search.specialty.split(",") : []}
+						onChange={(value) =>
+							navigate({
+								search: (prev) => ({
+									...prev,
+									specialty: value.length > 0 ? value.join(",") : undefined,
 									page: "1",
 								}),
 							})

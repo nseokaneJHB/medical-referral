@@ -16,12 +16,15 @@ export const CreateFacilitySchema = z.object({
 export const UpdateFacilitySchema = CreateFacilitySchema.partial();
 
 /**
- * `status` is comma-separated (`parseEnumList`), ANDed with the caller's
- * own visibility scoping in `listFacilities` — never a way to see more.
+ * `status` and `specialty` are both comma-separated (`parseEnumList`),
+ * ANDed with the caller's own visibility scoping in `listFacilities` —
+ * never a way to see more. `specialty` filters to facilities linked to
+ * any of the given specialty ids via `facility_specialties`.
  */
 export const facilitiesQuerySchema =
 	paginationSortAndSearchQuerySchema.safeExtend({
 		status: stringSchema.optional(),
+		specialty: stringSchema.optional(),
 	});
 
 export const FacilitySchema = z.object({

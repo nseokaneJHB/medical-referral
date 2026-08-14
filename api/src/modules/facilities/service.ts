@@ -10,6 +10,7 @@ import {
 	CreateFacilitySchema,
 	orderDirectionSchema,
 	facilityStatusSchema,
+	uuidSchema,
 	type Role,
 	type FacilitySpecialtyListResponse,
 } from "@referral-tracking/shared";
@@ -112,6 +113,26 @@ export const facilities = async (
 	if (query.status) {
 		clauses.push({
 			status: { in: parseEnumList(query.status, facilityStatusSchema) },
+		});
+	}
+
+	// Facilities offering ANY of the given specialties — two-query fan-out
+	// (link ids, then filter facilities by id) rather than a join, matching
+	// `getPatientFlagStatuses`'s batch-lookup pattern in
+	// `patients/service.ts`; `limit: 1000` is the same flat cap for the
+	// same reason (realistic volumes nowhere near it). `inArray` on an
+	// empty id list correctly resolves to zero rows (drizzle-orm emits
+	// `sql\`false\``), so no empty-array guard is needed here.
+	if (query.specialty) {
+		const specialtyIds = parseEnumList(query.specialty, uuidSchema) ?? [];
+		const links = await server.core.specialty.linkMany("facility", {
+			page: 1,
+			limit: 1000,
+			where: { specialty_id: { in: specialtyIds } },
+			select: { facility_id: true },
+		});
+		clauses.push({
+			id: { in: links.data.map((link) => link.facility_id) },
 		});
 	}
 
