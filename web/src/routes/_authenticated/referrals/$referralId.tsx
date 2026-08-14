@@ -50,10 +50,10 @@ import { SpecialtyManager } from "@/components/custom/specialty-manager";
 
 import { useFormField } from "@/hooks/use-form-field";
 import { useToastMutation } from "@/hooks/use-toast-mutation";
+import { useFacilitySearch } from "@/hooks/use-facility-search";
 
 import { QUERY_KEYS } from "@/api/constant";
 import { usersRequest } from "@/api/users";
-import { facilitiesRequest } from "@/api/facilities";
 import {
 	referralRequest,
 	updateReferral,
@@ -134,7 +134,6 @@ const REASON_NOT_REQUIRED_TARGETS = new Set<ReferralStatus>([
 const RedirectReferralAction = ({
 	referralId,
 	currentDestinationId,
-	facilityItems,
 	specialties,
 	allSpecialties,
 	onAssignSpecialty,
@@ -143,7 +142,6 @@ const RedirectReferralAction = ({
 }: {
 	referralId: string;
 	currentDestinationId: string;
-	facilityItems: { value: string; label: string }[];
 	specialties: { id: string; specialty: SpecialtyRef }[];
 	allSpecialties: SpecialtyRef[];
 	onAssignSpecialty: (specialtyId: string) => Promise<void>;
@@ -153,6 +151,12 @@ const RedirectReferralAction = ({
 	const [open, setOpen] = useState(false);
 	const [destinationId, setDestinationId] = useState<string>();
 	const [reason, setReason] = useState("");
+
+	const {
+		setSearch: setFacilitySearch,
+		items: facilityItems,
+		loading: facilitiesLoading,
+	} = useFacilitySearch({ enabled: open, excludeId: currentDestinationId });
 
 	const redirectMutation = useMutation<
 		ReferralResponse,
@@ -176,10 +180,6 @@ const RedirectReferralAction = ({
 				await onChanged();
 			},
 		});
-
-	const pickableFacilities = facilityItems.filter(
-		(item) => item.value !== currentDestinationId,
-	);
 
 	return (
 		<Dialog open={open} onOpenChange={setOpen}>
@@ -212,11 +212,14 @@ const RedirectReferralAction = ({
 				</div>
 				<SelectInput
 					searchable
+					filterMode="server"
+					loading={facilitiesLoading}
 					label="New destination facility"
-					items={pickableFacilities}
+					items={facilityItems}
 					placeholder="Select a facility"
 					value={destinationId}
 					onChange={setDestinationId}
+					onSearchChange={setFacilitySearch}
 				/>
 				<TextArea
 					required
@@ -284,19 +287,15 @@ const ReferralDetailPage = () => {
 			: legalNextStates
 		: [];
 
-	// Only fetched for editors/redirecters — display uses the referral
-	// response's own nested facility/doctor objects, not a separate lookup call.
-	const { data: facilities } = useQuery({
-		queryKey: [...QUERY_KEYS.FACILITIES, "picker"],
-		queryFn: () => facilitiesRequest({ data: { page: "1", limit: "100" } }),
-		enabled: canEditFull || canRedirect,
-	});
-
-	const facilityItems =
-		facilities?.data.map((facility) => ({
-			value: facility.id,
-			label: facility.name,
-		})) ?? [];
+	// Only fetched for editors — display uses the referral response's own
+	// nested facility/doctor objects, not a separate lookup call. Redirect's
+	// own facility picker (in `RedirectReferralAction`) runs its own
+	// independent search, since it excludes a different facility.
+	const {
+		setSearch: setFacilitySearch,
+		items: facilityItems,
+		loading: facilitiesLoading,
+	} = useFacilitySearch({ enabled: canEditFull });
 
 	const { data: doctors } = useQuery({
 		queryKey: [...QUERY_KEYS.USERS, "doctors"],
@@ -506,6 +505,8 @@ const ReferralDetailPage = () => {
 						<>
 							<SelectInput
 								searchable
+								filterMode="server"
+								loading={facilitiesLoading}
 								label="Destination facility"
 								items={facilityItems}
 								error={destinationFacilityId.error}
@@ -517,6 +518,7 @@ const ReferralDetailPage = () => {
 										value: string | undefined,
 									) => void
 								}
+								onSearchChange={setFacilitySearch}
 							/>
 
 							<TextArea
@@ -621,7 +623,6 @@ const ReferralDetailPage = () => {
 							<RedirectReferralAction
 								referralId={referral.id}
 								currentDestinationId={referral.destination_facility.id}
-								facilityItems={facilityItems}
 								specialties={specialtiesResponse?.data ?? []}
 								allSpecialties={allSpecialtiesResponse?.data ?? []}
 								onAssignSpecialty={handleAssignSpecialty}

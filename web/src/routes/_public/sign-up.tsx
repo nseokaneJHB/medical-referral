@@ -32,10 +32,10 @@ import { SelectInput } from "@/components/custom/select-input";
 
 import { useFormField } from "@/hooks/use-form-field";
 import { useToastMutation } from "@/hooks/use-toast-mutation";
+import { useFacilitySearch } from "@/hooks/use-facility-search";
 
 import { QUERY_KEYS } from "@/api/constant";
 import { signUp, type AuthUserResponse } from "@/api/auth";
-import { facilitiesRequest } from "@/api/facilities";
 
 const signUpFormSchema = SignUpSchema.extend({
 	confirmPassword: z.string().min(1, "Please confirm your password"),
@@ -79,17 +79,11 @@ const SignUpPage = () => {
 		needsExistingFacility || (isManager && facilityMode === "join");
 	const showNewFacilityFields = isManager && facilityMode === "register";
 
-	const { data: facilities } = useQuery({
-		queryKey: [...QUERY_KEYS.FACILITIES, "picker"],
-		queryFn: () => facilitiesRequest({ data: { page: "1", limit: "100" } }),
-		enabled: showFacilityPicker,
-	});
-
-	const facilityItems =
-		facilities?.data.map((facility) => ({
-			value: facility.id,
-			label: facility.name,
-		})) ?? [];
+	const {
+		setSearch: setFacilitySearch,
+		items: facilityItems,
+		loading: facilitiesLoading,
+	} = useFacilitySearch({ enabled: showFacilityPicker });
 
 	useEffect(() => {
 		if (!showFacilityPicker) setValue("facility_id", undefined);
@@ -191,6 +185,8 @@ const SignUpPage = () => {
 					{showFacilityPicker && (
 						<SelectInput
 							searchable
+							filterMode="server"
+							loading={facilitiesLoading}
 							label="Facility"
 							items={facilityItems}
 							value={facilityId.value as string}
@@ -200,6 +196,7 @@ const SignUpPage = () => {
 							onChange={
 								facilityId.onChange as (value: string | undefined) => void
 							}
+							onSearchChange={setFacilitySearch}
 						/>
 					)}
 

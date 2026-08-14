@@ -11,23 +11,38 @@ ask the user what this idea actually entailed before it can be scoped.
 
 ## Facilities picker — searchable select (hybrid)
 
-- **Decision (2026-08-08):** hybrid approach confirmed. No default/eager load
-  of the facilities list. The API call fires only once the user has typed a
-  search term, and that term is sent as the `search` query param — already
-  supported server-side by `facilitiesQuerySchema` (matches facility
-  name/address, see `api/src/modules/facilities/service.ts`).
-- Replaces the current pattern, duplicated identically across 6 screens —
-  `facilitiesRequest({ data: { page: "1", limit: "100" } })` in
-  `patients/new.tsx`, `patients/$patientId.tsx`, `referrals/new.tsx`,
-  `referrals/$referralId.tsx`, `referrals/index.tsx`, `sign-up.tsx` — which
-  silently can't find/search facilities past the first 100 (the existing
-  `searchable` prop on `SelectInput` only filters client-side over whatever
-  was already fetched — see `web/src/components/custom/select-input.tsx`).
-- Still needs when picked up: a debounce (no debounce utility currently
-  exists anywhere in `web/src`), and should land as one shared piece (async
-  mode on `SelectInput`, or a dedicated hook/component) rather than a 7th
-  copy-paste.
-- Not started — parked.
+**Resolved — shipped 2026-08-14.** Hybrid async search, confirmed working
+end to end (live-verified in browser, not just typechecked) at all 5 real
+call sites — the original backlog note claiming "6 screens" was stale:
+`patients/new.tsx` and `referrals/index.tsx` never had a facility picker at
+all, and `users/index.tsx`'s create-user dialog was missing from the list.
+
+- `web/src/hooks/use-debounced-value.ts` — generic `useDebouncedValue<T>`,
+  no debounce dependency existed before this.
+- `web/src/hooks/use-facility-search.ts` — wraps search-term state, the
+  debounce, and a `useQuery` gated on a non-empty debounced term (true
+  hybrid: no eager `page:1/limit:100` load). Takes `enabled`, `excludeId`
+  (drop one facility from results — the current one, for transfer/redirect
+  pickers) and `status` (e.g. Administrator's create-user dialog still only
+  offers `APPROVED` facilities).
+- `SelectInput` (`web/src/components/custom/select-input.tsx`) gained three
+  purely-additive, opt-in props: `onSearchChange`, `filterMode` (`"client"`
+  default vs `"server"`, which flips `shouldFilter` off on the underlying
+  `Command`), and `loading` (shows "Searching..." in place of the empty
+  state). Every other existing call site is untouched — defaults preserve
+  old behavior exactly.
+- Applied at all 5 sites: `patients/$patientId.tsx` (transfer dialog,
+  excludes current facility), `referrals/new.tsx`, `referrals/$referralId.tsx`
+  (the trickiest one — previously one eager query fed both the edit-form
+  field and the Redirect dialog via a prop; now each owns its own
+  independent `useFacilitySearch` call, since Redirect needs a different
+  exclusion than the edit field), `sign-up.tsx`, `users/index.tsx` (create-user
+  dialog, `status: APPROVED`).
+- Verified live in the browser signed in as Nurse/Doctor/Administrator:
+  confirmed no eager list before typing, a single debounced network request
+  per pause in typing (not one per keystroke), correct facility exclusion
+  in both the transfer and redirect dialogs, and correct `APPROVED`-only
+  scoping in the create-user dialog.
 
 ## Facility specialties
 
@@ -359,3 +374,9 @@ on, and this is the only prior decision about one existing.
   added a `clearable` prop (shows an "x" next to the chevron, grouped in
   its own flex container so the trigger's `justify-between` doesn't spread
   it away from the chevron) and wired it into `SpecialtyManager`.
+- **2026-08-14 (later still)**: user asked for two more parked items, in
+  order — facilities picker hybrid search first, then shared list-page
+  components. Facilities picker hybrid search shipped, see the entry above
+  (corrected the stale "6 screens" claim to the real 5, and decoupled
+  `referrals/$referralId.tsx`'s dual-consumer picker into two independent
+  searches in the process). Shared list-page components picked up next.

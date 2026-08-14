@@ -84,9 +84,9 @@ import { ReasonActionButton } from "@/components/custom/reason-action-button";
 
 import { useFormField } from "@/hooks/use-form-field";
 import { useToastMutation } from "@/hooks/use-toast-mutation";
+import { useFacilitySearch } from "@/hooks/use-facility-search";
 
 import { QUERY_KEYS } from "@/api/constant";
-import { facilitiesRequest } from "@/api/facilities";
 import {
 	flagStaff,
 	createUser,
@@ -370,20 +370,14 @@ const CreateUserDialog = ({
 	const watchedRole = useWatch({ control, name: "role" });
 	const needsFacility = watchedRole !== ROLES.ADMINISTRATOR;
 
-	const { data: facilities } = useQuery({
-		queryKey: [...QUERY_KEYS.FACILITIES, "picker", FACILITY_STATUS.APPROVED],
-		queryFn: () =>
-			facilitiesRequest({
-				data: { page: "1", limit: "100", status: FACILITY_STATUS.APPROVED },
-			}),
+	const {
+		setSearch: setFacilitySearch,
+		items: facilityItems,
+		loading: facilitiesLoading,
+	} = useFacilitySearch({
 		enabled: needsFacility && open,
+		status: FACILITY_STATUS.APPROVED,
 	});
-
-	const facilityItems =
-		facilities?.data.map((facility) => ({
-			value: facility.id,
-			label: facility.name,
-		})) ?? [];
 
 	useEffect(() => {
 		if (!needsFacility) setValue("facility_id", undefined);
@@ -523,6 +517,8 @@ const CreateUserDialog = ({
 							{needsFacility && (
 								<SelectInput
 									searchable
+									filterMode="server"
+									loading={facilitiesLoading}
 									label="Facility"
 									items={facilityItems}
 									value={facilityId.value as string}
@@ -532,6 +528,7 @@ const CreateUserDialog = ({
 									onChange={
 										facilityId.onChange as (value: string | undefined) => void
 									}
+									onSearchChange={setFacilitySearch}
 								/>
 							)}
 							<DialogFooter>

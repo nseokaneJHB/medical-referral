@@ -32,11 +32,11 @@ import { SpecialtyManager } from "@/components/custom/specialty-manager";
 
 import { useFormField } from "@/hooks/use-form-field";
 import { useToastMutation } from "@/hooks/use-toast-mutation";
+import { useFacilitySearch } from "@/hooks/use-facility-search";
 
 import { QUERY_KEYS } from "@/api/constant";
 import { patientsRequest } from "@/api/patients";
 import { createReferral, referralsRequest } from "@/api/referrals";
-import { facilitiesRequest } from "@/api/facilities";
 import { specialtiesRequest, assignReferralSpecialty } from "@/api/specialties";
 import { canCreateReferral } from "@/lib/permissions";
 
@@ -67,16 +67,11 @@ const NewReferralPage = () => {
 			label: `${patient.first_name} ${patient.last_name}`,
 		})) ?? [];
 
-	const { data: facilities } = useQuery({
-		queryKey: [...QUERY_KEYS.FACILITIES, "picker"],
-		queryFn: () => facilitiesRequest({ data: { page: "1", limit: "100" } }),
-	});
-
-	const facilityItems =
-		facilities?.data.map((facility) => ({
-			value: facility.id,
-			label: facility.name,
-		})) ?? [];
+	const {
+		setSearch: setFacilitySearch,
+		items: facilityItems,
+		loading: facilitiesLoading,
+	} = useFacilitySearch();
 
 	const { data: allSpecialties } = useQuery({
 		queryKey: [...QUERY_KEYS.SPECIALTIES, "picker"],
@@ -234,6 +229,8 @@ const NewReferralPage = () => {
 
 						<SelectInput
 							searchable
+							filterMode="server"
+							loading={facilitiesLoading}
 							label="Receiving facility"
 							items={facilityItems}
 							error={destinationFacilityId.error}
@@ -245,6 +242,7 @@ const NewReferralPage = () => {
 									value: string | undefined,
 								) => void
 							}
+							onSearchChange={setFacilitySearch}
 						/>
 
 						<TextArea

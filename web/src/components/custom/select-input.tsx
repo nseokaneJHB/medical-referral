@@ -39,6 +39,9 @@ interface SharedProps {
 	placeholder: string;
 	searchable?: boolean;
 	clearable?: boolean;
+	loading?: boolean;
+	filterMode?: "client" | "server";
+	onSearchChange?: (term: string) => void;
 	description?: string;
 	containerClassName?: string;
 	items: Array<SelectItemProps>;
@@ -74,6 +77,9 @@ export const SelectInput = (props: SelectInputProps) => {
 		containerClassName,
 		searchable = false,
 		clearable = false,
+		loading = false,
+		filterMode = "client",
+		onSearchChange,
 	} = props;
 
 	const triggerRef = useRef<HTMLDivElement>(null);
@@ -179,12 +185,21 @@ export const SelectInput = (props: SelectInputProps) => {
 					className="w-full p-0"
 					style={{ width: Math.max(triggerRef.current?.offsetWidth ?? 0, 220) }}
 				>
-					<Command>
+					<Command shouldFilter={filterMode !== "server"}>
 						{searchable && (
-							<CommandInput placeholder={`Search ${label?.toLowerCase()}...`} />
+							<CommandInput
+								placeholder={`Search ${label?.toLowerCase()}...`}
+								onValueChange={onSearchChange}
+							/>
 						)}
 						<CommandList>
-							<CommandEmpty>No results found.</CommandEmpty>
+							{loading ? (
+								<div className="text-muted-foreground p-4 text-center text-sm">
+									Searching...
+								</div>
+							) : (
+								<CommandEmpty>No results found.</CommandEmpty>
+							)}
 							<CommandGroup>
 								{items.map((item) => (
 									<CommandItem

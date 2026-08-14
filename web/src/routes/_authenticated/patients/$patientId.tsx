@@ -40,9 +40,9 @@ import { MedicalHistory } from "@/components/custom/medical-history";
 
 import { useFormField } from "@/hooks/use-form-field";
 import { useToastMutation } from "@/hooks/use-toast-mutation";
+import { useFacilitySearch } from "@/hooks/use-facility-search";
 
 import { QUERY_KEYS } from "@/api/constant";
-import { facilitiesRequest } from "@/api/facilities";
 import {
 	patientRequest,
 	flagPatient,
@@ -159,16 +159,11 @@ const RequestTransferAction = ({
 	const [destinationId, setDestinationId] = useState<string>();
 	const [reason, setReason] = useState("");
 
-	const { data: facilities } = useQuery({
-		queryKey: [...QUERY_KEYS.FACILITIES, "picker"],
-		queryFn: () => facilitiesRequest({ data: { page: "1", limit: "100" } }),
-		enabled: open,
-	});
-
-	const facilityItems =
-		facilities?.data
-			.filter((facility) => facility.id !== currentFacilityId)
-			.map((facility) => ({ value: facility.id, label: facility.name })) ?? [];
+	const {
+		setSearch: setFacilitySearch,
+		items: facilityItems,
+		loading: facilitiesLoading,
+	} = useFacilitySearch({ enabled: open, excludeId: currentFacilityId });
 
 	const transferMutation = useMutation<
 		TransferResponse,
@@ -215,11 +210,14 @@ const RequestTransferAction = ({
 				</DialogHeader>
 				<SelectInput
 					searchable
+					filterMode="server"
+					loading={facilitiesLoading}
 					label="Destination facility"
 					items={facilityItems}
 					placeholder="Select a facility"
 					value={destinationId}
 					onChange={setDestinationId}
+					onSearchChange={setFacilitySearch}
 				/>
 				<TextArea
 					required
