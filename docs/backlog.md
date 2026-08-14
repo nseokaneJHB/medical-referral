@@ -47,16 +47,20 @@ Doctor/Nurse staff. Answers to the open questions below as actually built:
   both detail pages).
 - **Admin-managed controlled vocabulary**, not free text — confirmed, matches
   what the schema already committed to.
-- **Not built, deliberately out of scope**: referral-routing-by-specialty
-  and a facilities search/filter-by-specialty control. Both are real
-  candidate follow-ups but are matching/discovery features layered on top
-  of this, not part of the specialties CRUD itself.
+- **Referral-routing-by-specialty — picked up and shipped 2026-08-14**, see
+  `docs/roles-permissions.md`. A Nurse can tag a referral with needed
+  specialties at creation; a Doctor can add/remove tags independently of
+  redirecting, from the detail page or from inside the Redirect dialog.
+  New `referral_specialties` join table, `canManageReferralSpecialties`
+  permission. Still not built: a facilities search/filter-by-specialty
+  control — that remains a separate, unscoped follow-up.
 - Backend: `GET/POST /specialties`, `PATCH /specialties/:id` (Administrator
   create/rename); `GET/POST /facilities/:id/specialties`,
   `DELETE /facilities/:id/specialties/:specialtyId`; same three shapes under
-  `/users/:id/specialties`. Seed data (`api/script/seed.ts`) already covered
-  this before the UI did — 2-4 specialties per operational facility, 1-2 per
-  active Doctor/Nurse, including the standard test accounts.
+  `/users/:id/specialties` and `/referrals/:id/specialties`. Seed data
+  (`api/script/seed.ts`) already covered this before the UI did — 2-4
+  specialties per operational facility, 1-2 per active Doctor/Nurse,
+  including the standard test accounts.
 
 ## User profile pages
 
@@ -336,3 +340,6 @@ on, and this is the only prior decision about one existing.
   with a profile/settings page — raised right after Administrator password
   reset shipped, exposing that no self-service password-change path exists
   anywhere. User explicit: not to be implemented now, just logged.
+- **2026-08-14**: referral-routing-by-specialty, previously logged here as
+  deliberately out of scope, picked up and shipped — see the Facility
+  specialties entry above and `docs/roles-permissions.md`.
