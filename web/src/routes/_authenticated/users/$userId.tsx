@@ -127,6 +127,26 @@ const UserDetailPage = () => {
 		<div className="space-y-4">
 			<BackLink label="Back to users" fallbackTo={FRONTEND_URLS.USERS} />
 
+			{isDoctor(user) && user.stats && (
+				<div className="grid gap-4 sm:grid-cols-3">
+					<StatCard
+						icon={ClipboardListIcon}
+						label="Referrals handled"
+						value={String(user.stats.total_referrals)}
+					/>
+					<StatCard
+						icon={CheckCircleIcon}
+						label="Completed"
+						value={String(user.stats.completed_referrals)}
+					/>
+					<StatCard
+						icon={PercentIcon}
+						label="Completion rate"
+						value={`${Math.round(user.stats.completion_rate * 100)}%`}
+					/>
+				</div>
+			)}
+
 			{isClinical ? (
 				<div className="grid gap-4 lg:grid-cols-3">
 					<div className="lg:col-span-2">{profileCard}</div>
@@ -147,26 +167,6 @@ const UserDetailPage = () => {
 				</div>
 			) : (
 				profileCard
-			)}
-
-			{isDoctor(user) && user.stats && (
-				<div className="grid gap-4 sm:grid-cols-3">
-					<StatCard
-						icon={ClipboardListIcon}
-						label="Referrals handled"
-						value={String(user.stats.total_referrals)}
-					/>
-					<StatCard
-						icon={CheckCircleIcon}
-						label="Completed"
-						value={String(user.stats.completed_referrals)}
-					/>
-					<StatCard
-						icon={PercentIcon}
-						label="Completion rate"
-						value={`${Math.round(user.stats.completion_rate * 100)}%`}
-					/>
-				</div>
 			)}
 		</div>
 	);
