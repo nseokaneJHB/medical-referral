@@ -91,6 +91,7 @@ export const SpecialtyManager = ({
 				<div className="flex items-end gap-2">
 					<SelectInput
 						searchable
+						clearable
 						placeholder="Select a specialty"
 						items={availableItems}
 						value={selected}

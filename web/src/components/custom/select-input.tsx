@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState, useEffect } from "react";
 import {
+	XIcon,
 	CheckCircleIcon,
 	MinusCircleIcon,
 	ChevronsUpDownIcon,
@@ -37,6 +38,7 @@ interface SharedProps {
 	className?: string;
 	placeholder: string;
 	searchable?: boolean;
+	clearable?: boolean;
 	description?: string;
 	containerClassName?: string;
 	items: Array<SelectItemProps>;
@@ -71,6 +73,7 @@ export const SelectInput = (props: SelectInputProps) => {
 		multiple = false,
 		containerClassName,
 		searchable = false,
+		clearable = false,
 	} = props;
 
 	const triggerRef = useRef<HTMLDivElement>(null);
@@ -149,11 +152,26 @@ export const SelectInput = (props: SelectInputProps) => {
 							)}
 						>
 							<span className="truncate">{displayValue}</span>
-							<ChevronsUpDownIcon
-								className={cn("ml-2 h-4 w-4 shrink-0", {
-									"text-error": error,
-								})}
-							/>
+							<div className="ml-2 flex shrink-0 items-center gap-2">
+								{clearable && !multiple && committedValues.length > 0 && (
+									<button
+										type="button"
+										title="Clear selection"
+										onClick={(event) => {
+											event.stopPropagation();
+											(onChange as SingleSelectProps["onChange"])(undefined);
+										}}
+										className="hover:text-destructive"
+									>
+										<XIcon className="h-4 w-4" />
+									</button>
+								)}
+								<ChevronsUpDownIcon
+									className={cn("h-4 w-4", {
+										"text-error": error,
+									})}
+								/>
+							</div>
 						</Button>
 					</PopoverTrigger>
 				</div>
