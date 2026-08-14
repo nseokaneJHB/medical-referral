@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import { createFileRoute, useNavigate, redirect } from "@tanstack/react-router";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -163,6 +164,7 @@ const NewReferralPage = () => {
 				priority: payload.priority ?? PRIORITY.MEDIUM,
 			}),
 			onSuccess: async (data) => {
+				const failedSpecialties: string[] = [];
 				for (const staged of stagedSpecialties) {
 					try {
 						await assignReferralSpecialty(data.data.id, {
@@ -173,7 +175,13 @@ const NewReferralPage = () => {
 							"Failed to tag a specialty on the new referral:",
 							error,
 						);
+						failedSpecialties.push(staged.specialty.name);
 					}
+				}
+				if (failedSpecialties.length > 0) {
+					toast.warning(
+						`Referral created, but ${failedSpecialties.length} specialty tag(s) failed to attach (${failedSpecialties.join(", ")}). Add them from the referral page.`,
+					);
 				}
 				await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.REFERRALS });
 				navigate({ to: FRONTEND_URLS.REFERRALS });
