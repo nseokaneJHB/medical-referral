@@ -9,6 +9,8 @@ import {
 import { generateUuid } from "../../lib/util";
 import { canFileAppeal } from "../../lib/permission";
 
+import { AppealManager } from "../../management/appeal";
+
 import type { AccountStatusRequest, AppealSubmitRequest } from "./type";
 
 /**
@@ -84,6 +86,15 @@ export const appealSubmit = async (
 			code,
 			message:
 				"There's nothing to appeal right now — check GET /account/status.",
+		});
+	}
+
+	const appealManager = new AppealManager(request.server.core);
+	if (await appealManager.hasOpenAppeal(TIMELINE_TYPE.USER, user.id)) {
+		const { status, code } = HTTP_RESPONSE_CODE.CONFLICT;
+		return reply.status(status).send({
+			code,
+			message: "You already have a pending appeal — wait for it to be decided.",
 		});
 	}
 

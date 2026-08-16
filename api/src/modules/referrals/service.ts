@@ -133,13 +133,11 @@ export const referralCreate = async (
 	});
 
 	const { status, code } = HTTP_RESPONSE_CODE.CREATED;
-	reply
-		.status(status)
-		.send({
-			code,
-			message: "Referral created.",
-			data: referral as unknown as ReferralResponse["data"],
-		});
+	reply.status(status).send({
+		code,
+		message: "Referral created.",
+		data: referral as unknown as ReferralResponse["data"],
+	});
 };
 
 /**
@@ -249,13 +247,11 @@ export const referral = async (
 	}
 
 	const { status, code } = HTTP_RESPONSE_CODE.OK;
-	reply
-		.status(status)
-		.send({
-			code,
-			message: "Referral retrieved.",
-			data: referral as unknown as ReferralResponse["data"],
-		});
+	reply.status(status).send({
+		code,
+		message: "Referral retrieved.",
+		data: referral as unknown as ReferralResponse["data"],
+	});
 };
 
 const isTerminal = (status: string): boolean =>
@@ -326,20 +322,37 @@ export const referralUpdate = async (
 		request.body.doctor &&
 		existing.status === REFERRAL_STATUS.PENDING;
 
-	if (autoAccept) {
+	// A doctor-assignment/reassignment event is auditable independent of
+	// whether it also happens to auto-accept a PENDING referral — a
+	// Manager reassigning an already-ACCEPTED referral's doctor must
+	// leave a trail too.
+	const doctorChanged =
+		request.body.doctor !== undefined && request.body.doctor !== existing.doctor;
+
+	if (doctorChanged) {
 		await request.server.core.connection.transaction(async (tx) => {
 			const txCore = request.server.core.withTransaction(tx);
 
 			await txCore.referral.update({
 				where: { id: request.params.id },
-				data: { ...request.body, status: REFERRAL_STATUS.ACCEPTED },
+				data: autoAccept
+					? { ...request.body, status: REFERRAL_STATUS.ACCEPTED }
+					: request.body,
 				select: { id: true },
 			});
 
-			const assignedDoctor = await txCore.user.one({
-				where: { id: request.body.doctor! },
-				select: { name: true },
-			});
+			const [previousDoctor, assignedDoctor] = await Promise.all([
+				existing.doctor
+					? txCore.user.one({
+							where: { id: existing.doctor },
+							select: { name: true },
+						})
+					: Promise.resolve(null),
+				txCore.user.one({
+					where: { id: request.body.doctor! },
+					select: { name: true },
+				}),
+			]);
 
 			await txCore.timeline.create({
 				data: {
@@ -348,11 +361,13 @@ export const referralUpdate = async (
 					entity: request.params.id,
 					action: TIMELINE_ACTION.DOCTOR_ASSIGNED,
 					previous: existing.status,
-					next: REFERRAL_STATUS.ACCEPTED,
+					next: autoAccept ? REFERRAL_STATUS.ACCEPTED : existing.status,
 					changer_id: request.user!.id,
-					notes: assignedDoctor?.name
-						? `Assigned to ${assignedDoctor.name}.`
-						: null,
+					notes: previousDoctor?.name
+						? `Reassigned from ${previousDoctor.name} to ${assignedDoctor?.name ?? "Unknown"}.`
+						: assignedDoctor?.name
+							? `Assigned to ${assignedDoctor.name}.`
+							: null,
 				},
 				select: { id: true },
 			});
@@ -372,13 +387,11 @@ export const referralUpdate = async (
 	});
 
 	const { status, code } = HTTP_RESPONSE_CODE.OK;
-	reply
-		.status(status)
-		.send({
-			code,
-			message: "Referral updated.",
-			data: referral as unknown as ReferralResponse["data"],
-		});
+	reply.status(status).send({
+		code,
+		message: "Referral updated.",
+		data: referral as unknown as ReferralResponse["data"],
+	});
 };
 
 /**
@@ -447,21 +460,22 @@ export const referralAssign = async (
 			select: { id: true },
 		});
 
-		if (autoAccept) {
-			await txCore.timeline.create({
-				data: {
-					id: generateUuid(),
-					type: TIMELINE_TYPE.REFERRAL,
-					entity: request.params.id,
-					action: TIMELINE_ACTION.DOCTOR_ASSIGNED,
-					previous: existing.status,
-					next: REFERRAL_STATUS.ACCEPTED,
-					changer_id: request.user!.id,
-					notes: null,
-				},
-				select: { id: true },
-			});
-		}
+		// `existing.doctor` is always null here — self-claim is blocked
+		// earlier in this handler whenever a doctor is already assigned —
+		// so this is always a fresh assignment, never a reassignment.
+		await txCore.timeline.create({
+			data: {
+				id: generateUuid(),
+				type: TIMELINE_TYPE.REFERRAL,
+				entity: request.params.id,
+				action: TIMELINE_ACTION.DOCTOR_ASSIGNED,
+				previous: existing.status,
+				next: autoAccept ? REFERRAL_STATUS.ACCEPTED : existing.status,
+				changer_id: request.user!.id,
+				notes: `Assigned to ${request.user!.name}.`,
+			},
+			select: { id: true },
+		});
 	});
 
 	const referral = await request.server.core.referral.one({
@@ -471,13 +485,11 @@ export const referralAssign = async (
 	});
 
 	const { status, code } = HTTP_RESPONSE_CODE.OK;
-	reply
-		.status(status)
-		.send({
-			code,
-			message: "Referral assigned.",
-			data: referral as unknown as ReferralResponse["data"],
-		});
+	reply.status(status).send({
+		code,
+		message: "Referral assigned.",
+		data: referral as unknown as ReferralResponse["data"],
+	});
 };
 
 /**
@@ -613,13 +625,11 @@ export const referralRedirect = async (
 	});
 
 	const { status, code } = HTTP_RESPONSE_CODE.OK;
-	reply
-		.status(status)
-		.send({
-			code,
-			message: "Referral redirected.",
-			data: referral as unknown as ReferralResponse["data"],
-		});
+	reply.status(status).send({
+		code,
+		message: "Referral redirected.",
+		data: referral as unknown as ReferralResponse["data"],
+	});
 };
 
 /**
@@ -928,13 +938,11 @@ export const referralStatusUpdate = async (
 	});
 
 	const { status, code } = HTTP_RESPONSE_CODE.OK;
-	reply
-		.status(status)
-		.send({
-			code,
-			message: "Referral status updated.",
-			data: referral as unknown as ReferralResponse["data"],
-		});
+	reply.status(status).send({
+		code,
+		message: "Referral status updated.",
+		data: referral as unknown as ReferralResponse["data"],
+	});
 };
 
 export const referralHistory = async (

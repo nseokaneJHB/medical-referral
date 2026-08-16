@@ -58,10 +58,7 @@ const searchSchema = z.object({
 	limit: z.string().default(`${DEFAULT_PAGE_LIMIT}`),
 });
 
-const LOGIN_STATUS_VARIANT: Record<
-	string,
-	"success" | "error" | "warning"
-> = {
+const LOGIN_STATUS_VARIANT: Record<string, "success" | "error" | "warning"> = {
 	[LOGIN_STATUS.SUCCESS]: "success",
 	[LOGIN_STATUS.FAILED]: "error",
 	[LOGIN_STATUS.LOCKED_OUT]: "warning",
@@ -121,6 +118,7 @@ const ACTION_LABEL: Record<TimelineAction, string> = {
 	APPEAL_SUBMITTED: "Submitted appeal",
 	APPEAL_APPROVED: "Approved appeal",
 	APPEAL_DENIED: "Denied appeal",
+	UPDATED: "Updated details",
 };
 
 /**
@@ -147,6 +145,7 @@ const ACTION_VERB: Record<TimelineAction, string> = {
 	APPEAL_SUBMITTED: "submitted an appeal for",
 	APPEAL_APPROVED: "approved the appeal for",
 	APPEAL_DENIED: "denied the appeal for",
+	UPDATED: "updated the details of",
 };
 
 /**
@@ -184,6 +183,7 @@ const ACTION_VARIANT: Record<
 	UNFLAGGED: "info",
 	SUSPENDED: "destructive",
 	DEPARTED: "secondary",
+	UPDATED: "default",
 };
 
 const APPEAL_ACTIONS: TimelineAction[] = [
@@ -201,9 +201,7 @@ const isAppealAction = (action: TimelineAction): boolean =>
  * column's label and the dialog's summary sentence so they can't drift.
  */
 const appealWhose = (entry: ManagerAudit, viewerId: string): string =>
-	entry.subject.id === viewerId
-		? "your"
-		: `${entry.subject.name ?? "their"}'s`;
+	entry.subject.id === viewerId ? "your" : `${entry.subject.name ?? "their"}'s`;
 
 /**
  * Appeal rows read better as a single sentence fragment in the Subject
@@ -309,7 +307,10 @@ const SubjectCell = ({
 	isAppealAction(entry.action) ? (
 		<span className="font-medium">{appealSubjectLabel(entry, viewerId)}</span>
 	) : (
-		<ActorCell name={entry.subject.name} isSelf={entry.subject.id === viewerId} />
+		<ActorCell
+			name={entry.subject.name}
+			isSelf={entry.subject.id === viewerId}
+		/>
 	);
 
 /**
@@ -400,7 +401,9 @@ const AuditDetailsDialog = ({
 							/>
 							<ReadOnlyField
 								label="Action"
-								value={ACTION_LABEL[entry.action] ?? stringToTitleCase(entry.action)}
+								value={
+									ACTION_LABEL[entry.action] ?? stringToTitleCase(entry.action)
+								}
 							/>
 						</div>
 						<ReadOnlyField
@@ -524,7 +527,7 @@ const ManagerFacilityAudit = ({
 											"—"
 										)}
 									</TableCell>
-									<TableCell className="max-w-48 truncate text-muted-foreground italic">
+									<TableCell className="text-muted-foreground max-w-48 truncate italic">
 										{entry.reason ?? entry.notes ?? "—"}
 									</TableCell>
 									<TableCell className="text-muted-foreground whitespace-nowrap">

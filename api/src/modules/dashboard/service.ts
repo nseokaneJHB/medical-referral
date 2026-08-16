@@ -10,6 +10,9 @@ import {
 import { zeroFillCounts } from "../../lib/util";
 import { TransferManager } from "../../management/transfer";
 
+import type { WhereClause } from "../../core/helpers";
+import type { ReferralModelSelect } from "../../drizzle/schema";
+
 import type {
 	NurseSummaryRequest,
 	DoctorSummaryRequest,
@@ -73,8 +76,14 @@ export const doctorSummary = async (
 ): Promise<void> => {
 	const { core } = request.server;
 
-	const where: { doctor: string; created_at?: Record<string, unknown> } = {
-		doctor: request.user!.id,
+	const where: WhereClause<ReferralModelSelect> = {
+		OR: [
+			{ doctor: request.user!.id },
+			{
+				doctor: { isNull: true },
+				destination_facility_id: request.user!.facility_id!,
+			},
+		],
 	};
 
 	if (request.query.from) {
@@ -122,14 +131,17 @@ export const adminSummary = async (
 
 	if (request.query.from) {
 		where.created_at = {
-			...(where.created_at as Record<string, unknown> || {}),
+			...((where.created_at as Record<string, unknown>) || {}),
 			gte: new Date(`${request.query.from}T00:00:00.000Z`),
 		};
 	}
 	if (request.query.to) {
 		const end = new Date(`${request.query.to}T00:00:00.000Z`);
 		end.setUTCDate(end.getUTCDate() + 1);
-		where.created_at = { ...(where.created_at as Record<string, unknown> || {}), lt: end };
+		where.created_at = {
+			...((where.created_at as Record<string, unknown>) || {}),
+			lt: end,
+		};
 	}
 
 	const [totalUsers, totalPatients, totalFacilities, statusCounts] =
@@ -137,7 +149,10 @@ export const adminSummary = async (
 			core.user.count(Object.keys(where).length > 0 ? where : undefined),
 			core.patient.count(Object.keys(where).length > 0 ? where : undefined),
 			core.facility.count(Object.keys(where).length > 0 ? where : undefined),
-			core.referral.count(Object.keys(where).length > 0 ? where : undefined, "status"),
+			core.referral.count(
+				Object.keys(where).length > 0 ? where : undefined,
+				"status",
+			),
 		]);
 
 	const counts = zeroFillCounts(statusCounts, REFERRAL_STATUS);
@@ -178,14 +193,17 @@ export const managerSummary = async (
 
 	if (request.query.from) {
 		where.created_at = {
-			...(where.created_at as Record<string, unknown> || {}),
+			...((where.created_at as Record<string, unknown>) || {}),
 			gte: new Date(`${request.query.from}T00:00:00.000Z`),
 		};
 	}
 	if (request.query.to) {
 		const end = new Date(`${request.query.to}T00:00:00.000Z`);
 		end.setUTCDate(end.getUTCDate() + 1);
-		where.created_at = { ...(where.created_at as Record<string, unknown> || {}), lt: end };
+		where.created_at = {
+			...((where.created_at as Record<string, unknown>) || {}),
+			lt: end,
+		};
 	}
 
 	const [

@@ -249,6 +249,16 @@ export const facilityAppealSubmit = async (
 		});
 	}
 
+	const appealManager = new AppealManager(request.server.core);
+	if (await appealManager.hasOpenAppeal(TIMELINE_TYPE.FACILITY, facility.id)) {
+		const { status, code } = HTTP_RESPONSE_CODE.CONFLICT;
+		return reply.status(status).send({
+			code,
+			message:
+				"This facility already has a pending appeal — wait for it to be decided.",
+		});
+	}
+
 	const [entry] = await request.server.core.timeline.create({
 		data: {
 			id: generateUuid(),

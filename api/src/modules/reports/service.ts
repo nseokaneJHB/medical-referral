@@ -32,7 +32,15 @@ export const referralsReport = async (
 	const where: WhereClause<ReferralModelSelect> = {};
 
 	if (role === ROLES.NURSE) where.referrer_id = request.user!.id;
-	if (role === ROLES.DOCTOR) where.doctor = request.user!.id;
+	if (role === ROLES.DOCTOR) {
+		where.OR = [
+			{ doctor: request.user!.id },
+			{
+				doctor: { isNull: true },
+				destination_facility_id: request.user!.facility_id!,
+			},
+		];
+	}
 	if (role === ROLES.MANAGER) {
 		const facilityId = request.user!.facility_id!;
 		where.OR = [

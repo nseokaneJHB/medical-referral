@@ -145,6 +145,27 @@ export class AppealManager {
 	};
 
 	/**
+	 * `true` if `entity` already has an open (not yet superseded)
+	 * `APPEAL_SUBMITTED` row — used to block a second appeal from being
+	 * filed while one is still pending, mirroring
+	 * `TransferManager.isOpen`'s "one open request at a time" rule.
+	 */
+	hasOpenAppeal = async (
+		type: TimelineType,
+		entity: string,
+	): Promise<boolean> => {
+		const result = await this.core.timeline.many({
+			where: { type, entity, action: TIMELINE_ACTION.APPEAL_SUBMITTED },
+			supersededBy: APPEAL_ACTIONS,
+			page: 1,
+			limit: 1,
+			select: { id: true },
+		});
+
+		return result.data.length > 0;
+	};
+
+	/**
 	 * Decides an `APPEAL_SUBMITTED` row: approving flips the entity's status
 	 * to its "good" terminal state (`ACTIVE` for a User, `APPROVED` for a
 	 * Facility) regardless of which punitive status preceded it; denying

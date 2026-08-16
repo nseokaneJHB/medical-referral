@@ -313,7 +313,11 @@ export const FACILITY_STATUS = {
 
 /** Eligible for a Manager-filed appeal — single source of truth for both `api/src/lib/permission.ts` and the frontend's `lib/permissions.ts`. */
 export const APPEALABLE_FACILITY_STATUSES: (typeof FACILITY_STATUS)[keyof typeof FACILITY_STATUS][] =
-	[FACILITY_STATUS.REJECTED, FACILITY_STATUS.FLAGGED, FACILITY_STATUS.SUSPENDED];
+	[
+		FACILITY_STATUS.REJECTED,
+		FACILITY_STATUS.FLAGGED,
+		FACILITY_STATUS.SUSPENDED,
+	];
 
 /**
  * Generalized append-only audit log (`timeline` table) — covers Users,
@@ -362,6 +366,7 @@ export const TIMELINE_ACTION = {
 	APPEAL_SUBMITTED: "APPEAL_SUBMITTED",
 	APPEAL_APPROVED: "APPEAL_APPROVED",
 	APPEAL_DENIED: "APPEAL_DENIED",
+	UPDATED: "UPDATED",
 } as const;
 
 /**
@@ -434,11 +439,13 @@ export const NURSE_STATUS_TARGETS: (typeof REFERRAL_STATUS)[keyof typeof REFERRA
 
 /**
  * Doctor's allowed targets depend on the referral's *current* status, not a
- * flat list — reject/hold only make sense once a case has actually been
- * started (`in_progress`); before that, `accepted` only ever moves forward
- * (Start) or away (Cancel). `pending` is deliberately absent — assignment
- * (self- or Manager-performed) always auto-accepts, so a Doctor is never
- * expected to act on a still-`pending` referral via this endpoint.
+ * flat list — `accepted` may move forward (Start), away (Cancel), or be
+ * rejected (the Doctor determines the case doesn't belong at their
+ * facility, before starting treatment); `in_progress` may only move to
+ * hold/complete/cancel — rejecting mid-treatment isn't supported. `pending`
+ * is deliberately absent — assignment (self- or Manager-performed) always
+ * auto-accepts, so a Doctor is never expected to act on a still-`pending`
+ * referral via this endpoint.
  */
 export const DOCTOR_STATUS_TARGETS_BY_STATUS: Partial<
 	Record<
@@ -448,12 +455,12 @@ export const DOCTOR_STATUS_TARGETS_BY_STATUS: Partial<
 > = {
 	[REFERRAL_STATUS.ACCEPTED]: [
 		REFERRAL_STATUS.IN_PROGRESS,
+		REFERRAL_STATUS.REJECTED,
 		REFERRAL_STATUS.CANCELED,
 	],
 	[REFERRAL_STATUS.IN_PROGRESS]: [
 		REFERRAL_STATUS.ON_HOLD,
 		REFERRAL_STATUS.COMPLETED,
-		REFERRAL_STATUS.REJECTED,
 		REFERRAL_STATUS.CANCELED,
 	],
 	[REFERRAL_STATUS.ON_HOLD]: [

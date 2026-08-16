@@ -681,9 +681,18 @@ export const userCreate = async (
 		body: { name, email, password: temporaryPassword, role, facility_id },
 	});
 
-	const [user] = await request.server.core.user.update({
+	await request.server.core.user.update({
 		where: { id: created.user.id },
-		data: { status: USER_STATUS.ACTIVE, must_change_password: true },
+		data: { must_change_password: true },
+		select: { id: true },
+	});
+
+	const user = await new ModerationManager(request.server.core).applyUserStatusChange({
+		userId: created.user.id,
+		status: USER_STATUS.ACTIVE,
+		action: TIMELINE_ACTION.APPROVED,
+		reason: "Account created directly by an Administrator.",
+		changedBy: request.user!.id,
 		select: USER_FIELDS,
 	});
 

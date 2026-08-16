@@ -319,7 +319,10 @@ export const buildWhere = <TTable extends MySqlTable, TModel>(
 				conditions.push(not(inArray(column, operator.notIn)));
 			}
 			if (operator.contains !== undefined) {
-				const pattern = `%${operator.contains}%`;
+				// Escape LIKE metacharacters so literal %, _, and \ in user input
+				// are matched literally instead of acting as wildcards.
+				const escaped = operator.contains.replace(/[\\%_]/g, "\\$&");
+				const pattern = `%${escaped}%`;
 				if (operator.mode === "insensitive") {
 					// MySQL has no ILIKE operator — LOWER() on both sides keeps
 					// this case-insensitive regardless of column collation.

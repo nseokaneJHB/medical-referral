@@ -3,6 +3,7 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 import {
 	ROLES,
 	TIMELINE_TYPE,
+	TIMELINE_ACTION,
 	FACILITY_STATUS,
 	DEFAULT_PAGE_LIMIT,
 	DEFAULT_PAGE_NUMBER,
@@ -260,15 +261,50 @@ export const facilityUpdate = async (
 			.send({ code, message: "You may only edit your own facility." });
 	}
 
+	const existing = await request.server.core.facility.one({
+		where: { id: request.params.id },
+		select: { id: true, name: true, address: true },
+	});
+
+	if (!existing) {
+		const { status, code } = HTTP_RESPONSE_CODE.NOT_FOUND;
+		return reply.status(status).send({ code, message: "Facility not found." });
+	}
+
+	const body = normalizeNullableFields(request.body, CreateFacilitySchema);
+
+	const changes = Object.entries(body)
+		.filter(([key, value]) => value !== existing[key as keyof typeof existing])
+		.map(
+			([key, value]) =>
+				`${key}: "${existing[key as keyof typeof existing]}" → "${value}"`,
+		);
+
 	const [facility] = await request.server.core.facility.update({
 		where: { id: request.params.id },
-		data: normalizeNullableFields(request.body, CreateFacilitySchema),
+		data: body,
 		select: FACILITY_FIELDS,
 	});
 
 	if (!facility) {
 		const { status, code } = HTTP_RESPONSE_CODE.NOT_FOUND;
 		return reply.status(status).send({ code, message: "Facility not found." });
+	}
+
+	if (changes.length > 0) {
+		await request.server.core.timeline.create({
+			data: {
+				id: generateUuid(),
+				type: TIMELINE_TYPE.FACILITY,
+				entity: existing.id,
+				action: TIMELINE_ACTION.UPDATED,
+				previous: null,
+				next: null,
+				changer_id: request.user!.id,
+				notes: changes.join("; "),
+			},
+			select: { id: true },
+		});
 	}
 
 	const { status, code } = HTTP_RESPONSE_CODE.OK;
@@ -306,7 +342,11 @@ export const facilitySpecialties = async (
 ): Promise<void> => {
 	const role = request.user!.role as Role;
 	if (
-		!canViewFacilitySpecialties(role, request.user!.facility_id, request.params.id)
+		!canViewFacilitySpecialties(
+			role,
+			request.user!.facility_id,
+			request.params.id,
+		)
 	) {
 		const { status, code } = HTTP_RESPONSE_CODE.FORBIDDEN;
 		return reply.status(status).send({
@@ -330,7 +370,9 @@ export const facilitySpecialties = async (
 		limit: 100,
 		where: { facility_id: request.params.id },
 		select: { id: true, facility_id: true, created_at: true },
-		include: { specialty: { select: { id: true, name: true, description: true } } },
+		include: {
+			specialty: { select: { id: true, name: true, description: true } },
+		},
 	});
 
 	const { status, code } = HTTP_RESPONSE_CODE.OK;

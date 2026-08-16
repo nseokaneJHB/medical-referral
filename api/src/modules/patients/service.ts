@@ -296,7 +296,16 @@ export const patientUpdate = async (
 
 	const existing = await request.server.core.patient.one({
 		where: { id: request.params.id },
-		select: { id: true, facility_id: true },
+		select: {
+			id: true,
+			facility_id: true,
+			first_name: true,
+			last_name: true,
+			date_of_birth: true,
+			gender: true,
+			phone: true,
+			address: true,
+		},
 	});
 
 	if (
@@ -320,6 +329,15 @@ export const patientUpdate = async (
 			.send({ code, message: "Nurses may not change a patient's facility." });
 	}
 
+	const changes = Object.entries(body)
+		.filter(
+			([key, value]) => value !== existing[key as keyof typeof existing],
+		)
+		.map(
+			([key, value]) =>
+				`${key}: "${existing[key as keyof typeof existing]}" → "${value}"`,
+		);
+
 	const [updated] = await request.server.core.patient.update({
 		where: { id: request.params.id },
 		data: body,
@@ -329,6 +347,22 @@ export const patientUpdate = async (
 	if (!updated) {
 		const { status, code } = HTTP_RESPONSE_CODE.NOT_FOUND;
 		return reply.status(status).send({ code, message: "Patient not found." });
+	}
+
+	if (changes.length > 0) {
+		await request.server.core.timeline.create({
+			data: {
+				id: generateUuid(),
+				type: TIMELINE_TYPE.PATIENT,
+				entity: updated.id,
+				action: TIMELINE_ACTION.UPDATED,
+				previous: null,
+				next: null,
+				changer_id: request.user!.id,
+				notes: changes.join("; "),
+			},
+			select: { id: true },
+		});
 	}
 
 	const patient = await request.server.core.patient.one({
