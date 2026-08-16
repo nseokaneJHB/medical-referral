@@ -15,6 +15,7 @@ import {
 	type TransferRequestBody,
 	type ModerationReasonBody,
 	type PatientListResponse,
+	type PatientDetailResponse,
 } from "@referral-tracking/shared";
 
 import { api } from "@/api";
@@ -45,9 +46,9 @@ export const patientsRequest = createServerFn({ method: "GET" })
 
 export const patientRequest = createServerFn({ method: "GET" })
 	.inputValidator((params: PatientParams) => params)
-	.handler(async ({ data: params }): Promise<PatientResponse> => {
+	.handler(async ({ data: params }): Promise<PatientDetailResponse> => {
 		const url = `${baseUrl}${buildUrlWithParams(API_PATHS.PATIENT_BY_ID, params)}`;
-		const { data } = await api.get<PatientResponse>(
+		const { data } = await api.get<PatientDetailResponse>(
 			url,
 			forwardedRequestOptions(),
 		);

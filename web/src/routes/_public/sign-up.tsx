@@ -5,7 +5,7 @@ import {
 	useNavigate,
 	useRouter,
 } from "@tanstack/react-router";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 
 import { z } from "zod";
 import { useForm, useWatch } from "react-hook-form";

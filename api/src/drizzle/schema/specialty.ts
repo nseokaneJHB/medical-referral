@@ -1,5 +1,11 @@
 import { sql } from "drizzle-orm";
-import { index, varchar, text, timestamp, mysqlTable } from "drizzle-orm/mysql-core";
+import {
+	index,
+	varchar,
+	text,
+	timestamp,
+	mysqlTable,
+} from "drizzle-orm/mysql-core";
 
 /**
  * Reference table for clinical specialties (e.g. "Cardiology", "Orthopedics")

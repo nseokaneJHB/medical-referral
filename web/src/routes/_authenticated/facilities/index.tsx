@@ -1,14 +1,26 @@
 import { useState } from "react";
 
-import { createFileRoute, useNavigate, redirect } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import {
+	createFileRoute,
+	useNavigate,
+	redirect,
+	Link as RouterLink,
+} from "@tanstack/react-router";
+import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 
 import {
-	flexRender,
 	useReactTable,
 	createColumnHelper,
 	getCoreRowModel,
 } from "@tanstack/react-table";
+
+import {
+	EyeIcon,
+	BuildingIcon,
+	ClockIcon,
+	CheckCircleIcon,
+	FlagIcon,
+} from "lucide-react";
 
 import {
 	FRONTEND_URLS,
@@ -20,14 +32,17 @@ import {
 } from "@referral-tracking/shared";
 
 import { Card, CardTitle, CardHeader, CardContent } from "@/components/ui/card";
-import { Table, TableRow, TableBody, TableCell } from "@/components/ui/table";
-import { Link } from "@/components/custom/link";
+import { TableHead } from "@/components/ui/table";
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
+
 import { Loader } from "@/components/custom/loader";
+import { StatCard } from "@/components/custom/stat-card";
+import { Table } from "@/components/custom/table";
 import { SelectInput } from "@/components/custom/select-input";
 import { SearchField } from "@/components/custom/search-field";
 import { VariantBadge } from "@/components/custom/variant-badge";
+import { RowActionsMenu } from "@/components/custom/row-actions-menu";
 import { PaginationFooter } from "@/components/custom/pagination-footer";
-import { SortableTableHeader } from "@/components/custom/sortable-table-header";
 
 import { QUERY_KEYS } from "@/api/constant";
 import { facilitiesRequest } from "@/api/facilities";
@@ -49,17 +64,35 @@ const columns = [
 	}),
 	columnHelper.accessor("status", {
 		header: "Status",
-		cell: (info) => <VariantBadge value={info.getValue()} type="facilityStatus" />,
+		cell: (info) => (
+			<VariantBadge value={info.getValue()} type="facilityStatus" />
+		),
 	}),
 ];
 
-const SORTABLE_COLUMNS = ["name", "created"];
+const SORTABLE_COLUMNS = ["name", "created_at"];
 
 const FacilitiesPage = () => {
 	const navigate = useNavigate({ from: Route.fullPath });
 
 	const search = Route.useSearch();
-	const response = Route.useLoaderData();
+
+	/**
+	 * `useSuspenseQuery` (not `Route.useLoaderData()`) deliberately — the
+	 * loader's `ensureQueryData` primes this exact cache entry, so this
+	 * doesn't cost an extra fetch, but unlike `useLoaderData` it's a live
+	 * subscription: the detail page's `invalidateQueries` after a
+	 * moderation action (approve/reject/flag/suspend) is enough on its own
+	 * to make this list re-render with fresh data. `useLoaderData` reads a
+	 * snapshot from the router's own match cache, which isn't subscribed to
+	 * query-cache invalidation at all — a moderation action made on the
+	 * detail page would toast success there but leave this list showing the
+	 * old status indefinitely.
+	 */
+	const { data: response } = useSuspenseQuery({
+		queryKey: [...QUERY_KEYS.FACILITIES, search],
+		queryFn: () => facilitiesRequest({ data: search }),
+	});
 
 	const { data: allSpecialties } = useQuery({
 		queryKey: [...QUERY_KEYS.SPECIALTIES, "picker"],
@@ -112,6 +145,29 @@ const FacilitiesPage = () => {
 				</CardHeader>
 			</Card>
 
+			<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+				<StatCard
+					icon={BuildingIcon}
+					value={String(response.total)}
+					label="Total facilities"
+				/>
+				<StatCard
+					icon={ClockIcon}
+					value={String(response.status_counts.PENDING)}
+					label="Pending"
+				/>
+				<StatCard
+					icon={CheckCircleIcon}
+					value={String(response.status_counts.APPROVED)}
+					label="Approved"
+				/>
+				<StatCard
+					icon={FlagIcon}
+					value={String(response.status_counts.FLAGGED)}
+					label="Flagged"
+				/>
+			</div>
+
 			<Card>
 				<CardContent className="flex flex-wrap items-center gap-2">
 					<SelectInput
@@ -162,49 +218,31 @@ const FacilitiesPage = () => {
 
 			<Card>
 				<CardContent>
-					<Table>
-						<SortableTableHeader
-							table={table}
-							sortableColumns={SORTABLE_COLUMNS}
-							activeSort={search.sort}
-							activeOrder={search.order}
-							onSort={toggleSort}
-						/>
-						<TableBody>
-							{table.getRowModel().rows.length === 0 && (
-								<TableRow>
-									<TableCell
-										colSpan={columns.length + 1}
-										className="text-muted-foreground text-center"
+					<Table
+						table={table}
+						sortableColumns={SORTABLE_COLUMNS}
+						activeSort={search.sort}
+						activeOrder={search.order}
+						onSort={toggleSort}
+						emptyMessage="No facilities found."
+						trailingHeader={
+							<TableHead className="text-right">Actions</TableHead>
+						}
+						rowActionClassName="text-right"
+						rowAction={(row) => (
+							<RowActionsMenu label={`Actions for ${row.original.name}`}>
+								<DropdownMenuItem asChild>
+									<RouterLink
+										to={FRONTEND_URLS.FACILITY}
+										params={{ facilityId: row.original.id }}
 									>
-										No facilities found.
-									</TableCell>
-								</TableRow>
-							)}
-							{table.getRowModel().rows.map((row) => (
-								<TableRow key={row.id}>
-									{row.getVisibleCells().map((cell) => (
-										<TableCell key={cell.id}>
-											{flexRender(
-												cell.column.columnDef.cell,
-												cell.getContext(),
-											)}
-										</TableCell>
-									))}
-									<TableCell>
-										<Link
-											variant="outline"
-											title="View facility"
-											to={FRONTEND_URLS.FACILITY}
-											params={{ facilityId: row.original.id }}
-										>
-											View
-										</Link>
-									</TableCell>
-								</TableRow>
-							))}
-						</TableBody>
-					</Table>
+										<EyeIcon />
+										<span>View</span>
+									</RouterLink>
+								</DropdownMenuItem>
+							</RowActionsMenu>
+						)}
+					/>
 				</CardContent>
 			</Card>
 

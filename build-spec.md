@@ -22,6 +22,7 @@ Chatbot and AWS infra are out of scope — owned by teammate.
 | Routing       | TanStack Router + role-guarded routes               |
 
 Repo layout:
+
 ```
 /api      → Fastify server
 /web      → React frontend
@@ -157,7 +158,7 @@ canceled     → (terminal)
 Any `PATCH /referrals/:id/status` call must validate the requested transition
 against this table before writing, and must always insert a row into
 `timeline`. Additionally, `PATCH /referrals/:id/status` restricts which
-*target* statuses each role may set (layered on top of the table above):
+_target_ statuses each role may set (layered on top of the table above):
 Nurses to `canceled`/`on_hold`/`pending`, Doctors to
 `accepted`/`rejected`/`in_progress`/`completed`/`on_hold`, Admins
 unrestricted.
@@ -173,13 +174,13 @@ import { z } from "zod";
 export const RoleEnum = z.enum(["Administrator", "Doctor", "Nurse"]);
 
 export const ReferralStatusEnum = z.enum([
-  "pending",
-  "accepted",
-  "in_progress",
-  "on_hold",
-  "completed",
-  "rejected",
-  "canceled",
+	"pending",
+	"accepted",
+	"in_progress",
+	"on_hold",
+	"completed",
+	"rejected",
+	"canceled",
 ]);
 
 export const PriorityEnum = z.enum(["low", "medium", "high", "urgent"]);
@@ -188,55 +189,55 @@ export const LoginStatusEnum = z.enum(["success", "failed", "locked_out"]);
 
 // ---- Status transition map (import into API for validation) ----
 export const STATUS_TRANSITIONS: Record<
-  z.infer<typeof ReferralStatusEnum>,
-  z.infer<typeof ReferralStatusEnum>[]
+	z.infer<typeof ReferralStatusEnum>,
+	z.infer<typeof ReferralStatusEnum>[]
 > = {
-  pending: ["accepted", "rejected", "canceled", "on_hold"],
-  accepted: ["in_progress", "on_hold", "rejected"],
-  in_progress: ["completed", "on_hold"],
-  on_hold: ["pending", "accepted", "in_progress", "canceled"],
-  completed: [],
-  rejected: [],
-  canceled: [],
+	pending: ["accepted", "rejected", "canceled", "on_hold"],
+	accepted: ["in_progress", "on_hold", "rejected"],
+	in_progress: ["completed", "on_hold"],
+	on_hold: ["pending", "accepted", "in_progress", "canceled"],
+	completed: [],
+	rejected: [],
+	canceled: [],
 };
 
 // ---- Patients ----
 export const CreatePatientSchema = z.object({
-  first_name: z.string().min(1).max(100),
-  last_name: z.string().min(1).max(100),
-  date_of_birth: z.string().date(), // ISO date string
-  gender: z.string().max(20).optional(),
-  phone: z.string().max(20).optional(),        // was contact_number
-  address: z.string().optional(),
-  history: z.string().optional(),              // was medical_history
+	first_name: z.string().min(1).max(100),
+	last_name: z.string().min(1).max(100),
+	date_of_birth: z.string().date(), // ISO date string
+	gender: z.string().max(20).optional(),
+	phone: z.string().max(20).optional(), // was contact_number
+	address: z.string().optional(),
+	history: z.string().optional(), // was medical_history
 });
 
 export const UpdatePatientSchema = CreatePatientSchema.partial();
 
 // ---- Referrals ----
 export const CreateReferralSchema = z.object({
-  patient_id: z.string().uuid(),
-  origin: z.string().min(1).max(255),          // was referring_facility
-  destination: z.string().min(1).max(255),     // was receiving_facility
-  reason: z.string().min(1),                   // was referral_reason
-  priority: PriorityEnum.default("medium"),
-  doctor: z.string().uuid().optional(),         // was assigned_doctor
+	patient_id: z.string().uuid(),
+	origin: z.string().min(1).max(255), // was referring_facility
+	destination: z.string().min(1).max(255), // was receiving_facility
+	reason: z.string().min(1), // was referral_reason
+	priority: PriorityEnum.default("medium"),
+	doctor: z.string().uuid().optional(), // was assigned_doctor
 });
 
 export const UpdateReferralSchema = CreateReferralSchema.partial();
 
 export const UpdateReferralStatusSchema = z.object({
-  next: ReferralStatusEnum,                     // was new_status
-  notes: z.string().optional(),
+	next: ReferralStatusEnum, // was new_status
+	notes: z.string().optional(),
 });
 
 // ---- Auth (Better Auth handles the actual endpoints; this is for the
 //      role field you add on top of its sign-up call) ----
 export const SignUpSchema = z.object({
-  name: z.string().min(1),
-  email: z.string().email(),
-  password: z.string().min(8),
-  role: RoleEnum,
+	name: z.string().min(1),
+	email: z.string().email(),
+	password: z.string().min(8),
+	role: RoleEnum,
 });
 ```
 
@@ -245,10 +246,12 @@ export const SignUpSchema = z.object({
 ## 4. API Routes — Phased Build Order
 
 ### Phase 1 — Schema + migrations
+
 No routes. Get Drizzle migrations for domain tables running against MySQL,
 and confirm Better Auth's generated tables migrate cleanly alongside them.
 
 ### Phase 2 — Auth only
+
 | Method | Route                | Notes                                         |
 | ------ | -------------------- | --------------------------------------------- |
 | POST   | `/api/auth/sign-up`  | Better Auth route, extended with `role` field |
@@ -259,6 +262,7 @@ and confirm Better Auth's generated tables migrate cleanly alongside them.
 Build blank per-role landing pages on the frontend here. Nothing else.
 
 ### Phase 3 — Patients + Referrals CRUD (build against Nurse permissions first)
+
 | Method | Route                | Role(s)                                    |
 | ------ | -------------------- | ------------------------------------------ |
 | POST   | `/api/patients`      | Nurse, Admin                               |
@@ -273,11 +277,13 @@ Build blank per-role landing pages on the frontend here. Nothing else.
 | DELETE | `/api/referrals/:id` | Admin only                                 |
 
 Role-based filtering on `GET /api/referrals`:
+
 - Admin → all referrals
 - Doctor → `doctor = current user` (was `assigned_doctor`)
 - Nurse → `created_by = current user`
 
 ### Phase 4 — Status transitions
+
 | Method | Route                        | Role(s)                                    |
 | ------ | ---------------------------- | ------------------------------------------ |
 | PATCH  | `/api/referrals/:id/status`  | Nurse (limited transitions), Doctor, Admin |
@@ -287,12 +293,14 @@ Validate against `STATUS_TRANSITIONS` before writing; always insert into
 `referral_status_history`.
 
 ### Phase 5 — Doctor dashboard support
-| Method | Route                                    | Role(s)                     |
-| ------ | ----------------------------------------- | --------------------------- |
-| GET    | `/api/referrals?status=pending` (auto-scoped to the caller's assigned referrals) | Doctor |
-| GET    | `/api/dashboard/doctor/summary`           | Doctor — counts for widgets |
+
+| Method | Route                                                                            | Role(s)                     |
+| ------ | -------------------------------------------------------------------------------- | --------------------------- |
+| GET    | `/api/referrals?status=pending` (auto-scoped to the caller's assigned referrals) | Doctor                      |
+| GET    | `/api/dashboard/doctor/summary`                                                  | Doctor — counts for widgets |
 
 ### Phase 6 — Admin dashboard support
+
 | Method | Route                          | Role(s)                                          |
 | ------ | ------------------------------ | ------------------------------------------------ |
 | GET    | `/api/dashboard/admin/summary` | Admin — total users/patients/referrals by status |
@@ -300,6 +308,7 @@ Validate against `STATUS_TRANSITIONS` before writing; always insert into
 | PATCH  | `/api/users/:id/disable`       | Admin                                            |
 
 ### Phase 7 — Login audit + reports
+
 | Method | Route                    | Role(s)                                                       |
 | ------ | ------------------------ | ------------------------------------------------------------- |
 | GET    | `/api/audit/logins`      | Admin only                                                    |

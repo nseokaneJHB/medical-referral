@@ -1,4 +1,4 @@
-import type { ComponentType, ComponentProps } from "react";
+import { useId, type ComponentType, type ComponentProps } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -18,6 +18,7 @@ interface InputProps extends ComponentProps<"input"> {
 }
 
 export const Input = ({
+	id,
 	name,
 	label,
 	error,
@@ -27,15 +28,18 @@ export const Input = ({
 	iconRight: IconRight,
 	...props
 }: InputProps) => {
+	const generatedId = useId();
+	const inputId = id ?? generatedId;
 	const rightIconClassNames =
 		"absolute self-center border flex items-center justify-center rounded-sm transition-all";
 
 	return (
 		<Field className={cn("w-full gap-1", containerClassName)}>
-			{label && <FieldLabel>{label}</FieldLabel>}
+			{label && <FieldLabel htmlFor={inputId}>{label}</FieldLabel>}
 			<div className="relative flex items-center">
 				<ShadCnInput
 					{...props}
+					id={inputId}
 					name={name}
 					className={cn(
 						{

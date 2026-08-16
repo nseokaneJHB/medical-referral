@@ -8,15 +8,11 @@
 		},
 		"typecheck": {
 			"cache": false,
-			"dependsOn": [
-				"^typecheck"
-			]
+			"dependsOn": ["^typecheck"]
 		},
 		"lint": {
 			"cache": true,
-			"dependsOn": [
-				"^lint"
-			]
+			"dependsOn": ["^lint"]
 		}
 	}
 }

@@ -4,11 +4,7 @@ import {
 	TERMINAL_REFERRAL_STATUSES,
 	type Role,
 } from "@referral-tracking/shared";
-import type {
-	Referral,
-	Facility,
-	Patient,
-} from "@referral-tracking/shared";
+import type { Referral, Facility, Patient } from "@referral-tracking/shared";
 import type { AuthUser } from "@/api/auth";
 
 /**
@@ -84,7 +80,10 @@ export const canEditReferral = (
 
 export const canSelfAssignReferral = (
 	user: Pick<AuthUser, "role" | "facility_id">,
-	referral: Pick<Referral, "assignedDoctor" | "destination_facility" | "status">,
+	referral: Pick<
+		Referral,
+		"assignedDoctor" | "destination_facility" | "status"
+	>,
 ): boolean =>
 	isDoctor(user) &&
 	!referral.assignedDoctor &&
@@ -93,7 +92,10 @@ export const canSelfAssignReferral = (
 
 export const canRedirectReferral = (
 	user: Pick<AuthUser, "id" | "role" | "facility_id">,
-	referral: Pick<Referral, "assignedDoctor" | "destination_facility" | "status">,
+	referral: Pick<
+		Referral,
+		"assignedDoctor" | "destination_facility" | "status"
+	>,
 ): boolean =>
 	isDoctor(user) &&
 	!TERMINAL_REFERRAL_STATUSES.includes(referral.status) &&

@@ -46,7 +46,6 @@ const APPEALABLE_USER_STATUSES: ReadonlyArray<UserModelSelect["status"]> = [
 	USER_STATUS.DISABLED,
 ];
 
-
 /**
  * Coarse account-level gate, applied by `middleware/authorize.ts` on every
  * role-gated route. Deliberately excludes `FLAGGED` — most of what a

@@ -3,11 +3,14 @@ import * as schema from "../drizzle/schema";
 import {
 	oneRecord,
 	manyRecords,
+	countRecords,
 	createRecords,
 	updateRecords,
 	deleteRecords,
 	type Executor,
 	type Pagination,
+	type CountResult,
+	type WhereClause,
 	type CreateOptions,
 	type UpdateOptions,
 	type DeleteOptions,
@@ -268,5 +271,30 @@ export class Specialty {
 					: schema.ReferralSpecialtyModel;
 
 		return await deleteRecords(this.executor, table, options);
+	};
+
+	/**
+	 * `COUNT(*)` of `user_specialties`, `facility_specialties`, or
+	 * `referral_specialties` link rows matching `where` (or the whole link
+	 * table if omitted), optionally `GROUP BY` a column — same generic
+	 * flat-or-grouped shape as `Patient.count`/`Facility.count`/`Referral.count`,
+	 * just applied to whichever link table `owner` selects.
+	 */
+	linkCount = async <
+		TOwner extends SpecialtyLinkOwner,
+		TGroupBy extends keyof LinkSelect<TOwner> & string = never,
+	>(
+		owner: TOwner,
+		where?: WhereClause<LinkSelect<TOwner>>,
+		groupBy?: TGroupBy,
+	): Promise<CountResult<TGroupBy>> => {
+		const table =
+			owner === "user"
+				? schema.UserSpecialtyModel
+				: owner === "facility"
+					? schema.FacilitySpecialtyModel
+					: schema.ReferralSpecialtyModel;
+
+		return await countRecords(this.executor, table, where, groupBy);
 	};
 }

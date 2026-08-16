@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 
 import { createFileRoute, useRouter } from "@tanstack/react-router";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useSuspenseQuery } from "@tanstack/react-query";
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -17,13 +17,14 @@ import {
 	UpdateReferralSchema,
 	STATUS_TRANSITIONS,
 	NURSE_STATUS_TARGETS,
-	TERMINAL_REFERRAL_STATUSES,
+	redirectReferralSchema,
 	DOCTOR_STATUS_TARGETS_BY_STATUS,
 	type GlobalResponse,
 	type ReferralResponse,
 	type UpdateReferralBody,
 	type ReferralStatus,
 	type SpecialtyRef,
+	type RedirectReferralBody,
 	type ReferralSpecialtyLinkResponse,
 } from "@referral-tracking/shared";
 
@@ -44,9 +45,9 @@ import { Link } from "@/components/custom/link";
 import { TextArea } from "@/components/custom/text-area";
 import { SelectInput } from "@/components/custom/select-input";
 import { ReadOnlyField } from "@/components/custom/read-only-field";
-import { BackLink } from "@/components/custom/back-link";
+import { BackLink } from "@/components/back-link";
 import { TimelineList } from "@/components/custom/timeline-list";
-import { SpecialtyManager } from "@/components/custom/specialty-manager";
+import { SpecialtyManager } from "@/components/specialties/specialty-manager";
 
 import { useFormField } from "@/hooks/use-form-field";
 import { useToastMutation } from "@/hooks/use-toast-mutation";
@@ -149,8 +150,6 @@ const RedirectReferralAction = ({
 	onChanged: () => Promise<void>;
 }) => {
 	const [open, setOpen] = useState(false);
-	const [destinationId, setDestinationId] = useState<string>();
-	const [reason, setReason] = useState("");
 
 	const {
 		setSearch: setFacilitySearch,
@@ -158,25 +157,34 @@ const RedirectReferralAction = ({
 		loading: facilitiesLoading,
 	} = useFacilitySearch({ enabled: open, excludeId: currentDestinationId });
 
+	const { control, handleSubmit, reset } = useForm<RedirectReferralBody>({
+		mode: "onChange",
+		resolver: zodResolver(redirectReferralSchema),
+		defaultValues: { destination_facility_id: "", notes: "" },
+	});
+
+	const destinationFacilityId = useFormField({
+		name: "destination_facility_id",
+		control,
+		type: "select",
+	});
+	const notes = useFormField({ name: "notes", control });
+
 	const redirectMutation = useMutation<
 		ReferralResponse,
 		Error,
-		{ destination_facility_id: string; notes: string }
+		RedirectReferralBody
 	>({
 		mutationFn: (payload) => redirectReferral(referralId, payload),
 	});
 
-	const onConfirm = async () =>
+	const onSubmit = async (payload: RedirectReferralBody) =>
 		useToastMutation({
 			loading: "Redirecting referral...",
-			promise: redirectMutation.mutateAsync({
-				destination_facility_id: destinationId!,
-				notes: reason,
-			}),
+			promise: redirectMutation.mutateAsync(payload),
 			onSuccess: async () => {
 				setOpen(false);
-				setDestinationId(undefined);
-				setReason("");
+				reset();
 				await onChanged();
 			},
 		});
@@ -196,8 +204,8 @@ const RedirectReferralAction = ({
 				<DialogHeader>
 					<DialogTitle>Redirect this referral</DialogTitle>
 					<DialogDescription>
-						Sends it to a different facility, unassigned and pending —
-						the new facility triages it fresh.
+						Sends it to a different facility, unassigned and pending — the new
+						facility triages it fresh.
 					</DialogDescription>
 				</DialogHeader>
 				<div className="space-y-2">
@@ -210,39 +218,42 @@ const RedirectReferralAction = ({
 						onUnassign={onUnassignSpecialty}
 					/>
 				</div>
-				<SelectInput
-					searchable
-					filterMode="server"
-					loading={facilitiesLoading}
-					label="New destination facility"
-					items={facilityItems}
-					placeholder="Select a facility"
-					value={destinationId}
-					onChange={setDestinationId}
-					onSearchChange={setFacilitySearch}
-				/>
-				<TextArea
-					required
-					name="reason"
-					label="Reason"
-					value={reason}
-					onChange={(event) => setReason(event.target.value)}
-				/>
-				<DialogFooter>
-					<Button
-						type="button"
-						title="Confirm redirect"
-						disabled={
-							redirectMutation.isPending ||
-							!destinationId ||
-							reason.trim().length === 0
+				<form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+					<SelectInput
+						searchable
+						filterMode="server"
+						loading={facilitiesLoading}
+						label="New destination facility"
+						items={facilityItems}
+						error={destinationFacilityId.error}
+						placeholder="Select a facility"
+						value={destinationFacilityId.value as string | undefined}
+						onChange={
+							destinationFacilityId.onChange as (
+								value: string | undefined,
+							) => void
 						}
-						onClick={onConfirm}
-					>
-						{redirectMutation.isPending ? <Spinner /> : null}
-						<span>Redirect</span>
-					</Button>
-				</DialogFooter>
+						onSearchChange={setFacilitySearch}
+					/>
+					<TextArea
+						required
+						name="notes"
+						label="Reason"
+						error={notes.error}
+						value={notes.value}
+						onChange={notes.onChange}
+					/>
+					<DialogFooter>
+						<Button
+							type="submit"
+							title="Confirm redirect"
+							disabled={redirectMutation.isPending}
+						>
+							{redirectMutation.isPending ? <Spinner /> : null}
+							<span>Redirect</span>
+						</Button>
+					</DialogFooter>
+				</form>
 			</DialogContent>
 		</Dialog>
 	);
@@ -251,10 +262,20 @@ const RedirectReferralAction = ({
 const ReferralDetailPage = () => {
 	const router = useRouter();
 	const { user, queryClient } = Route.useRouteContext();
-	const response = Route.useLoaderData();
-	const referral = response.data;
+	const { referralId } = Route.useParams();
 
-	const [notes, setNotes] = useState("");
+	/**
+	 * `useSuspenseQuery` (not `Route.useLoaderData()`) deliberately — the
+	 * loader's `ensureQueryData` primes this exact cache entry, so this
+	 * doesn't cost an extra fetch, but unlike `useLoaderData` it's a live
+	 * subscription: `invalidateQueries` below is enough on its own to make
+	 * this page re-render with fresh data after a mutation.
+	 */
+	const { data: response } = useSuspenseQuery({
+		queryKey: [...QUERY_KEYS.REFERRAL, referralId],
+		queryFn: () => referralRequest({ data: { id: referralId } }),
+	});
+	const referral = response.data;
 
 	const { data: historyResponse } = useQuery({
 		queryKey: [...QUERY_KEYS.REFERRAL_HISTORY, referral.id],
@@ -262,8 +283,6 @@ const ReferralDetailPage = () => {
 	});
 
 	const canAct = canActOnReferral(user, referral);
-
-	const isTerminal = TERMINAL_REFERRAL_STATUSES.includes(referral.status);
 
 	const canEditFull = canEditReferralFull(user, referral);
 	const canAssignDoctor = canAssignDoctorToReferral(user, referral);
@@ -293,9 +312,23 @@ const ReferralDetailPage = () => {
 	// independent search, since it excludes a different facility.
 	const {
 		setSearch: setFacilitySearch,
-		items: facilityItems,
+		items: facilitySearchItems,
 		loading: facilitiesLoading,
 	} = useFacilitySearch({ enabled: canEditFull });
+
+	// The search hook only returns facilities matching the current search
+	// term, so the referral's already-selected destination facility won't be
+	// in `items` until someone types a matching query — seed it in so the
+	// select shows the current value instead of rendering blank.
+	const facilityItems = useMemo(() => {
+		const current = {
+			value: referral.destination_facility.id,
+			label: referral.destination_facility.name,
+		};
+		return facilitySearchItems.some((item) => item.value === current.value)
+			? facilitySearchItems
+			: [current, ...facilitySearchItems];
+	}, [facilitySearchItems, referral.destination_facility]);
 
 	const { data: doctors } = useQuery({
 		queryKey: [...QUERY_KEYS.USERS, "doctors"],
@@ -342,6 +375,18 @@ const ReferralDetailPage = () => {
 	const priority = useFormField({ name: "priority", control, type: "select" });
 	const doctor = useFormField({ name: "doctor", control, type: "select" });
 
+	// No single static schema fits this field — it's a shared "reason" for
+	// N different status-transition buttons, each with its own
+	// requiredness (see REASON_NOT_REQUIRED_TARGETS) — so this uses
+	// useForm/useFormField without a zodResolver, and requiredness is
+	// enforced per-button below instead.
+	const { control: notesControl, reset: resetStatusNotes } = useForm<{
+		notes: string;
+	}>({
+		defaultValues: { notes: "" },
+	});
+	const statusNotes = useFormField({ name: "notes", control: notesControl });
+
 	const updateReferralMutation = useMutation<
 		ReferralResponse,
 		Error,
@@ -358,7 +403,7 @@ const ReferralDetailPage = () => {
 		mutationFn: (next) =>
 			updateReferralStatus(referral.id, {
 				next,
-				notes: notes.trim() || undefined,
+				notes: statusNotes.value.trim() || undefined,
 			}),
 	});
 
@@ -389,6 +434,20 @@ const ReferralDetailPage = () => {
 			queryKey: [...QUERY_KEYS.REFERRAL_HISTORY, referral.id],
 		});
 		await router.invalidate({ sync: true });
+	};
+
+	/**
+	 * Redirecting moves the referral to a different facility, which almost
+	 * always revokes the current Doctor's own `canViewReferral` access to it.
+	 * Re-fetching this same referral/history query would just fail a
+	 * background refetch against data that's already cached, so React Query
+	 * silently keeps showing the stale pre-redirect page instead of erroring
+	 * — navigate back to the list (whose cache we do still have valid access
+	 * to refresh) instead of trying to keep this detail page alive.
+	 */
+	const handleRedirected = async () => {
+		await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.REFERRALS });
+		await router.navigate({ to: FRONTEND_URLS.REFERRALS });
 	};
 
 	const onSpecialtiesChanged = async () => {
@@ -441,7 +500,7 @@ const ReferralDetailPage = () => {
 			loading: `${TRANSITION_ACTION_LABELS[next] ?? stringToTitleCase(next)}ing referral...`,
 			promise: updateStatusMutation.mutateAsync(next),
 			onSuccess: async () => {
-				setNotes("");
+				resetStatusNotes();
 				await invalidateReferral();
 			},
 		});
@@ -466,235 +525,250 @@ const ReferralDetailPage = () => {
 				fallbackTo={FRONTEND_URLS.REFERRALS}
 			/>
 
-			<Card>
-				<CardHeader className="flex items-center justify-between">
-					<CardTitle className="text-xl">
-						{referral.origin_facility.name} &rarr;{" "}
-						{referral.destination_facility.name}
-					</CardTitle>
-					<div className="flex gap-2">
-						<Badge variant={PRIORITY_VARIANT[referral.priority]}>
-							{stringToTitleCase(referral.priority)}
-						</Badge>
-						<Badge variant={STATUS_VARIANT[referral.status]}>
-							{stringToTitleCase(referral.status)}
-						</Badge>
-					</div>
-				</CardHeader>
-				<CardContent className="space-y-4">
-					<ReadOnlyField
-						label="Patient"
-						value={
-							<Link
-								variant="link"
-								title="View patient"
-								to={FRONTEND_URLS.PATIENT}
-								params={{ patientId: referral.patient.id }}
-								buttonClassName="h-auto p-0 text-lg underline"
-							>
-								{referral.patient.first_name} {referral.patient.last_name}
-							</Link>
-						}
-					/>
-
-					{latestNote && (
-						<ReadOnlyField label="Status reason" value={latestNote} />
-					)}
-
-					{canEditFull ? (
-						<>
-							<SelectInput
-								searchable
-								filterMode="server"
-								loading={facilitiesLoading}
-								label="Destination facility"
-								items={facilityItems}
-								error={destinationFacilityId.error}
-								disabled={isSaving}
-								placeholder="Select a facility"
-								value={destinationFacilityId.value as string}
-								onChange={
-									destinationFacilityId.onChange as (
-										value: string | undefined,
-									) => void
-								}
-								onSearchChange={setFacilitySearch}
-							/>
-
-							<TextArea
-								required
-								name="visit_reason"
-								label="Reason for visiting the facility"
-								error={visitReason.error}
-								value={visitReason.value}
-								onChange={visitReason.onChange}
-								disabled={isSaving}
-							/>
-
-							<TextArea
-								required
-								name="referral_reason"
-								label="Reason for referral"
-								error={referralReason.error}
-								value={referralReason.value}
-								onChange={referralReason.onChange}
-								disabled={isSaving}
-							/>
-
-							<SelectInput
-								label="Priority"
-								items={PRIORITY_ITEMS}
-								error={priority.error}
-								disabled={isSaving}
-								placeholder="Select priority"
-								value={priority.value as string}
-								onChange={
-									priority.onChange as (value: string | undefined) => void
+			<div className="grid gap-4 lg:grid-cols-3">
+				<div className="lg:col-span-2">
+					<Card>
+						<CardHeader className="flex items-center justify-between">
+							<CardTitle className="text-xl">
+								{referral.origin_facility.name} &rarr;{" "}
+								{referral.destination_facility.name}
+							</CardTitle>
+							<div className="flex gap-2">
+								<Badge variant={PRIORITY_VARIANT[referral.priority]}>
+									{stringToTitleCase(referral.priority)}
+								</Badge>
+								<Badge variant={STATUS_VARIANT[referral.status]}>
+									{stringToTitleCase(referral.status)}
+								</Badge>
+							</div>
+						</CardHeader>
+						<CardContent className="space-y-4">
+							<ReadOnlyField
+								label="Patient"
+								value={
+									<Link
+										variant="link"
+										title="View patient"
+										to={FRONTEND_URLS.PATIENT}
+										params={{ patientId: referral.patient.id }}
+										buttonClassName="h-auto p-0 text-lg underline"
+									>
+										{referral.patient.first_name} {referral.patient.last_name}
+									</Link>
 								}
 							/>
-						</>
-					) : (
-						<>
-							<ReadOnlyField
-								label="Reason for visiting the facility"
-								value={referral.visit_reason}
-							/>
-							<ReadOnlyField
-								label="Reason for referral"
-								value={referral.referral_reason}
-							/>
-						</>
-					)}
 
-					{canAssignDoctor ? (
-						<SelectInput
-							searchable
-							label="Assigned doctor"
-							items={doctorItems}
-							error={doctor.error}
-							disabled={isSaving}
-							placeholder="Unassigned"
-							value={doctor.value as string}
-							onChange={doctor.onChange as (value: string | undefined) => void}
-						/>
-					) : (
-						<ReadOnlyField
-							label="Assigned doctor"
-							value={
-								referral.assignedDoctor
-									? referral.assignedDoctor.id === user.id
-										? "You"
-										: referral.assignedDoctor.name
-									: "Unassigned"
-							}
-						/>
-					)}
-
-					{canEdit && (
-						<form onSubmit={handleSubmit(onSubmit)}>
-							<Button type="submit" title="Save referral" disabled={isSaving}>
-								{isSaving ? (
-									<>
-										<Spinner /> <span>Saving...</span>
-									</>
-								) : (
-									<>
-										<SaveIcon /> <span>Save changes</span>
-									</>
-								)}
-							</Button>
-						</form>
-					)}
-
-					<div className="flex flex-wrap gap-2">
-						{canSelfAssign && (
-							<Button
-								type="button"
-								variant="outline"
-								title="Assign to me"
-								disabled={isSelfAssigning}
-								onClick={handleSelfAssign}
-							>
-								{isSelfAssigning ? <Spinner /> : <UserCheckIcon />}
-								<span>Assign to me</span>
-							</Button>
-						)}
-						{canRedirect && (
-							<RedirectReferralAction
-								referralId={referral.id}
-								currentDestinationId={referral.destination_facility.id}
-								specialties={specialtiesResponse?.data ?? []}
-								allSpecialties={allSpecialtiesResponse?.data ?? []}
-								onAssignSpecialty={handleAssignSpecialty}
-								onUnassignSpecialty={handleUnassignSpecialty}
-								onChanged={invalidateReferral}
-							/>
-						)}
-					</div>
-				</CardContent>
-			</Card>
-
-			<Card>
-				<CardHeader>
-					<CardTitle className="text-lg">Specialties needed</CardTitle>
-				</CardHeader>
-				<CardContent>
-					<SpecialtyManager
-						assigned={specialtiesResponse?.data ?? []}
-						allSpecialties={allSpecialtiesResponse?.data ?? []}
-						editable={canManageSpecialties}
-						onAssign={handleAssignSpecialty}
-						onUnassign={handleUnassignSpecialty}
-					/>
-				</CardContent>
-			</Card>
-
-			{availableTransitions.length > 0 && (
-				<Card>
-					<CardHeader>
-						<CardTitle className="text-lg">Update status</CardTitle>
-					</CardHeader>
-					<CardContent className="space-y-3">
-						<TextArea
-							required={availableTransitions.some(
-								(state) => !REASON_NOT_REQUIRED_TARGETS.has(state),
+							{latestNote && (
+								<ReadOnlyField label="Status reason" value={latestNote} />
 							)}
-							name="notes"
-							label="Reason for this change"
-							value={notes}
-							onChange={(event) => setNotes(event.target.value)}
-							disabled={isTransitioning}
-						/>
-						<div className="flex flex-wrap gap-2">
-							{availableTransitions.map((state) => {
-								const reasonRequired = !REASON_NOT_REQUIRED_TARGETS.has(state);
-								return (
+
+							{canEditFull ? (
+								<>
+									<SelectInput
+										searchable
+										filterMode="server"
+										loading={facilitiesLoading}
+										label="Destination facility"
+										items={facilityItems}
+										error={destinationFacilityId.error}
+										disabled={isSaving}
+										placeholder="Select a facility"
+										value={destinationFacilityId.value as string}
+										onChange={
+											destinationFacilityId.onChange as (
+												value: string | undefined,
+											) => void
+										}
+										onSearchChange={setFacilitySearch}
+									/>
+
+									<TextArea
+										required
+										name="visit_reason"
+										label="Reason for visiting the facility"
+										error={visitReason.error}
+										value={visitReason.value}
+										onChange={visitReason.onChange}
+										disabled={isSaving}
+									/>
+
+									<TextArea
+										required
+										name="referral_reason"
+										label="Reason for referral"
+										error={referralReason.error}
+										value={referralReason.value}
+										onChange={referralReason.onChange}
+										disabled={isSaving}
+									/>
+
+									<SelectInput
+										label="Priority"
+										items={PRIORITY_ITEMS}
+										error={priority.error}
+										disabled={isSaving}
+										placeholder="Select priority"
+										value={priority.value as string}
+										onChange={
+											priority.onChange as (value: string | undefined) => void
+										}
+									/>
+								</>
+							) : (
+								<>
+									<ReadOnlyField
+										label="Reason for visiting the facility"
+										value={referral.visit_reason}
+									/>
+									<ReadOnlyField
+										label="Reason for referral"
+										value={referral.referral_reason}
+									/>
+								</>
+							)}
+
+							{canAssignDoctor ? (
+								<SelectInput
+									searchable
+									label="Assigned doctor"
+									items={doctorItems}
+									error={doctor.error}
+									disabled={isSaving}
+									placeholder="Unassigned"
+									value={doctor.value as string}
+									onChange={
+										doctor.onChange as (value: string | undefined) => void
+									}
+								/>
+							) : (
+								<ReadOnlyField
+									label="Assigned doctor"
+									value={
+										referral.assignedDoctor
+											? referral.assignedDoctor.id === user.id
+												? "You"
+												: referral.assignedDoctor.name
+											: "Unassigned"
+									}
+								/>
+							)}
+
+							{canEdit && (
+								<form onSubmit={handleSubmit(onSubmit)}>
 									<Button
-										key={state}
+										type="submit"
+										title="Save referral"
+										disabled={isSaving}
+									>
+										{isSaving ? (
+											<>
+												<Spinner /> <span>Saving...</span>
+											</>
+										) : (
+											<>
+												<SaveIcon /> <span>Save changes</span>
+											</>
+										)}
+									</Button>
+								</form>
+							)}
+
+							<div className="flex flex-wrap gap-2">
+								{canSelfAssign && (
+									<Button
 										type="button"
 										variant="outline"
-										title={
-											TRANSITION_ACTION_LABELS[state] ??
-											stringToTitleCase(state)
-										}
-										disabled={
-											isTransitioning ||
-											(reasonRequired && notes.trim().length === 0)
-										}
-										onClick={() => handleTransition(state)}
+										title="Assign to me"
+										disabled={isSelfAssigning}
+										onClick={handleSelfAssign}
 									>
-										{isTransitioning ? <Spinner /> : null}
-										<span>
-											{TRANSITION_ACTION_LABELS[state] ??
-												stringToTitleCase(state)}
-										</span>
+										{isSelfAssigning ? <Spinner /> : <UserCheckIcon />}
+										<span>Assign to me</span>
 									</Button>
-								);
-							})}
-						</div>
-					</CardContent>
-				</Card>
-			)}
+								)}
+								{canRedirect && (
+									<RedirectReferralAction
+										referralId={referral.id}
+										currentDestinationId={referral.destination_facility.id}
+										specialties={specialtiesResponse?.data ?? []}
+										allSpecialties={allSpecialtiesResponse?.data ?? []}
+										onAssignSpecialty={handleAssignSpecialty}
+										onUnassignSpecialty={handleUnassignSpecialty}
+										onChanged={handleRedirected}
+									/>
+								)}
+							</div>
+						</CardContent>
+					</Card>
+				</div>
+
+				<div className="space-y-4 lg:col-span-1">
+					<Card>
+						<CardHeader>
+							<CardTitle className="text-lg">Specialties needed</CardTitle>
+						</CardHeader>
+						<CardContent>
+							<SpecialtyManager
+								assigned={specialtiesResponse?.data ?? []}
+								allSpecialties={allSpecialtiesResponse?.data ?? []}
+								editable={canManageSpecialties}
+								onAssign={handleAssignSpecialty}
+								onUnassign={handleUnassignSpecialty}
+							/>
+						</CardContent>
+					</Card>
+
+					{availableTransitions.length > 0 && (
+						<Card>
+							<CardHeader>
+								<CardTitle className="text-lg">Update status</CardTitle>
+							</CardHeader>
+							<CardContent className="space-y-3">
+								<TextArea
+									required={availableTransitions.some(
+										(state) => !REASON_NOT_REQUIRED_TARGETS.has(state),
+									)}
+									name="notes"
+									label="Reason for this change"
+									error={statusNotes.error}
+									value={statusNotes.value}
+									onChange={statusNotes.onChange}
+									disabled={isTransitioning}
+								/>
+								<div className="flex flex-wrap gap-2">
+									{availableTransitions.map((state) => {
+										const reasonRequired =
+											!REASON_NOT_REQUIRED_TARGETS.has(state);
+										return (
+											<Button
+												key={state}
+												type="button"
+												variant="outline"
+												title={
+													TRANSITION_ACTION_LABELS[state] ??
+													stringToTitleCase(state)
+												}
+												disabled={
+													isTransitioning ||
+													(reasonRequired &&
+														statusNotes.value.trim().length === 0)
+												}
+												onClick={() => handleTransition(state)}
+											>
+												{isTransitioning ? <Spinner /> : null}
+												<span>
+													{TRANSITION_ACTION_LABELS[state] ??
+														stringToTitleCase(state)}
+												</span>
+											</Button>
+										);
+									})}
+								</div>
+							</CardContent>
+						</Card>
+					)}
+				</div>
+			</div>
 
 			<TimelineList
 				entries={historyResponse?.data ?? []}

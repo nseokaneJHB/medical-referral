@@ -6,7 +6,16 @@ import { useMutation, useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
-import { SaveIcon, CheckIcon, XIcon, FlagIcon, BanIcon } from "lucide-react";
+import {
+	SaveIcon,
+	CheckIcon,
+	XIcon,
+	FlagIcon,
+	BanIcon,
+	ActivityIcon,
+	StethoscopeIcon,
+	ClipboardListIcon,
+} from "lucide-react";
 
 import {
 	appealSchema,
@@ -29,9 +38,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 import { Input } from "@/components/custom/input";
 import { TextArea } from "@/components/custom/text-area";
-import { BackLink } from "@/components/custom/back-link";
+import { BackLink } from "@/components/back-link";
+import { StatCard } from "@/components/custom/stat-card";
 import { TimelineList } from "@/components/custom/timeline-list";
-import { SpecialtyManager } from "@/components/custom/specialty-manager";
+import { SpecialtyManager } from "@/components/specialties/specialty-manager";
 import { ReasonActionButton } from "@/components/custom/reason-action-button";
 
 import { useFormField } from "@/hooks/use-form-field";
@@ -359,6 +369,24 @@ const FacilityDetailPage = () => {
 				fallbackTo={FRONTEND_URLS.FACILITIES}
 			/>
 
+			<div className="grid gap-4 sm:grid-cols-3">
+				<StatCard
+					icon={ClipboardListIcon}
+					label="Referrals received"
+					value={String(facility.stats.referrals_received)}
+				/>
+				<StatCard
+					icon={ActivityIcon}
+					label="Active referrals"
+					value={String(facility.stats.active_referrals)}
+				/>
+				<StatCard
+					icon={StethoscopeIcon}
+					label="Specialties offered"
+					value={String(facility.stats.specialties_count)}
+				/>
+			</div>
+
 			<div className="grid gap-4 lg:grid-cols-3">
 				<form onSubmit={handleSubmit(onSubmit)} className="lg:col-span-2">
 					<Card>
@@ -444,7 +472,10 @@ export const Route = createFileRoute("/_authenticated/facilities/$facilityId")({
 	beforeLoad: ({ context, params }) => {
 		const { user } = context;
 
-		if (!isAdministrator(user) && !isOwnFacilityManager(user, params.facilityId)) {
+		if (
+			!isAdministrator(user) &&
+			!isOwnFacilityManager(user, params.facilityId)
+		) {
 			throw redirect({ to: FRONTEND_URLS.HOME });
 		}
 	},

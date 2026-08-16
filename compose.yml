@@ -16,7 +16,16 @@ services:
       - referral-tracking-mysql_data:/var/lib/mysql # Persists DB data across restarts
 
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$$MYSQL_ROOT_PASSWORD"] # Checks DB readiness using env vars
+      test: [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "localhost",
+          "-u",
+          "root",
+          "-p$$MYSQL_ROOT_PASSWORD",
+        ] # Checks DB readiness using env vars
       interval: 5s # Healthcheck frequency
       timeout: 5s # Timeout per check
       retries: 5 # Fail after 5 unsuccessful checks

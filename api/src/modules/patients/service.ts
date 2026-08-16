@@ -11,9 +11,15 @@ import {
 	TERMINAL_REFERRAL_STATUSES,
 	type Role,
 	type PatientResponse,
+	type PatientDetailResponse,
 } from "@referral-tracking/shared";
 
-import { generateUuid, normalizeNullableFields } from "../../lib/util";
+import {
+	generateUuid,
+	normalizeNullableFields,
+	localDateStartToUtc,
+	localMonthStartToUtc,
+} from "../../lib/util";
 import { parseEnumList, parseSortList } from "../../lib/validator";
 import { canAccessPatient } from "../../lib/permission";
 
@@ -107,6 +113,25 @@ const getPatientFlagStatuses = async (
 const UNFLAGGED_STATUS: FlagStatus = { flagged: false, flag_reason: null };
 
 /**
+ * `GET /patients/:id` only — total and active referral counts for this
+ * patient, same shape/reasoning as `doctorStats` in `modules/users/service.ts`.
+ */
+const patientStats = async (
+	core: Pick<CoreService, "referral">,
+	patientId: string,
+): Promise<PatientDetailResponse["data"]["stats"]> => {
+	const [totalReferrals, activeReferrals] = await Promise.all([
+		core.referral.count({ patient_id: patientId }),
+		core.referral.count({
+			patient_id: patientId,
+			status: { notIn: TERMINAL_REFERRAL_STATUSES },
+		}),
+	]);
+
+	return { total_referrals: totalReferrals, active_referrals: activeReferrals };
+};
+
+/**
  * Composes the DB read (`Referral.count`) with the pure
  * `canAccessPatient` predicate — `lib/permission.ts` stays DB-free, so
  * this glue lives here instead, module-specific rather than shared.
@@ -161,8 +186,14 @@ export const patientCreate = async (
 		code,
 		message: "Patient created.",
 		// `include`-derived fields (`creator`/`facility`) aren't modeled by
-		// `WithCount` — present at runtime, just invisible to this type.
-		data: patient as unknown as PatientResponse["data"],
+		// `WithCount` — present at runtime, just invisible to this type. A
+		// brand-new patient can't have any `FLAGGED`/`UNFLAGGED` timeline
+		// row yet, so `UNFLAGGED_STATUS` is correct here without needing to
+		// call `getPatientFlagStatuses` (unlike `patient`/`patientUpdate`).
+		data: {
+			...patient,
+			...UNFLAGGED_STATUS,
+		} as unknown as PatientResponse["data"],
 	});
 };
 
@@ -180,9 +211,10 @@ export const patients = async (
 	const limit = Number(query.limit);
 
 	const dateFilter: WhereOperator<Date> = {};
-	if (query.from) dateFilter.gte = new Date(`${query.from}T00:00:00.000Z`);
+	if (query.from)
+		dateFilter.gte = localDateStartToUtc(query.from, query.tz_offset);
 	if (query.to) {
-		const end = new Date(`${query.to}T00:00:00.000Z`);
+		const end = localDateStartToUtc(query.to, query.tz_offset);
 		end.setUTCDate(end.getUTCDate() + 1);
 		dateFilter.lt = end;
 	}
@@ -208,6 +240,12 @@ export const patients = async (
 	if (query.dob_from) dobFilter.gte = query.dob_from;
 	if (query.dob_to) dobFilter.lte = query.dob_to;
 	if (query.dob_from || query.dob_to) where.date_of_birth = dobFilter;
+
+	const startOfPeriod = localMonthStartToUtc(query.tz_offset);
+	const registeredThisPeriod = await server.core.patient.count({
+		facility_id: request.user!.facility_id!,
+		created_at: { gte: startOfPeriod },
+	});
 
 	const sorts = parseSortList(query.sort, PatientModel, "created_at");
 	const orders = parseEnumList(query.order, orderDirectionSchema) ?? ["desc"];
@@ -242,6 +280,7 @@ export const patients = async (
 		message: "Patients retrieved.",
 		...result,
 		data: data as unknown as PatientResponse["data"][],
+		registered_this_period: registeredThisPeriod,
 	});
 };
 
@@ -271,6 +310,8 @@ export const patient = async (
 		await getPatientFlagStatuses(request.server.core, [patient.id])
 	).get(patient.id);
 
+	const stats = await patientStats(request.server.core, patient.id);
+
 	const { status, code } = HTTP_RESPONSE_CODE.OK;
 	reply.status(status).send({
 		code,
@@ -278,7 +319,8 @@ export const patient = async (
 		data: {
 			...patient,
 			...(flagStatus ?? UNFLAGGED_STATUS),
-		} as unknown as PatientResponse["data"],
+			stats,
+		} as unknown as PatientDetailResponse["data"],
 	});
 };
 

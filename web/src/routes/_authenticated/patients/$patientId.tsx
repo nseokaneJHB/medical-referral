@@ -1,21 +1,31 @@
 import { useState } from "react";
 
 import { createFileRoute, useRouter } from "@tanstack/react-router";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
 
+import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
-import { SaveIcon, FlagIcon, FlagOffIcon, ArrowLeftRightIcon } from "lucide-react";
+import {
+	SaveIcon,
+	FlagIcon,
+	ActivityIcon,
+	FlagOffIcon,
+	ClipboardListIcon,
+	ArrowLeftRightIcon,
+} from "lucide-react";
 
 import {
 	GENDER,
 	FRONTEND_URLS,
 	stringToTitleCase,
 	UpdatePatientSchema,
+	transferRequestSchema,
 	type TransferResponse,
 	type PatientResponse,
 	type UpdatePatientBody,
+	type TransferRequestBody,
 } from "@referral-tracking/shared";
 
 import { Badge } from "@/components/ui/badge";
@@ -32,11 +42,12 @@ import {
 } from "@/components/ui/dialog";
 
 import { Input } from "@/components/custom/input";
-import { BackLink } from "@/components/custom/back-link";
+import { BackLink } from "@/components/back-link";
+import { StatCard } from "@/components/custom/stat-card";
 import { TextArea } from "@/components/custom/text-area";
 import { SelectInput } from "@/components/custom/select-input";
 import { ReadOnlyField } from "@/components/custom/read-only-field";
-import { MedicalHistory } from "@/components/custom/medical-history";
+import { MedicalHistory } from "@/components/patients/medical-history";
 
 import { useFormField } from "@/hooks/use-form-field";
 import { useToastMutation } from "@/hooks/use-toast-mutation";
@@ -72,7 +83,23 @@ const FlagPatientAction = ({
 	onChanged: () => Promise<void>;
 }) => {
 	const [open, setOpen] = useState(false);
-	const [reason, setReason] = useState("");
+
+	// No single static schema fits both branches — flagging requires a
+	// reason, unflagging's note is optional — so this builds a schema off
+	// the (stable, per-instance) `flagged` prop instead of reusing one of
+	// the shared moderation schemas directly.
+	const reasonSchema = flagged
+		? z.string()
+		: z.string().min(1, "A reason is required.");
+	const formSchema = z.object({ reason: reasonSchema });
+
+	const { control, handleSubmit, reset } = useForm<{ reason: string }>({
+		mode: "onChange",
+		resolver: zodResolver(formSchema),
+		defaultValues: { reason: "" },
+	});
+
+	const reason = useFormField({ name: "reason", control });
 
 	const flagMutation = useMutation<PatientResponse, Error, string>({
 		mutationFn: (notes) =>
@@ -81,13 +108,13 @@ const FlagPatientAction = ({
 				: flagPatient(patientId, { reason: notes }),
 	});
 
-	const onConfirm = async () =>
+	const onSubmit = async (payload: { reason: string }) =>
 		useToastMutation({
 			loading: flagged ? "Unflagging patient..." : "Flagging patient...",
-			promise: flagMutation.mutateAsync(reason),
+			promise: flagMutation.mutateAsync(payload.reason),
 			onSuccess: async () => {
 				setOpen(false);
-				setReason("");
+				reset();
 				await onChanged();
 			},
 		});
@@ -114,27 +141,33 @@ const FlagPatientAction = ({
 							: "Advisory only — flagging a patient doesn't block care or referrals, it's a visible marker with a reason for other clinicians."}
 					</DialogDescription>
 				</DialogHeader>
-				<TextArea
-					name="reason"
-					label={flagged ? "Note (optional)" : "Reason"}
-					required={!flagged}
-					value={reason}
-					onChange={(event) => setReason(event.target.value)}
-				/>
-				<DialogFooter>
-					<Button
-						type="button"
-						variant={flagged ? "outline" : "warning"}
-						title={flagged ? "Confirm unflag" : "Confirm flag"}
-						disabled={
-							flagMutation.isPending || (!flagged && reason.trim().length === 0)
-						}
-						onClick={onConfirm}
-					>
-						{flagMutation.isPending ? <Spinner /> : null}
-						<span>{flagged ? "Unflag" : "Flag"}</span>
-					</Button>
-				</DialogFooter>
+				<form
+				onSubmit={(event) => {
+					event.stopPropagation();
+					void handleSubmit(onSubmit)(event);
+				}}
+				className="space-y-4"
+			>
+					<TextArea
+						name="reason"
+						label={flagged ? "Note (optional)" : "Reason"}
+						required={!flagged}
+						error={reason.error}
+						value={reason.value}
+						onChange={reason.onChange}
+					/>
+					<DialogFooter>
+						<Button
+							type="submit"
+							variant={flagged ? "outline" : "warning"}
+							title={flagged ? "Confirm unflag" : "Confirm flag"}
+							disabled={flagMutation.isPending}
+						>
+							{flagMutation.isPending ? <Spinner /> : null}
+							<span>{flagged ? "Unflag" : "Flag"}</span>
+						</Button>
+					</DialogFooter>
+				</form>
 			</DialogContent>
 		</Dialog>
 	);
@@ -156,8 +189,6 @@ const RequestTransferAction = ({
 	onChanged: () => Promise<void>;
 }) => {
 	const [open, setOpen] = useState(false);
-	const [destinationId, setDestinationId] = useState<string>();
-	const [reason, setReason] = useState("");
 
 	const {
 		setSearch: setFacilitySearch,
@@ -165,25 +196,34 @@ const RequestTransferAction = ({
 		loading: facilitiesLoading,
 	} = useFacilitySearch({ enabled: open, excludeId: currentFacilityId });
 
+	const { control, handleSubmit, reset } = useForm<TransferRequestBody>({
+		mode: "onChange",
+		resolver: zodResolver(transferRequestSchema),
+		defaultValues: { destination_facility_id: "", reason: "" },
+	});
+
+	const destinationFacilityId = useFormField({
+		name: "destination_facility_id",
+		control,
+		type: "select",
+	});
+	const reason = useFormField({ name: "reason", control });
+
 	const transferMutation = useMutation<
 		TransferResponse,
 		Error,
-		{ destination_facility_id: string; reason: string }
+		TransferRequestBody
 	>({
 		mutationFn: (payload) => requestPatientTransfer(patientId, payload),
 	});
 
-	const onConfirm = async () =>
+	const onSubmit = async (payload: TransferRequestBody) =>
 		useToastMutation({
 			loading: "Requesting transfer...",
-			promise: transferMutation.mutateAsync({
-				destination_facility_id: destinationId!,
-				reason,
-			}),
+			promise: transferMutation.mutateAsync(payload),
 			onSuccess: async () => {
 				setOpen(false);
-				setDestinationId(undefined);
-				setReason("");
+				reset();
 				await onChanged();
 			},
 		});
@@ -208,39 +248,48 @@ const RequestTransferAction = ({
 						approve.
 					</DialogDescription>
 				</DialogHeader>
-				<SelectInput
-					searchable
-					filterMode="server"
-					loading={facilitiesLoading}
-					label="Destination facility"
-					items={facilityItems}
-					placeholder="Select a facility"
-					value={destinationId}
-					onChange={setDestinationId}
-					onSearchChange={setFacilitySearch}
-				/>
-				<TextArea
-					required
-					name="reason"
-					label="Reason"
-					value={reason}
-					onChange={(event) => setReason(event.target.value)}
-				/>
-				<DialogFooter>
-					<Button
-						type="button"
-						title="Confirm transfer request"
-						disabled={
-							transferMutation.isPending ||
-							!destinationId ||
-							reason.trim().length === 0
+				<form
+				onSubmit={(event) => {
+					event.stopPropagation();
+					void handleSubmit(onSubmit)(event);
+				}}
+				className="space-y-4"
+			>
+					<SelectInput
+						searchable
+						filterMode="server"
+						loading={facilitiesLoading}
+						label="Destination facility"
+						items={facilityItems}
+						error={destinationFacilityId.error}
+						placeholder="Select a facility"
+						value={destinationFacilityId.value as string | undefined}
+						onChange={
+							destinationFacilityId.onChange as (
+								value: string | undefined,
+							) => void
 						}
-						onClick={onConfirm}
-					>
-						{transferMutation.isPending ? <Spinner /> : null}
-						<span>Request transfer</span>
-					</Button>
-				</DialogFooter>
+						onSearchChange={setFacilitySearch}
+					/>
+					<TextArea
+						required
+						name="reason"
+						label="Reason"
+						error={reason.error}
+						value={reason.value}
+						onChange={reason.onChange}
+					/>
+					<DialogFooter>
+						<Button
+							type="submit"
+							title="Confirm transfer request"
+							disabled={transferMutation.isPending}
+						>
+							{transferMutation.isPending ? <Spinner /> : null}
+							<span>Request transfer</span>
+						</Button>
+					</DialogFooter>
+				</form>
 			</DialogContent>
 		</Dialog>
 	);
@@ -249,7 +298,19 @@ const RequestTransferAction = ({
 const PatientDetailPage = () => {
 	const router = useRouter();
 	const { user, queryClient } = Route.useRouteContext();
-	const response = Route.useLoaderData();
+	const { patientId } = Route.useParams();
+
+	/**
+	 * `useSuspenseQuery` (not `Route.useLoaderData()`) deliberately — the
+	 * loader's `ensureQueryData` primes this exact cache entry, so this
+	 * doesn't cost an extra fetch, but unlike `useLoaderData` it's a live
+	 * subscription: `invalidateQueries` below is enough on its own to make
+	 * this page re-render with fresh data after a mutation.
+	 */
+	const { data: response } = useSuspenseQuery({
+		queryKey: [...QUERY_KEYS.PATIENT, patientId],
+		queryFn: () => patientRequest({ data: { id: patientId } }),
+	});
 	const patient = response.data;
 
 	// Doctors and Managers have no patient fields left to edit — medical
@@ -325,6 +386,19 @@ const PatientDetailPage = () => {
 	return (
 		<div className="space-y-4">
 			<BackLink label="Back to patients" fallbackTo={FRONTEND_URLS.PATIENTS} />
+
+			<div className="grid gap-4 sm:grid-cols-2">
+				<StatCard
+					icon={ClipboardListIcon}
+					label="Total referrals"
+					value={String(patient.stats.total_referrals)}
+				/>
+				<StatCard
+					icon={ActivityIcon}
+					label="Active referrals"
+					value={String(patient.stats.active_referrals)}
+				/>
+			</div>
 
 			{patient.flagged && (
 				<div className="border-warning bg-warning/10 flex items-start justify-between gap-4 rounded-md border p-3">

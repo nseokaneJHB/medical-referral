@@ -15,7 +15,9 @@ export const LoginsSchema = z.object({
 	device: stringSchema.nullable(),
 	status: LoginStatusEnum,
 	reason: stringSchema.nullable(),
-	user: z.object({ email: emailSchema, name: stringSchema.nullable() }).nullable(),
+	user: z
+		.object({ email: emailSchema, name: stringSchema.nullable() })
+		.nullable(),
 });
 
 export const loginsListResponseSchema = paginatedGlobalResponseSchema.extend({

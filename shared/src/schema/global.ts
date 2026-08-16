@@ -16,6 +16,12 @@ export const paginationSortAndSearchQuerySchema = z
 	.object({
 		to: z.string().optional().describe("End date for filtering results"),
 		from: z.string().optional().describe("Start date for filtering results"),
+		tz_offset: z
+			.string()
+			.optional()
+			.describe(
+				"Client's UTC offset in minutes (Date.prototype.getTimezoneOffset() convention) — anchors `from`/`to` day boundaries to the client's local calendar day instead of UTC",
+			),
 		sort: stringSchema.optional().describe("Field to sort results by"),
 		order: orderDirectionSchema.optional().describe("Sort order (ASC or DESC)"),
 		search: stringSchema.optional().describe("Search string to filter results"),

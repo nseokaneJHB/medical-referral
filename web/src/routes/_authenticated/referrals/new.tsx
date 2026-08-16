@@ -26,9 +26,9 @@ import { Spinner } from "@/components/ui/spinner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 import { TextArea } from "@/components/custom/text-area";
-import { BackLink } from "@/components/custom/back-link";
+import { BackLink } from "@/components/back-link";
 import { SelectInput } from "@/components/custom/select-input";
-import { SpecialtyManager } from "@/components/custom/specialty-manager";
+import { SpecialtyManager } from "@/components/specialties/specialty-manager";
 
 import { useFormField } from "@/hooks/use-form-field";
 import { useToastMutation } from "@/hooks/use-toast-mutation";
@@ -201,113 +201,117 @@ const NewReferralPage = () => {
 				fallbackTo={FRONTEND_URLS.REFERRALS}
 			/>
 
-			<form onSubmit={handleSubmit(onSubmit)}>
-				<Card>
-					<CardHeader>
-						<CardTitle className="text-xl">Create referral</CardTitle>
-					</CardHeader>
-					<CardContent className="space-y-4">
-						<SelectInput
-							searchable
-							label="Patient"
-							items={patientItems}
-							error={patientId.error}
-							disabled={isLoading}
-							placeholder="Select a patient"
-							value={patientId.value as string}
-							onChange={
-								patientId.onChange as (value: string | undefined) => void
-							}
-						/>
-
-						{hasActiveReferral && (
-							<div className="border-warning bg-warning/20 text-warning rounded-md border p-3 text-sm">
-								This patient already has an active referral. You can still
-								continue if this is a new, unrelated visit.
-							</div>
-						)}
-
-						<SelectInput
-							searchable
-							filterMode="server"
-							loading={facilitiesLoading}
-							label="Receiving facility"
-							items={facilityItems}
-							error={destinationFacilityId.error}
-							disabled={isLoading}
-							placeholder="Select a facility"
-							value={destinationFacilityId.value as string}
-							onChange={
-								destinationFacilityId.onChange as (
-									value: string | undefined,
-								) => void
-							}
-							onSearchChange={setFacilitySearch}
-						/>
-
-						<TextArea
-							required
-							name="visit_reason"
-							label="Reason for visiting the facility"
-							error={visitReason.error}
-							value={visitReason.value}
-							onChange={visitReason.onChange}
-							disabled={isLoading}
-						/>
-
-						<TextArea
-							required
-							name="referral_reason"
-							label="Reason for referral"
-							error={referralReason.error}
-							value={referralReason.value}
-							onChange={referralReason.onChange}
-							disabled={isLoading}
-						/>
-
-						<SelectInput
-							label="Priority"
-							items={PRIORITY_ITEMS}
-							error={priority.error}
-							disabled={isLoading}
-							placeholder="Select priority"
-							value={priority.value as string}
-							onChange={
-								priority.onChange as (value: string | undefined) => void
-							}
-						/>
-
-						<div className="space-y-2">
-							<p className="text-sm font-medium">
-								Specialties needed (optional)
-							</p>
-							<p className="text-muted-foreground text-sm">
-								Not sure? Leave this blank — the receiving doctor can tag
-								specialties later.
-							</p>
-							<SpecialtyManager
-								assigned={stagedSpecialties}
-								allSpecialties={allSpecialties?.data ?? []}
-								editable
-								onAssign={handleStageSpecialty}
-								onUnassign={handleUnstageSpecialty}
+			<div className="grid gap-4 lg:grid-cols-3">
+				<form onSubmit={handleSubmit(onSubmit)} className="lg:col-span-2">
+					<Card>
+						<CardHeader>
+							<CardTitle className="text-xl">Create referral</CardTitle>
+						</CardHeader>
+						<CardContent className="space-y-4">
+							<SelectInput
+								searchable
+								label="Patient"
+								items={patientItems}
+								error={patientId.error}
+								disabled={isLoading}
+								placeholder="Select a patient"
+								value={patientId.value as string}
+								onChange={
+									patientId.onChange as (value: string | undefined) => void
+								}
 							/>
-						</div>
 
-						<Button type="submit" title="Create referral" disabled={isLoading}>
-							{isLoading ? (
-								<>
-									<Spinner /> <span>Creating...</span>
-								</>
-							) : (
-								<>
-									<SaveIcon /> <span>Create referral</span>
-								</>
+							{hasActiveReferral && (
+								<div className="border-warning bg-warning/20 text-warning rounded-md border p-3 text-sm">
+									This patient already has an active referral. You can still
+									continue if this is a new, unrelated visit.
+								</div>
 							)}
-						</Button>
+
+							<SelectInput
+								searchable
+								filterMode="server"
+								loading={facilitiesLoading}
+								label="Receiving facility"
+								items={facilityItems}
+								error={destinationFacilityId.error}
+								disabled={isLoading}
+								placeholder="Select a facility"
+								value={destinationFacilityId.value as string}
+								onChange={
+									destinationFacilityId.onChange as (
+										value: string | undefined,
+									) => void
+								}
+								onSearchChange={setFacilitySearch}
+							/>
+
+							<TextArea
+								required
+								name="visit_reason"
+								label="Reason for visiting the facility"
+								error={visitReason.error}
+								value={visitReason.value}
+								onChange={visitReason.onChange}
+								disabled={isLoading}
+							/>
+
+							<TextArea
+								required
+								name="referral_reason"
+								label="Reason for referral"
+								error={referralReason.error}
+								value={referralReason.value}
+								onChange={referralReason.onChange}
+								disabled={isLoading}
+							/>
+
+							<SelectInput
+								label="Priority"
+								items={PRIORITY_ITEMS}
+								error={priority.error}
+								disabled={isLoading}
+								placeholder="Select priority"
+								value={priority.value as string}
+								onChange={
+									priority.onChange as (value: string | undefined) => void
+								}
+							/>
+
+							<Button type="submit" title="Create referral" disabled={isLoading}>
+								{isLoading ? (
+									<>
+										<Spinner /> <span>Creating...</span>
+									</>
+								) : (
+									<>
+										<SaveIcon /> <span>Create referral</span>
+									</>
+								)}
+							</Button>
+						</CardContent>
+					</Card>
+				</form>
+
+				<Card className="lg:col-span-1">
+					<CardHeader>
+						<CardTitle className="text-lg">Specialties needed</CardTitle>
+					</CardHeader>
+					<CardContent className="space-y-2">
+						<p className="text-muted-foreground text-sm">
+							Not sure? Leave this blank — the receiving doctor can tag
+							specialties later.
+						</p>
+						<SpecialtyManager
+							assigned={stagedSpecialties}
+							allSpecialties={allSpecialties?.data ?? []}
+							editable
+							onAssign={handleStageSpecialty}
+							onUnassign={handleUnstageSpecialty}
+						/>
 					</CardContent>
 				</Card>
-			</form>
+			</div>
 		</div>
 	);
 };

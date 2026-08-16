@@ -25,6 +25,17 @@ export const error = async (
 		return reply.status(status).send(response);
 	}
 
+	// Errors explicitly marked as client-side (e.g. invalid query params)
+	if (!(error instanceof APIError) && error.statusCode === 400) {
+		const { status, code } = HTTP_RESPONSE_CODE.BAD_REQUEST;
+		const response: GlobalResponse = {
+			code,
+			message: error.message,
+		};
+
+		return reply.status(status).send(response);
+	}
+
 	if (error instanceof APIError) {
 		if (error.statusCode === 400) {
 			const { status, code } = HTTP_RESPONSE_CODE.BAD_REQUEST;

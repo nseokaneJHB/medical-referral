@@ -11,13 +11,17 @@ import {
 	CreateFacilitySchema,
 	orderDirectionSchema,
 	facilityStatusSchema,
+	TERMINAL_REFERRAL_STATUSES,
 	uuidSchema,
 	type Role,
 	type FacilitySpecialtyListResponse,
+	type FacilityDetailResponse,
 } from "@referral-tracking/shared";
 
-import { generateUuid, normalizeNullableFields } from "../../lib/util";
+import { generateUuid, zeroFillCounts, normalizeNullableFields } from "../../lib/util";
 import { parseEnumList, parseSortList } from "../../lib/validator";
+
+import type { CoreService } from "../../core";
 
 import { FacilityModel, type FacilityModelSelect } from "../../drizzle/schema";
 
@@ -56,6 +60,31 @@ const TIMELINE_FIELDS = {
 const TIMELINE_INCLUDE = {
 	changer: { select: { id: true, name: true } },
 } as const;
+
+/**
+ * `GET /facilities/:id` only — referral and specialty counts for this
+ * facility, same shape/reasoning as `doctorStats` in `modules/users/service.ts`.
+ */
+const facilityStats = async (
+	core: Pick<CoreService, "referral" | "specialty">,
+	facilityId: string,
+): Promise<FacilityDetailResponse["data"]["stats"]> => {
+	const [referralsReceived, activeReferrals, specialtiesCount] =
+		await Promise.all([
+			core.referral.count({ destination_facility_id: facilityId }),
+			core.referral.count({
+				destination_facility_id: facilityId,
+				status: { notIn: TERMINAL_REFERRAL_STATUSES },
+			}),
+			core.specialty.linkCount("facility", { facility_id: facilityId }),
+		]);
+
+	return {
+		referrals_received: referralsReceived,
+		active_referrals: activeReferrals,
+		specialties_count: specialtiesCount,
+	};
+};
 
 /**
  * No `app.authenticate` on this route (see `route.ts`) — the unauthenticated
@@ -99,6 +128,9 @@ export const facilities = async (
 				: { status: FACILITY_STATUS.APPROVED },
 		);
 	}
+
+	const visibilityWhere: WhereClause<FacilityModelSelect> =
+		clauses.length > 0 ? { AND: [...clauses] } : {};
 
 	if (query.search) {
 		clauses.push({
@@ -157,11 +189,17 @@ export const facilities = async (
 		select: FACILITY_FIELDS,
 	});
 
+	const statusCounts = zeroFillCounts(
+		await server.core.facility.count(visibilityWhere, "status"),
+		FACILITY_STATUS,
+	);
+
 	const { status, code } = HTTP_RESPONSE_CODE.OK;
 	reply.status(status).send({
 		code,
 		message: "Facilities retrieved.",
 		...result,
+		status_counts: statusCounts,
 	});
 };
 
@@ -190,10 +228,14 @@ export const facility = async (
 		return reply.status(status).send({ code, message: "Facility not found." });
 	}
 
+	const stats = await facilityStats(request.server.core, facility.id);
+
 	const { status, code } = HTTP_RESPONSE_CODE.OK;
-	reply
-		.status(status)
-		.send({ code, message: "Facility retrieved.", data: facility });
+	reply.status(status).send({
+		code,
+		message: "Facility retrieved.",
+		data: { ...facility, stats } as unknown as FacilityDetailResponse["data"],
+	});
 };
 
 export const facilityHistory = async (

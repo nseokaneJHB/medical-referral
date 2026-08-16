@@ -8,6 +8,7 @@ import {
 	specialtyParamsSchema,
 	specialtiesQuerySchema,
 	specialtyResponseSchema,
+	SpecialtyListItemSchema,
 	specialtyListResponseSchema,
 	FacilitySpecialtyLinkSchema,
 	assignFacilitySpecialtySchema,
@@ -33,6 +34,7 @@ export type UpdateSpecialtyBody = z.infer<typeof UpdateSpecialtySchema>;
 export type SpecialtyParams = z.infer<typeof specialtyParamsSchema>;
 export type SpecialtiesQuery = z.infer<typeof specialtiesQuerySchema>;
 export type SpecialtyResponse = z.infer<typeof specialtyResponseSchema>;
+export type SpecialtyListItem = z.infer<typeof SpecialtyListItemSchema>;
 export type SpecialtyListResponse = z.infer<typeof specialtyListResponseSchema>;
 
 export type FacilitySpecialtyLink = z.infer<typeof FacilitySpecialtyLinkSchema>;

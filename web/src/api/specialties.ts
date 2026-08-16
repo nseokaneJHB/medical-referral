@@ -59,16 +59,14 @@ export const specialtiesRequest = createServerFn({ method: "GET" })
 
 export const facilitySpecialtiesRequest = createServerFn({ method: "GET" })
 	.inputValidator((params: FacilityParams) => params)
-	.handler(
-		async ({ data: params }): Promise<FacilitySpecialtyListResponse> => {
-			const url = `${facilitiesBaseUrl}${buildUrlWithParams(API_PATHS.FACILITY_SPECIALTY_LIST, params)}`;
-			const { data } = await api.get<FacilitySpecialtyListResponse>(
-				url,
-				forwardedRequestOptions(),
-			);
-			return data;
-		},
-	);
+	.handler(async ({ data: params }): Promise<FacilitySpecialtyListResponse> => {
+		const url = `${facilitiesBaseUrl}${buildUrlWithParams(API_PATHS.FACILITY_SPECIALTY_LIST, params)}`;
+		const { data } = await api.get<FacilitySpecialtyListResponse>(
+			url,
+			forwardedRequestOptions(),
+		);
+		return data;
+	});
 
 export const userSpecialtiesRequest = createServerFn({ method: "GET" })
 	.inputValidator((params: UserParams) => params)
@@ -83,16 +81,14 @@ export const userSpecialtiesRequest = createServerFn({ method: "GET" })
 
 export const referralSpecialtiesRequest = createServerFn({ method: "GET" })
 	.inputValidator((params: ReferralParams) => params)
-	.handler(
-		async ({ data: params }): Promise<ReferralSpecialtyListResponse> => {
-			const url = `${referralsBaseUrl}${buildUrlWithParams(API_PATHS.REFERRAL_SPECIALTY_LIST, params)}`;
-			const { data } = await api.get<ReferralSpecialtyListResponse>(
-				url,
-				forwardedRequestOptions(),
-			);
-			return data;
-		},
-	);
+	.handler(async ({ data: params }): Promise<ReferralSpecialtyListResponse> => {
+		const url = `${referralsBaseUrl}${buildUrlWithParams(API_PATHS.REFERRAL_SPECIALTY_LIST, params)}`;
+		const { data } = await api.get<ReferralSpecialtyListResponse>(
+			url,
+			forwardedRequestOptions(),
+		);
+		return data;
+	});
 
 // Write (client-side)
 export const createSpecialty = async (

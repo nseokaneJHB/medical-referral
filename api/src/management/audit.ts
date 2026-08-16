@@ -189,12 +189,10 @@ export class AuditManager {
 				: null,
 		]);
 
-		const referralFacilityIds = (referrals?.data ?? []).flatMap(
-			(referral) => [
-				referral.origin_facility_id,
-				referral.destination_facility_id,
-			],
-		);
+		const referralFacilityIds = (referrals?.data ?? []).flatMap((referral) => [
+			referral.origin_facility_id,
+			referral.destination_facility_id,
+		]);
 
 		const allFacilityIds = [
 			...new Set([...facilityIds, ...referralFacilityIds]),

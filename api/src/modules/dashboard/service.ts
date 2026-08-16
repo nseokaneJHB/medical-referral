@@ -7,7 +7,7 @@ import {
 	HTTP_RESPONSE_CODE,
 } from "@referral-tracking/shared";
 
-import { zeroFillCounts } from "../../lib/util";
+import { zeroFillCounts, localDateStartToUtc } from "../../lib/util";
 import { TransferManager } from "../../management/transfer";
 
 import type { WhereClause } from "../../core/helpers";
@@ -37,11 +37,11 @@ export const nurseSummary = async (
 	if (request.query.from) {
 		where.created_at = {
 			...(where.created_at || {}),
-			gte: new Date(`${request.query.from}T00:00:00.000Z`),
+			gte: localDateStartToUtc(request.query.from, request.query.tz_offset),
 		};
 	}
 	if (request.query.to) {
-		const end = new Date(`${request.query.to}T00:00:00.000Z`);
+		const end = localDateStartToUtc(request.query.to, request.query.tz_offset);
 		end.setUTCDate(end.getUTCDate() + 1);
 		where.created_at = { ...(where.created_at || {}), lt: end };
 	}
@@ -89,11 +89,11 @@ export const doctorSummary = async (
 	if (request.query.from) {
 		where.created_at = {
 			...(where.created_at || {}),
-			gte: new Date(`${request.query.from}T00:00:00.000Z`),
+			gte: localDateStartToUtc(request.query.from, request.query.tz_offset),
 		};
 	}
 	if (request.query.to) {
-		const end = new Date(`${request.query.to}T00:00:00.000Z`);
+		const end = localDateStartToUtc(request.query.to, request.query.tz_offset);
 		end.setUTCDate(end.getUTCDate() + 1);
 		where.created_at = { ...(where.created_at || {}), lt: end };
 	}
@@ -132,11 +132,11 @@ export const adminSummary = async (
 	if (request.query.from) {
 		where.created_at = {
 			...((where.created_at as Record<string, unknown>) || {}),
-			gte: new Date(`${request.query.from}T00:00:00.000Z`),
+			gte: localDateStartToUtc(request.query.from, request.query.tz_offset),
 		};
 	}
 	if (request.query.to) {
-		const end = new Date(`${request.query.to}T00:00:00.000Z`);
+		const end = localDateStartToUtc(request.query.to, request.query.tz_offset);
 		end.setUTCDate(end.getUTCDate() + 1);
 		where.created_at = {
 			...((where.created_at as Record<string, unknown>) || {}),
@@ -194,11 +194,11 @@ export const managerSummary = async (
 	if (request.query.from) {
 		where.created_at = {
 			...((where.created_at as Record<string, unknown>) || {}),
-			gte: new Date(`${request.query.from}T00:00:00.000Z`),
+			gte: localDateStartToUtc(request.query.from, request.query.tz_offset),
 		};
 	}
 	if (request.query.to) {
-		const end = new Date(`${request.query.to}T00:00:00.000Z`);
+		const end = localDateStartToUtc(request.query.to, request.query.tz_offset);
 		end.setUTCDate(end.getUTCDate() + 1);
 		where.created_at = {
 			...((where.created_at as Record<string, unknown>) || {}),

@@ -20,7 +20,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 import { Input } from "@/components/custom/input";
-import { BackLink } from "@/components/custom/back-link";
+import { BackLink } from "@/components/back-link";
 import { TextArea } from "@/components/custom/text-area";
 import { SelectInput } from "@/components/custom/select-input";
 

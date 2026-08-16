@@ -1,4 +1,4 @@
-import type { ComponentProps } from "react";
+import { useId, type ComponentProps } from "react";
 
 import { Textarea as ShadCnTextarea } from "@/components/ui/textarea";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
@@ -13,17 +13,21 @@ interface TextAreaProps extends ComponentProps<"textarea"> {
 }
 
 export const TextArea = ({
+	id,
 	name,
 	label,
 	error,
 	containerClassName,
 	...props
 }: TextAreaProps) => {
+	const generatedId = useId();
+	const textareaId = id ?? generatedId;
 	return (
 		<Field className={cn("w-full gap-1", containerClassName)}>
-			{label && <FieldLabel>{label}</FieldLabel>}
+			{label && <FieldLabel htmlFor={textareaId}>{label}</FieldLabel>}
 			<ShadCnTextarea
 				{...props}
+				id={textareaId}
 				name={name}
 				className={cn(
 					"wrap-break-word",

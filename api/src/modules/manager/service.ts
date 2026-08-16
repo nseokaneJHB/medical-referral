@@ -387,6 +387,7 @@ export const appeals = async (
 			limit,
 			count: 0,
 			total: 0,
+			by_type: { user: 0, facility: 0 },
 		});
 	}
 
@@ -412,20 +413,27 @@ export const appeals = async (
 			limit,
 			count: 0,
 			total: 0,
+			by_type: { user: 0, facility: 0 },
 		});
 	}
 
+	const appealWhere = { type: TIMELINE_TYPE.USER, entity: { in: staffIds } };
+
 	const result = await request.server.management.appeal.list({
-		where: { type: TIMELINE_TYPE.USER, entity: { in: staffIds } },
+		where: appealWhere,
 		page,
 		limit,
 	});
+	const by_type = await request.server.management.appeal.countByType(
+		appealWhere,
+	);
 
 	const { status, code } = HTTP_RESPONSE_CODE.OK;
 	reply.status(status).send({
 		code,
 		message: "Appeals retrieved.",
 		...result,
+		by_type,
 	});
 };
 

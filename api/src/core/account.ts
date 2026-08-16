@@ -52,7 +52,10 @@ export class Account {
 	 * @throws If no `where` condition or no `select` fields are provided.
 	 */
 	update = async <TSelect extends keyof schema.AccountModelSelect>(
-		options: UpdateOptions<schema.AccountModelInsert, schema.AccountModelSelect>,
+		options: UpdateOptions<
+			schema.AccountModelInsert,
+			schema.AccountModelSelect
+		>,
 	): Promise<Pick<schema.AccountModelSelect, TSelect>[]> => {
 		return await updateRecords(this.executor, schema.AccountModel, options);
 	};

@@ -8,7 +8,10 @@ import {
 import { generateUuid } from "../../lib/util";
 import { parseSortList, parseEnumList } from "../../lib/validator";
 
-import { SpecialtyModel, type SpecialtyModelSelect } from "../../drizzle/schema";
+import {
+	SpecialtyModel,
+	type SpecialtyModelSelect,
+} from "../../drizzle/schema";
 
 import type { OrderClause, WhereClause } from "../../core/helpers";
 
@@ -58,11 +61,23 @@ export const specialties = async (
 		select: SPECIALTY_FIELDS,
 	});
 
+	const [facilityCounts, staffCounts] = await Promise.all([
+		server.core.specialty.linkCount("facility", undefined, "specialty_id"),
+		server.core.specialty.linkCount("user", undefined, "specialty_id"),
+	]);
+
+	const data = result.data.map((row) => ({
+		...row,
+		facility_count: facilityCounts[row.id] ?? 0,
+		staff_count: staffCounts[row.id] ?? 0,
+	}));
+
 	const { status, code } = HTTP_RESPONSE_CODE.OK;
 	reply.status(status).send({
 		code,
 		message: "Specialties retrieved.",
 		...result,
+		data,
 	});
 };
 

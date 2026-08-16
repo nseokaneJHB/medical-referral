@@ -19,7 +19,10 @@ function ChartContainer({
 	...props
 }: ChartContainerProps) {
 	const style = Object.fromEntries(
-		Object.entries(config).map(([key, value]) => [`--color-${key}`, value.color]),
+		Object.entries(config).map(([key, value]) => [
+			`--color-${key}`,
+			value.color,
+		]),
 	) as React.CSSProperties;
 
 	return (

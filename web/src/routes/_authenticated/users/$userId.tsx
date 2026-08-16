@@ -15,10 +15,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-import { BackLink } from "@/components/custom/back-link";
+import { BackLink } from "@/components/back-link";
 import { StatCard } from "@/components/custom/stat-card";
 import { ReadOnlyField } from "@/components/custom/read-only-field";
-import { SpecialtyManager } from "@/components/custom/specialty-manager";
+import { SpecialtyManager } from "@/components/specialties/specialty-manager";
 
 import { useToastMutation } from "@/hooks/use-toast-mutation";
 

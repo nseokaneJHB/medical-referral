@@ -15,6 +15,7 @@ import {
 	type ModerationReasonBody,
 	type FacilityListResponse,
 	type TimelineListResponse,
+	type FacilityDetailResponse,
 } from "@referral-tracking/shared";
 
 import { api } from "@/api";
@@ -45,9 +46,9 @@ export const facilitiesRequest = createServerFn({ method: "GET" })
 
 export const facilityRequest = createServerFn({ method: "GET" })
 	.inputValidator((params: FacilityParams) => params)
-	.handler(async ({ data: params }): Promise<FacilityResponse> => {
+	.handler(async ({ data: params }): Promise<FacilityDetailResponse> => {
 		const url = `${baseUrl}${buildUrlWithParams(API_PATHS.FACILITY_BY_ID, params)}`;
-		const { data } = await api.get<FacilityResponse>(
+		const { data } = await api.get<FacilityDetailResponse>(
 			url,
 			forwardedRequestOptions(),
 		);

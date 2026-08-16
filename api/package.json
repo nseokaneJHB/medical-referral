@@ -4,6 +4,7 @@
 	"version": "0.0.1",
 	"name": "@referral-tracking/api",
 	"scripts": {
+		"lint": "eslint .",
 		"start": "tsx src/app.ts",
 		"typecheck": "tsc --noEmit",
 		"dev": "tsx watch src/app.ts",

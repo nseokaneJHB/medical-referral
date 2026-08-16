@@ -67,7 +67,8 @@ const chunk = <T>(items: T[], size: number): T[][] => {
 const SPECIALTY_DEFS = [
 	{
 		name: "Cardiology",
-		description: "Diagnosis and treatment of heart and blood vessel conditions.",
+		description:
+			"Diagnosis and treatment of heart and blood vessel conditions.",
 	},
 	{
 		name: "Orthopedics",
@@ -98,11 +99,13 @@ const SPECIALTY_DEFS = [
 	},
 	{
 		name: "Emergency Medicine",
-		description: "Immediate evaluation and treatment of acute illness and injury.",
+		description:
+			"Immediate evaluation and treatment of acute illness and injury.",
 	},
 	{
 		name: "Psychiatry",
-		description: "Diagnosis and treatment of mental health and behavioral disorders.",
+		description:
+			"Diagnosis and treatment of mental health and behavioral disorders.",
 	},
 	{
 		name: "Obstetrics",

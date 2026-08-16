@@ -1,15 +1,30 @@
 import { useState } from "react";
 
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import {
+	createFileRoute,
+	useNavigate,
+	Link as RouterLink,
+} from "@tanstack/react-router";
+import { useSuspenseQuery } from "@tanstack/react-query";
 
 import {
-	flexRender,
 	useReactTable,
 	createColumnHelper,
 	getCoreRowModel,
 } from "@tanstack/react-table";
 
-import { PlusIcon } from "lucide-react";
+import {
+	PlusIcon,
+	EyeIcon,
+	ListIcon,
+	ClockIcon,
+	XCircleIcon,
+	ActivityIcon,
+	CheckCheckIcon,
+	CircleSlashIcon,
+	CheckCircleIcon,
+	PauseCircleIcon,
+} from "lucide-react";
 
 import {
 	PRIORITY,
@@ -22,17 +37,20 @@ import {
 } from "@referral-tracking/shared";
 
 import { Card, CardTitle, CardHeader, CardContent } from "@/components/ui/card";
-import { Table, TableRow, TableBody, TableCell } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Field, FieldLabel } from "@/components/ui/field";
+import { TableHead } from "@/components/ui/table";
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 
 import { Link } from "@/components/custom/link";
 import { Loader } from "@/components/custom/loader";
+import { StatCard } from "@/components/custom/stat-card";
+import { Table } from "@/components/custom/table";
 import { SelectInput } from "@/components/custom/select-input";
 import { SearchField } from "@/components/custom/search-field";
 import { VariantBadge } from "@/components/custom/variant-badge";
+import { RowActionsMenu } from "@/components/custom/row-actions-menu";
 import { PaginationFooter } from "@/components/custom/pagination-footer";
-import { SortableTableHeader } from "@/components/custom/sortable-table-header";
 
 import { QUERY_KEYS } from "@/api/constant";
 import { referralsRequest } from "@/api/referrals";
@@ -40,7 +58,7 @@ import { canCreateReferral } from "@/lib/permissions";
 
 const columnHelper = createColumnHelper<Referral>();
 
-const SORTABLE_COLUMNS = ["priority", "status", "created"];
+const SORTABLE_COLUMNS = ["priority", "status", "created_at"];
 
 const STATUS_ITEMS = Object.values(REFERRAL_STATUS).map((value) => ({
 	value,
@@ -57,7 +75,32 @@ const ReferralsPage = () => {
 
 	const { user } = Route.useRouteContext();
 	const search = Route.useSearch();
-	const response = Route.useLoaderData();
+
+	/**
+	 * `useSuspenseQuery` (not `Route.useLoaderData()`) deliberately — the
+	 * loader's `ensureQueryData` primes this exact cache entry, so this
+	 * doesn't cost an extra fetch, but unlike `useLoaderData` it's a live
+	 * subscription: the detail page's `invalidateQueries` after a mutation
+	 * (e.g. a status update) is enough on its own to make this list
+	 * re-render with fresh data. `useLoaderData` reads a snapshot from the
+	 * router's own match cache, which isn't subscribed to query-cache
+	 * invalidation at all — a status change made on the detail page would
+	 * toast success there but leave this list showing the old status
+	 * indefinitely.
+	 */
+	const { data: response } = useSuspenseQuery({
+		queryKey: [...QUERY_KEYS.REFERRALS, search],
+		queryFn: () =>
+			referralsRequest({
+				data: {
+					...search,
+					tz_offset:
+						typeof window !== "undefined"
+							? String(new Date().getTimezoneOffset())
+							: undefined,
+				},
+			}),
+	});
 
 	const [searchInput, setSearchInput] = useState(search.search ?? "");
 
@@ -87,7 +130,9 @@ const ReferralsPage = () => {
 		}),
 		columnHelper.accessor("status", {
 			header: "Status",
-			cell: (info) => <VariantBadge value={info.getValue()} type="referralStatus" />,
+			cell: (info) => (
+				<VariantBadge value={info.getValue()} type="referralStatus" />
+			),
 		}),
 	];
 
@@ -138,6 +183,49 @@ const ReferralsPage = () => {
 					)}
 				</CardHeader>
 			</Card>
+
+			<div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+				<StatCard
+					value={String(response.total)}
+					label="Total referrals"
+					icon={ListIcon}
+				/>
+				<StatCard
+					value={String(response.status_counts.PENDING)}
+					label="Pending"
+					icon={ClockIcon}
+				/>
+				<StatCard
+					value={String(response.status_counts.ACCEPTED)}
+					label="Accepted"
+					icon={CheckCircleIcon}
+				/>
+				<StatCard
+					value={String(response.status_counts.IN_PROGRESS)}
+					label="In progress"
+					icon={ActivityIcon}
+				/>
+				<StatCard
+					value={String(response.status_counts.ON_HOLD)}
+					label="On hold"
+					icon={PauseCircleIcon}
+				/>
+				<StatCard
+					value={String(response.status_counts.COMPLETED)}
+					label="Completed"
+					icon={CheckCheckIcon}
+				/>
+				<StatCard
+					value={String(response.status_counts.REJECTED)}
+					label="Rejected"
+					icon={XCircleIcon}
+				/>
+				<StatCard
+					value={String(response.status_counts.CANCELED)}
+					label="Canceled"
+					icon={CircleSlashIcon}
+				/>
+			</div>
 
 			<Card>
 				<CardContent className="flex flex-wrap items-end gap-2">
@@ -223,49 +311,33 @@ const ReferralsPage = () => {
 
 			<Card>
 				<CardContent>
-					<Table>
-						<SortableTableHeader
-							table={table}
-							sortableColumns={SORTABLE_COLUMNS}
-							activeSort={search.sort}
-							activeOrder={search.order}
-							onSort={toggleSort}
-						/>
-						<TableBody>
-							{table.getRowModel().rows.length === 0 && (
-								<TableRow>
-									<TableCell
-										colSpan={columns.length + 1}
-										className="text-muted-foreground text-center"
+					<Table
+						table={table}
+						sortableColumns={SORTABLE_COLUMNS}
+						activeSort={search.sort}
+						activeOrder={search.order}
+						onSort={toggleSort}
+						emptyMessage="No referrals found."
+						trailingHeader={
+							<TableHead className="text-right">Actions</TableHead>
+						}
+						rowActionClassName="text-right"
+						rowAction={(row) => (
+							<RowActionsMenu
+								label={`Actions for ${row.original.patient.first_name} ${row.original.patient.last_name}`}
+							>
+								<DropdownMenuItem asChild>
+									<RouterLink
+										to={FRONTEND_URLS.REFERRAL}
+										params={{ referralId: row.original.id }}
 									>
-										No referrals found.
-									</TableCell>
-								</TableRow>
-							)}
-							{table.getRowModel().rows.map((row) => (
-								<TableRow key={row.id}>
-									{row.getVisibleCells().map((cell) => (
-										<TableCell key={cell.id}>
-											{flexRender(
-												cell.column.columnDef.cell,
-												cell.getContext(),
-											)}
-										</TableCell>
-									))}
-									<TableCell>
-										<Link
-											variant="outline"
-											title="View referral"
-											to={FRONTEND_URLS.REFERRAL}
-											params={{ referralId: row.original.id }}
-										>
-											View
-										</Link>
-									</TableCell>
-								</TableRow>
-							))}
-						</TableBody>
-					</Table>
+										<EyeIcon />
+										<span>View</span>
+									</RouterLink>
+								</DropdownMenuItem>
+							</RowActionsMenu>
+						)}
+					/>
 				</CardContent>
 			</Card>
 
@@ -289,9 +361,14 @@ export const Route = createFileRoute("/_authenticated/referrals/")({
 	validateSearch: referralsQuerySchema,
 	loaderDeps: ({ search }) => search,
 	loader: async ({ context, deps }) => {
+		const tz_offset =
+			typeof window !== "undefined"
+				? String(new Date().getTimezoneOffset())
+				: undefined;
+
 		const response = await context.queryClient.ensureQueryData({
 			queryKey: [...QUERY_KEYS.REFERRALS, deps],
-			queryFn: () => referralsRequest({ data: deps }),
+			queryFn: () => referralsRequest({ data: { ...deps, tz_offset } }),
 		});
 
 		return response;

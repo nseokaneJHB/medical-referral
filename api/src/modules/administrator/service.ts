@@ -835,11 +835,13 @@ export const appeals = async (
 		: DEFAULT_PAGE_LIMIT;
 
 	const result = await request.server.management.appeal.list({ page, limit });
+	const by_type = await request.server.management.appeal.countByType();
 
 	const { status, code } = HTTP_RESPONSE_CODE.OK;
 	reply.status(status).send({
 		code,
 		message: "Appeals retrieved.",
 		...result,
+		by_type,
 	});
 };

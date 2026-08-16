@@ -1,6 +1,6 @@
-@import 'tailwindcss';
+@import "tailwindcss";
 
-@import 'tw-animate-css';
+@import "tw-animate-css";
 
 @import "tw-animate-css";
 
@@ -11,33 +11,33 @@
 body {
 	@apply m-0;
 	font-family:
-		-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu',
-		'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+		-apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu",
+		"Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
 }
 
 code {
 	font-family:
-		source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+		source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
 }
 
 :root {
 	color-scheme: light;
 
 	/* Custom colors */
-	--color-root-red: #A33E1D;
-	--color-night-ink: #1B1B1F;
-	--color-clay-gray: #A9A39A;
-	--color-sky-indigo: #3F5BA8;
-	--color-ubuntu-gray: #EFE4D8;
+	--color-root-red: #a33e1d;
+	--color-night-ink: #1b1b1f;
+	--color-clay-gray: #a9a39a;
+	--color-sky-indigo: #3f5ba8;
+	--color-ubuntu-gray: #efe4d8;
 	--color-ubuntu-black: #131313;
-	--color-ubuntu-white: #FCF7F2;
-	--color-baobab-green: #3B6E57;
-	--color-ubuntu-brown: #4B2E2B;
-	--color-heritage-gold: #D9A441;
-	--color-savannah-beige: #F5E9DD;
-	--color-sunrise-orange: #F26B1D;
+	--color-ubuntu-white: #fcf7f2;
+	--color-baobab-green: #3b6e57;
+	--color-ubuntu-brown: #4b2e2b;
+	--color-heritage-gold: #d9a441;
+	--color-savannah-beige: #f5e9dd;
+	--color-sunrise-orange: #f26b1d;
 
 	/* Semantic color mapping - Light Mode */
 	--background: var(--color-savannah-beige);
@@ -54,21 +54,21 @@ code {
 	--muted-foreground: var(--color-clay-gray);
 	--accent: var(--color-heritage-gold);
 	--accent-foreground: var(--color-night-ink);
-	--destructive: #EF4444;
+	--destructive: #ef4444;
 	--destructive-foreground: var(--color-ubuntu-white);
 	--input: var(--color-clay-gray);
 	--ring: var(--color-root-red);
 	--border: color-mix(in srgb, var(--color-clay-gray), transparent 60%);
 
 	/* Status colors */
-	--color-info: #3B82F6;
-	--color-error: #EF4444;
-	--color-success: #22C55E;
-	--color-warning: #FACC15;
-	--color-light-info: #DBEAFE;
-	--color-light-error: #FEE2E2;
-	--color-light-success: #DCFCE7;
-	--color-light-warning: #FEF9C3;
+	--color-info: #3b82f6;
+	--color-error: #ef4444;
+	--color-success: #22c55e;
+	--color-warning: #facc15;
+	--color-light-info: #dbeafe;
+	--color-light-error: #fee2e2;
+	--color-light-success: #dcfce7;
+	--color-light-warning: #fef9c3;
 
 	/* Radius */
 	--radius: 0.5rem;
@@ -92,7 +92,7 @@ code {
 	--muted-foreground: var(--color-clay-gray);
 	--accent: var(--color-heritage-gold);
 	--accent-foreground: var(--color-night-ink);
-	--destructive: #DC2626;
+	--destructive: #dc2626;
 	--destructive-foreground: var(--color-ubuntu-white);
 	--input: var(--color-ubuntu-brown);
 	--ring: var(--color-sunrise-orange);
@@ -101,22 +101,22 @@ code {
 
 @theme inline {
 	/* Font families */
-	--font-family-serif: 'Cormorant Garamond', serif;
-	--font-family-sans: 'Quicksand', ui-sans-serif, system-ui, sans-serif;
+	--font-family-serif: "Cormorant Garamond", serif;
+	--font-family-sans: "Quicksand", ui-sans-serif, system-ui, sans-serif;
 
 	/* Custom color classes */
-	--color-root-red: #A33E1D;
-	--color-night-ink: #1B1B1F;
-	--color-clay-gray: #A9A39A;
-	--color-sky-indigo: #3F5BA8;
-	--color-ubuntu-gray: #F3F4F6;
+	--color-root-red: #a33e1d;
+	--color-night-ink: #1b1b1f;
+	--color-clay-gray: #a9a39a;
+	--color-sky-indigo: #3f5ba8;
+	--color-ubuntu-gray: #f3f4f6;
 	--color-ubuntu-black: #131313;
-	--color-ubuntu-white: #FFFFFF;
-	--color-baobab-green: #3B6E57;
-	--color-ubuntu-brown: #4B2E2B;
-	--color-heritage-gold: #D9A441;
-	--color-savannah-beige: #F5E9DD;
-	--color-sunrise-orange: #F26B1D;
+	--color-ubuntu-white: #ffffff;
+	--color-baobab-green: #3b6e57;
+	--color-ubuntu-brown: #4b2e2b;
+	--color-heritage-gold: #d9a441;
+	--color-savannah-beige: #f5e9dd;
+	--color-sunrise-orange: #f26b1d;
 
 	/* Semantic colors */
 	--color-background: var(--background);
@@ -140,14 +140,14 @@ code {
 	--color-ring: var(--ring);
 
 	/* Status colors */
-	--color-info: #3B82F6;
-	--color-error: #EF4444;
-	--color-success: #22C55E;
-	--color-warning: #FACC15;
-	--color-light-info: #DBEAFE;
-	--color-light-error: #FEE2E2;
-	--color-light-success: #DCFCE7;
-	--color-light-warning: #FEF9C3;
+	--color-info: #3b82f6;
+	--color-error: #ef4444;
+	--color-success: #22c55e;
+	--color-warning: #facc15;
+	--color-light-info: #dbeafe;
+	--color-light-error: #fee2e2;
+	--color-light-success: #dcfce7;
+	--color-light-warning: #fef9c3;
 
 	/* Radius */
 	--radius-sm: calc(0.5rem - 4px);
@@ -161,13 +161,18 @@ code {
 
 @layer base {
 	* {
-		@apply p-0 m-0 border-border outline-ring/50;
+		@apply border-border outline-ring/50 m-0 p-0;
 		scrollbar-width: thin;
-		scrollbar-color: color-mix(in srgb, var(--muted-foreground), transparent 40%) transparent;
+		scrollbar-color: color-mix(
+				in srgb,
+				var(--muted-foreground),
+				transparent 40%
+			)
+			transparent;
 	}
 
 	body {
-		@apply font-sans min-h-screen flex flex-col overflow-hidden bg-background text-foreground;
+		@apply bg-background text-foreground flex min-h-screen flex-col overflow-hidden font-sans;
 	}
 
 	h1,
@@ -183,7 +188,7 @@ code {
 	select,
 	button,
 	textarea {
-		@apply font-sans rounded-lg outline-none focus:outline-none;
+		@apply rounded-lg font-sans outline-none focus:outline-none;
 	}
 
 	[data-sonner-toast] [data-close-button="true"] {
@@ -206,7 +211,11 @@ code {
 	}
 
 	::-webkit-scrollbar-thumb {
-		background-color: color-mix(in srgb, var(--muted-foreground), transparent 40%);
+		background-color: color-mix(
+			in srgb,
+			var(--muted-foreground),
+			transparent 40%
+		);
 		border: 2px solid transparent;
 		border-radius: var(--radius-lg);
 		background-clip: content-box;
@@ -219,7 +228,6 @@ code {
 
 @layer utilities {
 	@keyframes bounce-dot {
-
 		0%,
 		100% {
 			transform: translateY(0);

@@ -3,6 +3,7 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 import {
 	ROLES,
 	roleSchema,
+	USER_STATUS,
 	TIMELINE_TYPE,
 	REFERRAL_STATUS,
 	userStatusSchema,
@@ -78,6 +79,8 @@ export const users = async (
 	const where: WhereClause<UserModelSelect> = {};
 	if (role === ROLES.MANAGER) where.facility_id = request.user!.facility_id!;
 
+	const roleScopeWhere: WhereClause<UserModelSelect> = { ...where };
+
 	if (query.role) {
 		where.role = { in: parseEnumList(query.role, roleSchema) };
 	}
@@ -110,11 +113,17 @@ export const users = async (
 		select: USER_FIELDS,
 	});
 
+	const pendingApplications = await server.core.user.count({
+		...roleScopeWhere,
+		status: USER_STATUS.PENDING,
+	});
+
 	const { status, code } = HTTP_RESPONSE_CODE.OK;
 	reply.status(status).send({
 		code,
 		message: "Users retrieved.",
 		...result,
+		pending_applications: pendingApplications,
 	});
 };
 
@@ -257,7 +266,9 @@ export const userSpecialties = async (
 		limit: 100,
 		where: { user_id: request.params.id },
 		select: { id: true, user_id: true, created_at: true },
-		include: { specialty: { select: { id: true, name: true, description: true } } },
+		include: {
+			specialty: { select: { id: true, name: true, description: true } },
+		},
 	});
 
 	const { status, code } = HTTP_RESPONSE_CODE.OK;

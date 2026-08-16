@@ -18,6 +18,7 @@ describe the design conversation, not the build.
 
 Confirmed **done**, by reading the actual code (not inferred from the design
 sections below, which predate this):
+
 - **Rename shipped.** `shared/src/constant.ts`'s `ROLES` is
   `{NURSE, DOCTOR, ADMINISTRATOR, MANAGER}` — no `FACILITY_ADMIN` anywhere.
 - **`USER_STATUS`, `FACILITY_STATUS`, `TIMELINE_TYPE`, `TIMELINE_ACTION`**
@@ -31,7 +32,7 @@ sections below, which predate this):
   `isFacilityOrphaned`, `canFileAppeal`, `canFileFacilityAppeal`,
   `resolveAppealAuthority`. Implements the orphan-facility fallback and the
   appeal-authority resolution (most recent punitive timeline row → that
-  actor's *current* role) as designed.
+  actor's _current_ role) as designed.
 - **Approval-chain + appeals routes exist and are wired up**:
   `api/src/modules/administrator/route.ts` (manager/staff/facility approve-
   reject-flag-disable-suspend, appeals list/approve/deny, admin-created-user)
@@ -47,6 +48,7 @@ sections below, which predate this):
 - `api`/`shared` typecheck clean.
 
 **Confirmed** (checked after first writing this section as "unverified"):
+
 - Shared timeline table matches the agreed shape exactly:
   `api/src/drizzle/schema/timeline.ts` has `id`/`type`/`entity`/`action`/
   `previous`/`next`/`changer_id`/`notes`/`changed_at`, polymorphic `entity`
@@ -86,7 +88,7 @@ sections below, which predate this):
 - **Non-`ACTIVE` users are correctly restricted to "view my own status
   only" — confirmed.** `web/src/routes/_authenticated.tsx`'s `beforeLoad`
   redirects any non-`ACTIVE` user to `/account-status`, a standalone route
-  *outside* the `_authenticated` layout (no sidebar, no access to the real
+  _outside_ the `_authenticated` layout (no sidebar, no access to the real
   app) showing their status badge, reason, and an appeal form
   (`web/src/routes/account-status.tsx`) — exactly the design's "sign-in
   succeeds, every real resource stays blocked" model.
@@ -124,7 +126,7 @@ sections below, which predate this):
   `modules/administrator` (the latter as the orphan-facility fallback, via
   the already-existing `isFacilityOrphaned`) — not owned by `modules/patients`
   alone, even though request-creation (`POST /patients/:id/transfer`, Nurse/
-  Doctor at the patient's *current* facility only) is. Destination must be
+  Doctor at the patient's _current_ facility only) is. Destination must be
   `APPROVED`; only one transfer can be open per patient at a time; a
   rejection at either step ends it with the patient staying put; `facility_id`
   only actually changes on destination-approval. No parent-request foreign
@@ -181,7 +183,7 @@ sections below, which predate this):
   now-orphaned destination facility's pending decision; the destination-
   approve succeeded and the patient's `facility_id` genuinely moved
   (confirmed via direct query); and, as a negative-case check, Administrator
-  attempting to decide a *different* transfer whose relevant facility still
+  attempting to decide a _different_ transfer whose relevant facility still
   had an active Manager was correctly `403`'d — the fallback only fires
   when it's supposed to, not as a blanket override.
 
@@ -191,6 +193,7 @@ separate gap (the staff-application moderation frontend, and the
 API_PATHS/FRONTEND_URLS backfill-everywhere question).
 
 **Both remaining gaps closed, 2026-08-12:**
+
 - **Staff/manager moderation frontend — done.** `GET /users` (Manager and
   Administrator) now has real row actions instead of just "View":
   Approve/Reject on `PENDING` rows, Flag/Disable on `ACTIVE`, Disable-only
@@ -245,13 +248,14 @@ API_PATHS/FRONTEND_URLS backfill-everywhere question).
 `API_PATHS` entry cross-checked against actual frontend callers, prompted
 by "anything left outstanding?") — all backend-complete, zero frontend
 callers, none previously named in this doc:
+
 - **Facility moderation** — `ADMINISTRATOR_FACILITY_APPROVE/REJECT/FLAG/
-  SUSPEND`. No page lets an Administrator flag or suspend a facility, or
+SUSPEND`. No page lets an Administrator flag or suspend a facility, or
   approve/reject one standalone — approval currently only happens as a side
   effect of approving the Manager who registered it (`managerApprove`'s
   transaction).
 - **Appeals review queue** — `ADMINISTRATOR_APPEAL_APPROVE/DENY/LIST` and
-  `MANAGER_APPEAL_APPROVE/DENY/LIST`. The appeal *submission* form exists
+  `MANAGER_APPEAL_APPROVE/DENY/LIST`. The appeal _submission_ form exists
   (`account-status.tsx`), but nothing lets an Administrator or Manager see
   and decide pending appeals.
 - **Manager filing a facility appeal** — `MANAGER_FACILITY_APPEAL`. A
@@ -275,6 +279,7 @@ is gitignored (machine-local).
 ## Goal
 
 Two related efforts:
+
 1. Rename `FACILITY_ADMIN` → `MANAGER` (full rename: enum, DB column, all
    code/UI references — not just a display label).
 2. Redesign how permissions are defined and checked so they live in one
@@ -308,11 +313,15 @@ of this doc is still **PLANNING**.
 - **A reason is now required on every referral status transition, no
   exceptions by status** — closes a gap where `notes` was optional and most
   transitions shipped with none recorded.
-- **One active referral per patient** — creating a new referral for a
-  patient that already has a referral in a non-terminal status
-  (`pending`/`accepted`/`in_progress`/`on_hold`) is now rejected (409).
-  Prevents a patient being in two parallel, possibly-conflicting referral
-  workflows at once.
+- **A patient can have more than one active referral at once, by design** —
+  `referralCreate` (`api/src/modules/referrals/service.ts:90-97`) does not
+  block creating a new referral for a patient that already has one in a
+  non-terminal status; a patient can legitimately need a second, unrelated
+  referral while a long-running one is still open. This is surfaced as a
+  non-blocking warning client-side instead of a server-side rejection. (An
+  earlier draft of this doc described this as a 409-rejected case — that
+  was never implemented and doesn't reflect current intent; corrected
+  2026-08-16.)
 - Hard delete on Patients and Referrals removed entirely
   (`DELETE /patients/:id`, `DELETE /referrals/:id`), matching this doc's
   soft-status-only philosophy already agreed above for every other entity.
@@ -365,7 +374,7 @@ day) as they come up, with a suggested alternative — don't wait to be asked.
   Managers, and flag on facilities. This is a real reduction from today's
   code, not just documentation — `createPatient` currently allows
   `ADMINISTRATOR` (`api/src/modules/patients/route.ts`), and `POST
-  /facilities` is currently Administrator-only
+/facilities` is currently Administrator-only
   (`api/src/modules/facilities/route.ts`); both would need to change.
 - **Flagging a facility** blocks that facility from being referenced by new
   referrals/sign-ups, and blocks its staff from adding/updating patients or
@@ -390,7 +399,7 @@ day) as they come up, with a suggested alternative — don't wait to be asked.
 - ~~Should Manager get a facility-scoped dashboard + reports view?~~
   **Resolved** — see the final matrix section below.
 - ~~Which authorization model to adopt~~ **Resolved in practice** — the
-  final matrix + centralized permission function *is* the answer: a
+  final matrix + centralized permission function _is_ the answer: a
   deliberate RBAC+relationship+status hybrid, not a textbook single model.
   See notes below for the reasoning.
 
@@ -404,7 +413,7 @@ or a generated one-time password printed to the operator (never over HTTP).
 This needs no email.
 
 That still leaves a gap: once email-invite is parked (confirmed), how does a
-*second* Administrator ever get created? Suggest: let an existing
+_second_ Administrator ever get created? Suggest: let an existing
 Administrator create another Administrator (or any role) directly through an
 authenticated in-app action — server generates a temporary password shown
 once to the creating Administrator (who relays it out-of-band), with a forced
@@ -425,26 +434,26 @@ page's password-change path once that exists.
   restricted to "view my own status" only.
 - **Facility/Manager onboarding lifecycle, resolved:** two invariants that
   looked like they were in tension turned out not to be, once separated:
-  - *Creation-time invariant* ("a facility cannot exist without a manager"):
+  - _Creation-time invariant_ ("a facility cannot exist without a manager"):
     a facility only ever comes into being paired with a Manager's own
     registration (new-facility signup, approved together — as already
     decided). There's no path for a bare, manager-less facility to be
     created from scratch, by anyone, including Administrator.
-  - *Lifecycle invariant* (facility persists independent of any one
+  - _Lifecycle invariant_ (facility persists independent of any one
     manager's employment): once created, the facility is a durable entity —
     referrals/patients/history reference `facility_id`, so it must survive a
     specific manager leaving.
   - **Manager self-requested deletion → soft status, not a row delete**
     (confirmed) — preserves the facility and referential integrity (referral
     `doctor`/`created_by`, timeline `changed_by`, etc. all point at user
-    rows). This is a *different* status meaning than `DISABLED` (self-exit
+    rows). This is a _different_ status meaning than `DISABLED` (self-exit
     vs. administratively punitive) — needs its own value, e.g. `DEPARTED`,
     not reuse of `DISABLED`.
   - **Re-staffing a manager-less facility needs no new mechanism.** A new
     person self-registering as Manager and choosing "join an existing
     facility" already targets that (already-`APPROVED`) facility and goes to
     Administrator for approval like any Manager application — that
-    *is* the reassignment path. No dedicated "reassign facility to new
+    _is_ the reassignment path. No dedicated "reassign facility to new
     manager" admin action needed.
   - **This makes the orphan-facility gap (below) more important, not less** —
     manager turnover is now a confirmed normal event, not a hypothetical, so
@@ -476,12 +485,12 @@ page's password-change path once that exists.
   them (could be used to falsely claim work was done). Refined
   recommendation, splitting by intent rather than treating "flag" as one
   blunt switch:
-  - Block *progress/completion* transitions outright while flagged
+  - Block _progress/completion_ transitions outright while flagged
     (`accepted`, `in_progress`, `completed`) — these represent the flagged
     facility asserting they're doing or did the work.
-  - Still allow *exit* transitions (`canceled`, `rejected`, and a redirect
+  - Still allow _exit_ transitions (`canceled`, `rejected`, and a redirect
     to a different, non-flagged facility) — these move a patient's care
-    *away* from the flagged facility rather than crediting it, which matters
+    _away_ from the flagged facility rather than crediting it, which matters
     for patient continuity (a real regulated-industry pattern: a suspended
     provider can still hand off care, just can't keep operating).
   - If that's still more nuance than you want, the simpler fallback is a
@@ -504,7 +513,7 @@ page's password-change path once that exists.
   I checked: today the `timeline` table (`api/src/drizzle/schema/timeline.ts`)
   already has almost exactly what you're describing —
   `previous`/`next`/`changed_by`/`notes`/`changed` — it's just missing the
-  `action` label you're proposing, *and* it's hard-wired to `referral_id`
+  `action` label you're proposing, _and_ it's hard-wired to `referral_id`
   only. The gap this closes isn't hypothetical: right now, when a Manager
   assigns a doctor to a referral (`updateReferral`), nothing gets written to
   `timeline` at all — that action is currently silent, no audit trail. An
@@ -537,10 +546,10 @@ page's password-change path once that exists.
   departed, roughly — exact naming is an implementation detail for later).
   Reason comes from the same `user_timeline`-style history table as
   Facility, not a new column.
-- **Referral already *is* this pattern — nothing new needed structurally.**
+- **Referral already _is_ this pattern — nothing new needed structurally.**
   It already has `status` (`REFERRAL_STATUS`) plus a working history log
   with a reason (`timeline.notes`, written on every `updateReferralStatus`
-  call). This is the thing Facility/User are being generalized *toward*, not
+  call). This is the thing Facility/User are being generalized _toward_, not
   a fourth thing to design. It only needs the `action` enum addition already
   agreed (for doctor-assignment, redirect, and now possibly flagging — next
   point) layered onto the existing table.
@@ -574,7 +583,7 @@ page's password-change path once that exists.
   legitimate clinical need distinct from anything referral-level: allergy
   discrepancies, safety concerns, duplicate-record data issues, infection
   control — these live with the patient's identity, not a single episode of
-  care. But I would *not* give it the same enforcement teeth as a facility
+  care. But I would _not_ give it the same enforcement teeth as a facility
   flag. Blocking care/referrals off a patient flag risks being actively
   harmful if the flag's actual meaning turns out to be something like "data
   quality issue" rather than "do not treat" — the system can't tell the
@@ -583,7 +592,7 @@ page's password-change path once that exists.
   at least for a first version. Two things to decide, not assumed:
   - **Visibility** — Doctor-only, or also visible (read-only) to Nurses who
     create referrals for that patient? Sensitive flag reasons (e.g.
-    suspected abuse) argue for restricting who sees the *reason* even if the
+    suspected abuse) argue for restricting who sees the _reason_ even if the
     flag's existence is visible more broadly.
   - Uses the same generalized history-log pattern as User/Facility — this
     would be a third twin table (`patient_timeline`) alongside
@@ -652,14 +661,14 @@ matrix below, whenever you're ready.
 Everything below is settled, via the row-by-row walkthrough. See "Matrix
 walkthrough" further down for the detailed reasoning behind each cell.
 
-| Resource | Administrator | Manager | Doctor | Nurse |
-|---|---|---|---|---|
-| Patients | read only, no add/update, no hard delete | read only, own facility | update `history` only; flag a patient with reason (advisory-only, Nurse-visible) | create, read/update; no direct `facility_id` edit (see transfer workflow) |
-| Referrals | read only, no add/update, no hard delete | read only, own facility, **except**: assign doctor on a `PENDING` referral sent to their facility | accept/reject; redirect to another `APPROVED`, non-flagged/suspended facility | create; status moves (cancel/hold/pending), unchanged |
-| Facilities | cannot create/update; `FLAG` (exit-only) or `SUSPEND` (full freeze), with reason; no hard delete, ever | update own facility's profile (name/address); cannot delete | read-only, `APPROVED` + not flagged/suspended (redirect destination picking) | read-only, `APPROVED` + not flagged/suspended (transfer destination picking) |
-| Managers (accounts) | accept / reject / `DISABLE` (full freeze) / `FLAG` (restricted functionality), with reason | — | — | — |
-| Nurses/Doctors (accounts) | `DISABLE` directly, emergency override only | accept / reject / disable / flag, with reason, own facility | — | — |
-| Own profile | edit own name only; never own role/facility_id/status | same | same | same |
+| Resource                  | Administrator                                                                                          | Manager                                                                                           | Doctor                                                                           | Nurse                                                                        |
+| ------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Patients                  | read only, no add/update, no hard delete                                                               | read only, own facility                                                                           | update `history` only; flag a patient with reason (advisory-only, Nurse-visible) | create, read/update; no direct `facility_id` edit (see transfer workflow)    |
+| Referrals                 | read only, no add/update, no hard delete                                                               | read only, own facility, **except**: assign doctor on a `PENDING` referral sent to their facility | accept/reject; redirect to another `APPROVED`, non-flagged/suspended facility    | create; status moves (cancel/hold/pending), unchanged                        |
+| Facilities                | cannot create/update; `FLAG` (exit-only) or `SUSPEND` (full freeze), with reason; no hard delete, ever | update own facility's profile (name/address); cannot delete                                       | read-only, `APPROVED` + not flagged/suspended (redirect destination picking)     | read-only, `APPROVED` + not flagged/suspended (transfer destination picking) |
+| Managers (accounts)       | accept / reject / `DISABLE` (full freeze) / `FLAG` (restricted functionality), with reason             | —                                                                                                 | —                                                                                | —                                                                            |
+| Nurses/Doctors (accounts) | `DISABLE` directly, emergency override only                                                            | accept / reject / disable / flag, with reason, own facility                                       | —                                                                                | —                                                                            |
+| Own profile               | edit own name only; never own role/facility_id/status                                                  | same                                                                                              | same                                                                             | same                                                                         |
 
 **Patient facility transfers** are a separate two-sided workflow, not a
 direct edit by anyone: Nurse/Doctor requests (with reason) → origin
@@ -677,6 +686,7 @@ Reviewed by whoever imposed the status, who comments when deciding.
 **Dashboard + Reports — CONFIRMED 2026-08-09**, closing the one gap the row
 walkthrough missed (it only covered the six resource rows above; Dashboard
 and Reports were never their own row):
+
 - **Dashboard** — new `GET /dashboard/manager/summary`, facility-scoped
   version of `admin/summary`'s shape (total staff/patients/referrals at
   their facility, referral status breakdown), same scoping pattern as
@@ -708,7 +718,7 @@ mark **CONFIRMED** when fully settled.
   `DELETE /patients/:id` (currently Administrator-only in the code).
 - **Facility transfer becomes a two-sided request/approval workflow, not a
   direct field edit — new design, replaces today's rules entirely:**
-  - A Nurse or Doctor at the patient's *current* facility can request a
+  - A Nurse or Doctor at the patient's _current_ facility can request a
     transfer to a named destination facility, with a reason.
   - The **origin** facility's Manager decides whether to approve the
     request leaving, with a reason.
@@ -719,7 +729,7 @@ mark **CONFIRMED** when fully settled.
     stays at the origin facility.
   - This fully replaces today's inconsistent rule set (Nurse blocked from
     touching `facility_id`, Administrator allowed to set it directly on
-    create/update) — under the new model, *nobody* edits a patient's
+    create/update) — under the new model, _nobody_ edits a patient's
     facility directly anymore, Administrator included; it's always this
     workflow. That's a real simplification, not just a restriction.
   - Fits the existing `type`/`entity` timeline table directly — a `PATIENT`
@@ -764,8 +774,8 @@ mark **CONFIRMED** when fully settled.
 
 ### Row 2 — Referrals — **CONFIRMED**
 
-| Administrator | Manager | Doctor | Nurse |
-|---|---|---|---|
+| Administrator            | Manager                                                                                           | Doctor                                      | Nurse                                                                  |
+| ------------------------ | ------------------------------------------------------------------------------------------------- | ------------------------------------------- | ---------------------------------------------------------------------- |
 | read only, no add/update | read only, own facility, **except**: assign doctor on a `pending` referral sent to their facility | accept/reject; redirect to another facility | create; existing limited status moves (cancel/hold/pending), unchanged |
 
 - Hard delete dropped, consistent with Patients — no role hard-deletes a
@@ -775,8 +785,8 @@ mark **CONFIRMED** when fully settled.
 
 ### Row 3 — Facilities — **CONFIRMED**
 
-| Administrator | Manager | Doctor | Nurse |
-|---|---|---|---|
+| Administrator                                                                                          | Manager                                                     | Doctor                                                                           | Nurse                                                                            |
+| ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------- | -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
 | cannot create/update; `FLAG` (exit-only) or `SUSPEND` (full freeze), with reason; no hard delete, ever | update own facility's profile (name/address); cannot delete | read-only, `APPROVED` + not flagged/suspended (for redirect destination picking) | read-only, `APPROVED` + not flagged/suspended (for transfer destination picking) |
 
 **Addendum — appeal mechanism, resolved:** appeal is available to
@@ -802,9 +812,9 @@ four. Flag if that's not what you meant.
 
 ### Row 4 — Managers (accounts) — **CONFIRMED**
 
-| Administrator | Manager | Doctor | Nurse |
-|---|---|---|---|
-| accept / reject / disable / flag, with reason | — | — | — |
+| Administrator                                 | Manager | Doctor | Nurse |
+| --------------------------------------------- | ------- | ------ | ----- |
+| accept / reject / disable / flag, with reason | —       | —      | —     |
 
 - **`DISABLE` = full freeze**, confirmed — matches today's `DISABLED`
   semantics, no platform access at all.
@@ -836,12 +846,13 @@ need updating together, atomically, not incrementally.
 
 ### Row 5 — Nurses/Doctors (accounts) — **CONFIRMED**
 
-| Administrator | Manager | Doctor | Nurse |
-|---|---|---|---|
-| `DISABLE` directly, emergency override only | accept / reject / disable / flag, with reason, own facility | — | — |
+| Administrator                               | Manager                                                     | Doctor | Nurse |
+| ------------------------------------------- | ----------------------------------------------------------- | ------ | ----- |
+| `DISABLE` directly, emergency override only | accept / reject / disable / flag, with reason, own facility | —      | —     |
 
 `FLAG` semantics agreed, symmetric with Managers — no new intake while
 under review, don't cut off patients already in progress:
+
 - **`FLAG`ged Doctor** keeps updating clinical notes (`history`) and
   progressing/completing referrals already assigned to them; loses
   accepting new referrals and redirecting.
@@ -854,15 +865,16 @@ under review, don't cut off patients already in progress:
 
 ### Row 6 — Own profile — **CONFIRMED (from round 6)**
 
-| Administrator | Manager | Doctor | Nurse |
-|---|---|---|---|
-| edit own name only | same | same | same |
+| Administrator      | Manager | Doctor | Nurse |
+| ------------------ | ------- | ------ | ----- |
+| edit own name only | same    | same   | same  |
 
 Already settled in round 6 — name-only, no email/password self-service yet,
 and never `role`/`facility_id`/`status` regardless of who's logged in. Restating
 it here for the record as this row is walked through, not reopening it.
 
 From the referenced article:
+
 - **RBAC** — permissions attached to a role (admin/editor/viewer). Simple, but
   weak when access depends on more than job title.
 - **ABAC** — permissions evaluated from attributes of subject, resource, and
@@ -886,17 +898,18 @@ single model and refactor toward it.
 Permissions for `FACILITY_ADMIN` (soon-to-be Manager), gathered directly from
 route/service code:
 
-| Resource | Access |
-|---|---|
-| Patients | list/get — scoped to own facility (same scoping as Nurse/Doctor); **cannot create or update** |
-| Referrals | list — scoped to own facility (origin or destination); **`GET /:id` blocked entirely** (route's `authorize([...])` omits this role — looks like a bug, not a decision); update — only referrals *sent to* their facility, and only the `doctor` field (i.e., assigning a doctor); **cannot create, delete, or change status** |
-| Facilities | get/update — own facility only; cannot create |
-| Users | list/disable — scoped to own facility |
-| Dashboard | no access (only Nurse/Doctor/Administrator have views) |
-| Reports | no access |
-| Audit | no access |
+| Resource   | Access                                                                                                                                                                                                                                                                                                                        |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Patients   | list/get — scoped to own facility (same scoping as Nurse/Doctor); **cannot create or update**                                                                                                                                                                                                                                 |
+| Referrals  | list — scoped to own facility (origin or destination); **`GET /:id` blocked entirely** (route's `authorize([...])` omits this role — looks like a bug, not a decision); update — only referrals _sent to_ their facility, and only the `doctor` field (i.e., assigning a doctor); **cannot create, delete, or change status** |
+| Facilities | get/update — own facility only; cannot create                                                                                                                                                                                                                                                                                 |
+| Users      | list/disable — scoped to own facility                                                                                                                                                                                                                                                                                         |
+| Dashboard  | no access (only Nurse/Doctor/Administrator have views)                                                                                                                                                                                                                                                                        |
+| Reports    | no access                                                                                                                                                                                                                                                                                                                     |
+| Audit      | no access                                                                                                                                                                                                                                                                                                                     |
 
 Relevant files (pre-rename names):
+
 - `shared/src/constant.ts` — `ROLES.FACILITY_ADMIN`
 - `api/src/middleware/authorize.ts` — role-gate middleware used per-route
 - `api/src/modules/{patients,referrals,facilities,users}/{route,service}.ts` — inline role/facility checks
@@ -930,6 +943,7 @@ deliberate decision (maybe an invite-code-per-facility or email-domain check
 is enough), not a default of zero friction.
 
 **Gaps this design needs that don't exist in the codebase yet:**
+
 - A real "pending" user status — today `USER_STATUS` is only
   `ACTIVE`/`DISABLED`; don't overload `DISABLED` for "awaiting review," it
   already means something else (deliberately shut off by an admin).
@@ -940,7 +954,7 @@ is enough), not a default of zero friction.
 - A decision on the facility-creation loophole: self-registering Managers can
   currently create a brand-new facility on the spot
   (`new_facility_name` in `authentication/service.ts`), while `POST
-  /facilities` is Administrator-only everywhere else in the app. Does the
+/facilities` is Administrator-only everywhere else in the app. Does the
   facility stay "unofficial" until the Manager is approved, or does
   self-registration drop new-facility creation entirely (Managers only join
   an existing, already-approved facility)?
@@ -1004,7 +1018,7 @@ regardless of outcome, or only on approval.
   status+reason — assistant caught and corrected an inconsistency from round
   3 (a flat `reason` column on Facility contradicted the just-agreed
   history-log approach; fixed to status-only + history). Clarified Referral
-  already *is* the reference pattern (existing `timeline.notes`), nothing
+  already _is_ the reference pattern (existing `timeline.notes`), nothing
   new needed structurally. Proposed flag-as-orthogonal-marker (vs. a status
   value) for Referral/Patient specifically, unlike User/Facility. Asked
   directly for a final call on flagged-facility enforcement — assistant
@@ -1091,7 +1105,7 @@ regardless of outcome, or only on approval.
   weren't), not a case of the user misremembering. `git init` done this
   session too (see "Repo now under git" above) specifically so a future
   crash doesn't repeat this lost-context problem — check `git log`/`git
-  status` after any crash before re-deriving state from scratch again.
+status` after any crash before re-deriving state from scratch again.
 - **2026-08-10 (continued):** user asked to continue the rework; built
   patient flagging end-to-end (backend + frontend, task tracked and
   completed) and executed the `REFERRAL_STATUS` uppercase migration in
@@ -1103,7 +1117,7 @@ regardless of outcome, or only on approval.
   wrapper for it — real payoff beyond consistency, since the custom `Link`
   type-checks a heterogeneous `{to, params}` list that the raw
   `TanstackLink` doesn't; (2) route paths (`API_PATHS` backend, seen above)
-  must be centralized the same way on *every* route, not just newly-written
+  must be centralized the same way on _every_ route, not just newly-written
   ones — backfilled across all existing modules, both API (`route.ts`
   `url:` values) and frontend (`web/src/api/*.ts`, via `buildUrlWithParams`
   — existed in `shared/src/util.ts`, unused until now). Also set up a
@@ -1136,7 +1150,7 @@ regardless of outcome, or only on approval.
   gap from the day before — see "Current implementation status" above for
   what that confirmed. Note for future sessions: this account was created
   through the real public sign-up + Administrator-approve flow, not
-  `seed.ts` — it will *not* survive a `reset`/reseed cycle like the
+  `seed.ts` — it will _not_ survive a `reset`/reseed cycle like the
   standard `{role}@gmail.com` logins do, and would need recreating
   (register as Manager joining Denesikmouth Memorial Hospital or any other
   facility, then Administrator-approve) if this specific test needs
@@ -1175,24 +1189,24 @@ regardless of outcome, or only on approval.
   typechecked, linted, and verified live in a real browser session
   (manager@gmail.com and administrator@gmail.com), not just against curl.
 - **2026-08-12 (continued):** appeals review queue built (backend `AppealManager`
-  + `/appeals` page), which surfaced a real scalability problem — the append-only
-  `timeline` table never marks an `APPEAL_SUBMITTED` row as decided, so a naive
-  list query kept returning already-decided appeals. User rejected an app-level
-  fetch-then-filter fix and asked for a genuine DB-level answer instead: added
-  `WhereClause.NOT_SUPERSEDED_BY` / `buildSupersededCondition` (a generic
-  correlated `NOT EXISTS` self-join, via Drizzle's `alias()`) to `core/helpers.ts`,
-  consumed through `Timeline.many({ supersededBy: [...] })` — no appeal-specific
-  logic in the `core` layer. While reviewing this, user caught a broader
-  layering violation: DB-touching code had crept into `lib/moderation.ts`,
-  `lib/transfer.ts`, `lib/session.ts` (a brand-new `lib/` rule: only
-  `database.ts`/`auth.ts` may touch the DB, everything else in `lib/` must be a
-  pure predicate). Fixed by introducing a new `api/src/management/` layer
-  (`ModerationManager`, `AppealManager`, `TransferManager`, `SessionManager`) —
-  cross-repo business workflows that compose `core.*` calls only, registered as
-  a Fastify plugin (`request.server.management`) right after `core`. Also
-  tightened `core/*.ts` itself: raw `drizzle-orm` operator imports (`sql`,
-  `and`, `eq`, `alias`, etc.) are only allowed in `core/helpers.ts` — individual
-  table files call generic helpers exclusively.
+  - `/appeals` page), which surfaced a real scalability problem — the append-only
+    `timeline` table never marks an `APPEAL_SUBMITTED` row as decided, so a naive
+    list query kept returning already-decided appeals. User rejected an app-level
+    fetch-then-filter fix and asked for a genuine DB-level answer instead: added
+    `WhereClause.NOT_SUPERSEDED_BY` / `buildSupersededCondition` (a generic
+    correlated `NOT EXISTS` self-join, via Drizzle's `alias()`) to `core/helpers.ts`,
+    consumed through `Timeline.many({ supersededBy: [...] })` — no appeal-specific
+    logic in the `core` layer. While reviewing this, user caught a broader
+    layering violation: DB-touching code had crept into `lib/moderation.ts`,
+    `lib/transfer.ts`, `lib/session.ts` (a brand-new `lib/` rule: only
+    `database.ts`/`auth.ts` may touch the DB, everything else in `lib/` must be a
+    pure predicate). Fixed by introducing a new `api/src/management/` layer
+    (`ModerationManager`, `AppealManager`, `TransferManager`, `SessionManager`) —
+    cross-repo business workflows that compose `core.*` calls only, registered as
+    a Fastify plugin (`request.server.management`) right after `core`. Also
+    tightened `core/*.ts` itself: raw `drizzle-orm` operator imports (`sql`,
+    `and`, `eq`, `alias`, etc.) are only allowed in `core/helpers.ts` — individual
+    table files call generic helpers exclusively.
 - **2026-08-12 (continued further):** three more corrections/cleanups in the
   same session, all API-only: (1) `Facility.isOrphaned`/`Referral.hasActiveFor`
   were removed entirely — user pointed out they were redundant wrappers around
@@ -1202,28 +1216,28 @@ regardless of outcome, or only on approval.
   applied across every `core/*.ts` repo) a fixed method order —
   `count → many → one → create → update → delete` — count first, since it's
   the cheapest/most foundational query. (2) Moved `patients/transfer-service.ts`
-  + `transfer-type.ts` into their own `modules/transfers/{service,type}.ts` —
-  it was imported by three different modules' `route.ts` (patients, manager,
-  administrator), not just patients; route registrations themselves didn't move.
-  (3) Deduped `core/user-specialty.ts`/`core/facility-specialty.ts`. First
-  pass extracted a generic `createLinkTableRepository(table, relationConfigs,
-  countConfigs)` factory (`core/link-table.ts`); pushback that the name
-  overclaimed genericity — a repo-wide check confirmed `user_specialties`/
-  `facility_specialties` are the *only* two link tables in the schema, so
-  "any join table" isn't a real pattern yet. Landed instead on folding both
-  link tables directly into `core/specialty.ts` itself: `UserSpecialty` and
-  `FacilitySpecialty` are gone as standalone `core/*.ts` classes (and off
-  `CoreService`/`TransactableCore`), replaced by `owner`-parameterized
-  `linkMany`/`linkCreate`/`linkDelete` methods (`owner: "user" | "facility"`)
-  on `Specialty`, since `specialties` is the reference table both link tables
-  exist only to attach to. Verified via `tsc --noEmit`/`eslint` on the full
-  `api` package — clean except the one pre-existing, unrelated `relations.ts`
-  lint error noted earlier in this log.
-  *(Correction, same day: an earlier version of this entry claimed the
-  abstraction was fully reverted back to two independent hand-written
-  classes. That was written before a VS Code crash interrupted the session;
-  the revert never actually landed on disk. What's above reflects the code
-  as it actually exists.)*
+  - `transfer-type.ts` into their own `modules/transfers/{service,type}.ts` —
+    it was imported by three different modules' `route.ts` (patients, manager,
+    administrator), not just patients; route registrations themselves didn't move.
+    (3) Deduped `core/user-specialty.ts`/`core/facility-specialty.ts`. First
+    pass extracted a generic `createLinkTableRepository(table, relationConfigs,
+countConfigs)` factory (`core/link-table.ts`); pushback that the name
+    overclaimed genericity — a repo-wide check confirmed `user_specialties`/
+    `facility_specialties` are the _only_ two link tables in the schema, so
+    "any join table" isn't a real pattern yet. Landed instead on folding both
+    link tables directly into `core/specialty.ts` itself: `UserSpecialty` and
+    `FacilitySpecialty` are gone as standalone `core/*.ts` classes (and off
+    `CoreService`/`TransactableCore`), replaced by `owner`-parameterized
+    `linkMany`/`linkCreate`/`linkDelete` methods (`owner: "user" | "facility"`)
+    on `Specialty`, since `specialties` is the reference table both link tables
+    exist only to attach to. Verified via `tsc --noEmit`/`eslint` on the full
+    `api` package — clean except the one pre-existing, unrelated `relations.ts`
+    lint error noted earlier in this log.
+    _(Correction, same day: an earlier version of this entry claimed the
+    abstraction was fully reverted back to two independent hand-written
+    classes. That was written before a VS Code crash interrupted the session;
+    the revert never actually landed on disk. What's above reflects the code
+    as it actually exists.)_
 - **2026-08-12 (new session):** started on the last two named-but-unbuilt
   gaps from the 2026-08-12 sweep above: Manager filing a facility appeal,
   and Administrator-created user accounts. Prior session's cleanup batch
@@ -1255,13 +1269,13 @@ regardless of outcome, or only on approval.
     sidebar link) and submitted it — the card correctly switched to
     "awaiting review" and the new row showed in Facility history
     immediately, no manual refresh needed; confirmed the appeal does
-    *not* show on the Manager's own `/appeals` queue (correct — only
+    _not_ show on the Manager's own `/appeals` queue (correct — only
     Administrator ever decides facility appeals, matching
     `resolveAppealAuthority`'s design); signed back in as Administrator,
     confirmed it appeared in `/appeals` correctly labeled `Facility`,
     approved it with a comment, and confirmed the facility's status
     reverted to `Approved` — full history trail visible (`Approved →
-    Flagged → Appeal Submitted → Appeal Approved → Approved`). No
+Flagged → Appeal Submitted → Appeal Approved → Approved`). No
     leftover test artifact — unlike the 2026-08-11 orphan-facility test,
     the appeal-approve flow itself reverted the manufactured flag, no
     direct DB write needed for cleanup.
@@ -1455,10 +1469,10 @@ item above.
   and `side-bar.tsx`'s nav visibility were replaced with calls into this
   module (`e94eeb8`, `f486999`, `e4c1f41`).
   **Not fully finished — 15 inline checks remain** in `referrals/
-  $referralId.tsx` (2), `appeals/index.tsx` (2), `transfers/index.tsx`
+$referralId.tsx` (2), `appeals/index.tsx` (2), `transfers/index.tsx`
   (2), `_authenticated/index.tsx` dashboard (7), and `side-bar.tsx` (2):
   mostly a `user.role === ROLES.ADMINISTRATOR ? "ADMINISTRATOR" :
-  "MANAGER"` API-namespace-selector ternary duplicated 5x (not really an
+"MANAGER"` API-namespace-selector ternary duplicated 5x (not really an
   authorization predicate — a routing decision — but still worth
   centralizing to kill the duplication) and bare identity checks that
   have direct `isNurse`/`isDoctor`/`isManager`/`isAdministrator`
@@ -1475,26 +1489,26 @@ item above.
   around table lists (`18fdbf2`, `1872b1e`, `109c16f`, `8784780`,
   `c41e265`, `3ab4288`, `9197b2e`, `187d00b`). Not itself part of this
   doc's scope — a design-drift cleanup pass — but landed in the same
-  session; the *structural* follow-up (shared `FilterBar`/generic
+  session; the _structural_ follow-up (shared `FilterBar`/generic
   `Table` components so pages can't drift like this again) is tracked in
   [[project_backlog]], not started.
 - **New feature, not originally scoped in this doc: Manager
   facility-audit page** (`c17060b` through `eb82334`) — `GET /manager/
-  audit` (`AuditManager` in `api/src/management/audit.ts`) plus, at the
+audit` (`AuditManager` in `api/src/management/audit.ts`) plus, at the
   time, a dedicated `/facility-audit` frontend route: a facility-scoped
   activity feed over the existing `timeline` table (who did what to
   whom, when, why), gated to Manager via `isManager`. **Superseded
   later the same session** — see the entry below; the route now lives
   at `/audit`, merged with the Administrator's login-audit page. Went
   through many rounds of live
-  user-driven refinement in one sitting — worth knowing the *current*
+  user-driven refinement in one sitting — worth knowing the _current_
   shape rather than the history: Performed-by/Action/Subject/Status/
   Why/When columns; Action is always exactly one badge, colored by what
   happened (`ACTION_VARIANT`) rather than which entity it happened to,
   spread across all 10 available badge variants to avoid unrelated
   actions colliding on the same color; Referral rows show a plain
   "Referral" badge and their Subject reads as `"{origin} →
-  {destination}"` (facility "Your facility" substituted for the
+{destination}"` (facility "Your facility" substituted for the
   viewer's own); Appeal actions (submit/approve/deny, which span both
   User and Facility rows) get their own badge and a sentence-style
   Subject ("Approved your appeal" / "Approved {name}'s appeal"); a
@@ -1598,7 +1612,7 @@ feature above, done together since both touch the same files.
   names like 'X & Y' into separate entries." Applies to rename too (via
   `UpdateSpecialtySchema`'s `.partial()`).
 - **Assignment narrowed to Manager-only, viewing unchanged**: the user
-  decided Administrator should manage the specialty *vocabulary*
+  decided Administrator should manage the specialty _vocabulary_
   (`modules/specialties`) but never assign/unassign it to a specific
   facility or Doctor/Nurse — that stays with the facility's own Manager.
   Split `facilities/service.ts`'s `canManageFacility` into
@@ -1686,7 +1700,7 @@ same page, not one threaded through the other.
   `canEditReferralFull(...) || canRedirectReferral(...)` reusing both
   existing frontend predicates rather than duplicating their logic). The
   same live widget (same query data, same assign/unassign mutations — not
-  a second copy or a separate mutation path) is *also* rendered inside the
+  a second copy or a separate mutation path) is _also_ rendered inside the
   Redirect dialog itself, above the destination-facility picker, so a
   Doctor can tag specialties in the same motion as redirecting, matching
   the original request's phrasing ("when a doctor redirects the referral,

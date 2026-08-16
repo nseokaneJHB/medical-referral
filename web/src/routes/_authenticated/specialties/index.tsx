@@ -13,6 +13,7 @@ import {
 	SearchIcon,
 	ChevronLeftIcon,
 	ChevronRightIcon,
+	StethoscopeIcon,
 } from "lucide-react";
 
 import {
@@ -49,6 +50,7 @@ import {
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 
 import { Loader } from "@/components/custom/loader";
+import { StatCard } from "@/components/custom/stat-card";
 import { Input as FormInput } from "@/components/custom/input";
 import { TextArea } from "@/components/custom/text-area";
 import { RowActionsMenu } from "@/components/custom/row-actions-menu";
@@ -59,7 +61,11 @@ import { useToastMutation } from "@/hooks/use-toast-mutation";
 import { isAdministrator } from "@/lib/permissions";
 
 import { QUERY_KEYS } from "@/api/constant";
-import { specialtiesRequest, createSpecialty, updateSpecialty } from "@/api/specialties";
+import {
+	specialtiesRequest,
+	createSpecialty,
+	updateSpecialty,
+} from "@/api/specialties";
 
 const searchSchema = z.object({
 	page: z.string().default(`${DEFAULT_PAGE_NUMBER}`),
@@ -202,7 +208,11 @@ const SpecialtiesPage = () => {
 
 	const commitSearch = () => {
 		navigate({
-			search: (prev) => ({ ...prev, search: searchInput || undefined, page: "1" }),
+			search: (prev) => ({
+				...prev,
+				search: searchInput || undefined,
+				page: "1",
+			}),
 		});
 	};
 
@@ -234,6 +244,14 @@ const SpecialtiesPage = () => {
 				</CardHeader>
 			</Card>
 
+			<div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+				<StatCard
+					value={String(response.total)}
+					label="Total specialties"
+					icon={StethoscopeIcon}
+				/>
+			</div>
+
 			<Card>
 				<CardContent className="flex items-center gap-2">
 					<div className="ml-auto flex items-center gap-2">
@@ -260,6 +278,8 @@ const SpecialtiesPage = () => {
 							<TableRow>
 								<TableHead>Name</TableHead>
 								<TableHead>Description</TableHead>
+								<TableHead>Facilities</TableHead>
+								<TableHead>Staff</TableHead>
 								<TableHead>Created</TableHead>
 								{isAdministrator(user) && <TableHead className="w-10" />}
 							</TableRow>
@@ -268,7 +288,7 @@ const SpecialtiesPage = () => {
 							{response.data.length === 0 && (
 								<TableRow>
 									<TableCell
-										colSpan={isAdministrator(user) ? 4 : 3}
+										colSpan={isAdministrator(user) ? 6 : 5}
 										className="text-muted-foreground text-center"
 									>
 										No specialties found.
@@ -277,10 +297,14 @@ const SpecialtiesPage = () => {
 							)}
 							{response.data.map((specialty) => (
 								<TableRow key={specialty.id}>
-									<TableCell className="font-medium">{specialty.name}</TableCell>
+									<TableCell className="font-medium">
+										{specialty.name}
+									</TableCell>
 									<TableCell className="text-muted-foreground max-w-xs truncate">
 										{specialty.description}
 									</TableCell>
+									<TableCell>{specialty.facility_count}</TableCell>
+									<TableCell>{specialty.staff_count}</TableCell>
 									<TableCell>
 										{new Date(specialty.created_at).toLocaleDateString()}
 									</TableCell>
@@ -310,7 +334,9 @@ const SpecialtiesPage = () => {
 						title="Previous page"
 						disabled={page <= 1}
 						onClick={() =>
-							navigate({ search: (prev) => ({ ...prev, page: String(page - 1) }) })
+							navigate({
+								search: (prev) => ({ ...prev, page: String(page - 1) }),
+							})
 						}
 					>
 						<ChevronLeftIcon />
@@ -320,7 +346,9 @@ const SpecialtiesPage = () => {
 						title="Next page"
 						disabled={page >= totalPages}
 						onClick={() =>
-							navigate({ search: (prev) => ({ ...prev, page: String(page + 1) }) })
+							navigate({
+								search: (prev) => ({ ...prev, page: String(page + 1) }),
+							})
 						}
 					>
 						<ChevronRightIcon />

@@ -7,12 +7,14 @@ import {
 	UpdatePatientSchema,
 	patientParamsSchema,
 	patientsQuerySchema,
+	PatientDetailSchema,
 	transferParamsSchema,
 	patientResponseSchema,
 	transferRequestSchema,
 	transferResponseSchema,
 	patientListResponseSchema,
 	transferListResponseSchema,
+	patientDetailResponseSchema,
 } from "../schema/patient";
 
 export type Patient = z.infer<typeof PatientSchema>;
@@ -22,6 +24,8 @@ export type PatientParams = z.infer<typeof patientParamsSchema>;
 export type PatientsQuery = z.infer<typeof patientsQuerySchema>;
 export type PatientResponse = z.infer<typeof patientResponseSchema>;
 export type PatientListResponse = z.infer<typeof patientListResponseSchema>;
+export type PatientDetail = z.infer<typeof PatientDetailSchema>;
+export type PatientDetailResponse = z.infer<typeof patientDetailResponseSchema>;
 
 export type Transfer = z.infer<typeof TransferSchema>;
 export type TransferRequestBody = z.infer<typeof transferRequestSchema>;

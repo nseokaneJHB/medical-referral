@@ -81,6 +81,24 @@ export const patientResponseSchema = globalResponseSchema.extend({
 
 export const patientListResponseSchema = paginatedGlobalResponseSchema.extend({
 	data: z.array(PatientSchema),
+	registered_this_period: z.number(),
+});
+
+/**
+ * `GET /patients/:id` only — referral counts for this specific patient,
+ * same shape/reasoning as `UserDoctorStatsSchema` in `schema/user.ts`.
+ */
+export const PatientStatsSchema = z.object({
+	total_referrals: z.number(),
+	active_referrals: z.number(),
+});
+
+export const PatientDetailSchema = PatientSchema.extend({
+	stats: PatientStatsSchema,
+});
+
+export const patientDetailResponseSchema = globalResponseSchema.extend({
+	data: PatientDetailSchema,
 });
 
 export const patientParamsSchema = z.object({
@@ -129,8 +147,6 @@ export const transferResponseSchema = globalResponseSchema.extend({
 	data: TransferSchema,
 });
 
-export const transferListResponseSchema = paginatedGlobalResponseSchema.extend(
-	{
-		data: z.array(TransferSchema),
-	},
-);
+export const transferListResponseSchema = paginatedGlobalResponseSchema.extend({
+	data: z.array(TransferSchema),
+});

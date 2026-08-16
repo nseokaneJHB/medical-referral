@@ -6,7 +6,7 @@ import {
 	useNavigate,
 	redirect,
 } from "@tanstack/react-router";
-import { useMutation, useSuspenseQuery, useQuery } from "@tanstack/react-query";
+import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
 
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -19,11 +19,12 @@ import {
 	CheckIcon,
 	XIcon,
 	CopyIcon,
+	UsersIcon,
 	UserPlusIcon,
+	HourglassIcon,
 } from "lucide-react";
 
 import {
-	flexRender,
 	useReactTable,
 	createColumnHelper,
 	getCoreRowModel,
@@ -48,13 +49,7 @@ import {
 } from "@referral-tracking/shared";
 
 import { Card, CardTitle, CardHeader, CardContent } from "@/components/ui/card";
-import {
-	Table,
-	TableRow,
-	TableBody,
-	TableCell,
-	TableHead,
-} from "@/components/ui/table";
+import { TableHead } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -68,6 +63,7 @@ import {
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 
 import { Loader } from "@/components/custom/loader";
+import { StatCard } from "@/components/custom/stat-card";
 import { Input as FormInput } from "@/components/custom/input";
 import { SelectInput } from "@/components/custom/select-input";
 import { SearchField } from "@/components/custom/search-field";
@@ -75,7 +71,7 @@ import { VariantBadge } from "@/components/custom/variant-badge";
 import { RowActionsMenu } from "@/components/custom/row-actions-menu";
 import { PaginationFooter } from "@/components/custom/pagination-footer";
 import { ReasonActionButton } from "@/components/custom/reason-action-button";
-import { SortableTableHeader } from "@/components/custom/sortable-table-header";
+import { Table } from "@/components/custom/table";
 
 import { useFormField } from "@/hooks/use-form-field";
 import { useToastMutation } from "@/hooks/use-toast-mutation";
@@ -95,7 +91,11 @@ import {
 	disableManager,
 } from "@/api/users";
 
-import { isAdministrator, canManageUsers, canModerateUser } from "@/lib/permissions";
+import {
+	isAdministrator,
+	canManageUsers,
+	canModerateUser,
+} from "@/lib/permissions";
 
 /**
  * Which set of moderation endpoints applies to a given row — Manager account
@@ -127,7 +127,8 @@ const resolveModerationFns = (
 		};
 	}
 
-	const namespace = viewerRole === ROLES.ADMINISTRATOR ? "ADMINISTRATOR" : "MANAGER";
+	const namespace =
+		viewerRole === ROLES.ADMINISTRATOR ? "ADMINISTRATOR" : "MANAGER";
 	return {
 		approve: (id, payload) => approveStaff(namespace, id, payload),
 		reject: (id, payload) => rejectStaff(namespace, id, payload),
@@ -293,7 +294,7 @@ const columns = [
 	}),
 ];
 
-const SORTABLE_COLUMNS = ["name", "email", "role", "status", "created"];
+const SORTABLE_COLUMNS = ["name", "email", "role", "status", "created_at"];
 
 const ROLE_ITEMS = Object.values(ROLES).map((value) => ({
 	value,
@@ -394,11 +395,7 @@ const CreateUserDialog = ({
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<Button
-				type="button"
-				title="Create user"
-				onClick={() => setOpen(true)}
-			>
+			<Button type="button" title="Create user" onClick={() => setOpen(true)}>
 				<UserPlusIcon />
 				<span>Create user</span>
 			</Button>
@@ -578,11 +575,22 @@ const UsersPage = () => {
 			<Card className="border-0 bg-transparent px-0 py-1 shadow-none">
 				<CardHeader className="flex items-center justify-between px-0 py-1">
 					<CardTitle className="text-2xl">Users</CardTitle>
-					{isAdministrator(user) && (
-						<CreateUserDialog onCreated={onChanged} />
-					)}
+					{isAdministrator(user) && <CreateUserDialog onCreated={onChanged} />}
 				</CardHeader>
 			</Card>
+
+			<div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+				<StatCard
+					value={String(response.total)}
+					label="Total users"
+					icon={UsersIcon}
+				/>
+				<StatCard
+					value={String(response.pending_applications)}
+					label="Pending applications"
+					icon={HourglassIcon}
+				/>
+			</div>
 
 			<Card>
 				<CardContent className="flex flex-wrap items-center gap-2">
@@ -633,62 +641,38 @@ const UsersPage = () => {
 
 			<Card>
 				<CardContent>
-					<Table>
-						<SortableTableHeader
-							table={table}
-							sortableColumns={SORTABLE_COLUMNS}
-							activeSort={search.sort}
-							activeOrder={search.order}
-							onSort={toggleSort}
-							trailingHeader={
-								<TableHead className="text-right">Actions</TableHead>
-							}
-						/>
-						<TableBody>
-							{table.getRowModel().rows.length === 0 && (
-								<TableRow>
-									<TableCell
-										colSpan={columns.length + 1}
-										className="text-muted-foreground text-center"
+					<Table
+						table={table}
+						sortableColumns={SORTABLE_COLUMNS}
+						activeSort={search.sort}
+						activeOrder={search.order}
+						onSort={toggleSort}
+						emptyMessage="No users found."
+						trailingHeader={
+							<TableHead className="text-right">Actions</TableHead>
+						}
+						rowActionClassName="text-right"
+						rowAction={(row) => (
+							<RowActionsMenu
+								label={`Actions for ${row.original.name ?? row.original.email}`}
+							>
+								<DropdownMenuItem asChild>
+									<RouterLink
+										to={FRONTEND_URLS.USER}
+										params={{ userId: row.original.id }}
 									>
-										No users found.
-									</TableCell>
-								</TableRow>
-							)}
-							{table.getRowModel().rows.map((row) => (
-								<TableRow key={row.id}>
-									{row.getVisibleCells().map((cell) => (
-										<TableCell key={cell.id}>
-											{flexRender(
-												cell.column.columnDef.cell,
-												cell.getContext(),
-											)}
-										</TableCell>
-									))}
-									<TableCell className="text-right">
-										<RowActionsMenu
-											label={`Actions for ${row.original.name ?? row.original.email}`}
-										>
-											<DropdownMenuItem asChild>
-												<RouterLink
-													to={FRONTEND_URLS.USER}
-													params={{ userId: row.original.id }}
-												>
-													<EyeIcon />
-													<span>View</span>
-												</RouterLink>
-											</DropdownMenuItem>
-											<UserModerationMenuItems
-												user={row.original}
-												viewerRole={user.role}
-												onChanged={onChanged}
-											/>
-										</RowActionsMenu>
-									</TableCell>
-								</TableRow>
-							))}
-						</TableBody>
-					</Table>
+										<EyeIcon />
+										<span>View</span>
+									</RouterLink>
+								</DropdownMenuItem>
+								<UserModerationMenuItems
+									user={row.original}
+									viewerRole={user.role}
+									onChanged={onChanged}
+								/>
+							</RowActionsMenu>
+						)}
+					/>
 				</CardContent>
 			</Card>
 

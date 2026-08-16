@@ -3,7 +3,7 @@ import { useState } from "react";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
 
-import { CheckIcon, XIcon } from "lucide-react";
+import { CheckIcon, XIcon, ArrowLeftRightIcon } from "lucide-react";
 
 import {
 	TIMELINE_ACTION,
@@ -35,6 +35,7 @@ import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 
 import { TextArea } from "@/components/custom/text-area";
 import { Loader } from "@/components/custom/loader";
+import { StatCard } from "@/components/custom/stat-card";
 import { RowActionsMenu } from "@/components/custom/row-actions-menu";
 
 import { useToastMutation } from "@/hooks/use-toast-mutation";
@@ -127,8 +128,8 @@ const TransferActions = ({
 					<DialogHeader>
 						<DialogTitle>Reject this transfer?</DialogTitle>
 						<DialogDescription>
-							The patient stays at their current facility — a reason is
-							required either way.
+							The patient stays at their current facility — a reason is required
+							either way.
 						</DialogDescription>
 					</DialogHeader>
 					<TextArea
@@ -186,6 +187,14 @@ const TransfersPage = () => {
 					<CardTitle className="text-2xl">Pending transfers</CardTitle>
 				</CardHeader>
 			</Card>
+
+			<div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+				<StatCard
+					value={String(response.total)}
+					label="Pending transfers"
+					icon={ArrowLeftRightIcon}
+				/>
+			</div>
 
 			<Card>
 				<CardContent>

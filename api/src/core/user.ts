@@ -90,7 +90,9 @@ export class User {
 	 * @param groupBy - Optional column to group by.
 	 * @returns A flat count, or one count per distinct `groupBy` value.
 	 */
-	count = async <TGroupBy extends keyof schema.UserModelSelect & string = never>(
+	count = async <
+		TGroupBy extends keyof schema.UserModelSelect & string = never,
+	>(
 		where?: WhereClause<schema.UserModelSelect>,
 		groupBy?: TGroupBy,
 	): Promise<CountResult<TGroupBy>> => {

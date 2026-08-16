@@ -116,6 +116,45 @@ export class AppealManager {
 	};
 
 	/**
+	 * Counts still-open `APPEAL_SUBMITTED` rows by entity type (USER vs
+	 * FACILITY), respecting the same `where`/`supersededBy` scoping as
+	 * `list` — used to power a "by type" breakdown stat, not the paginated
+	 * queue itself. `where` should NOT include `type` (this method sets it
+	 * per-branch) — pass whatever scoping the caller already applies to
+	 * `list` (e.g. a Manager's own-staff `entity: { in: staffIds }`).
+	 */
+	countByType = async (
+		where?: WhereClause<TimelineModelSelect>,
+	): Promise<{ user: number; facility: number }> => {
+		const [userResult, facilityResult] = await Promise.all([
+			this.core.timeline.many({
+				where: {
+					...where,
+					type: TIMELINE_TYPE.USER,
+					action: TIMELINE_ACTION.APPEAL_SUBMITTED,
+				},
+				supersededBy: APPEAL_ACTIONS,
+				page: 1,
+				limit: 1,
+				select: { id: true },
+			}),
+			this.core.timeline.many({
+				where: {
+					...where,
+					type: TIMELINE_TYPE.FACILITY,
+					action: TIMELINE_ACTION.APPEAL_SUBMITTED,
+				},
+				supersededBy: APPEAL_ACTIONS,
+				page: 1,
+				limit: 1,
+				select: { id: true },
+			}),
+		]);
+
+		return { user: userResult.total, facility: facilityResult.total };
+	};
+
+	/**
 	 * `true` if `row` (an `APPEAL_SUBMITTED` row being decided) is still
 	 * open — i.e. hasn't already been approved/denied by an earlier
 	 * decision. Both decide endpoints (`appealApprove`/`appealDeny`,

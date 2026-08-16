@@ -27,6 +27,7 @@ export const UserSchema = z.object({
 
 export const userListResponseSchema = paginatedGlobalResponseSchema.extend({
 	data: z.array(UserSchema),
+	pending_applications: z.number(),
 });
 
 export const userResponseSchema = globalResponseSchema.extend({

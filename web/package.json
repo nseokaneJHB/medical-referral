@@ -4,6 +4,7 @@
 	"version": "0.0.1",
 	"name": "@referral-tracking/web",
 	"scripts": {
+		"lint": "eslint .",
 		"dev": "vite dev",
 		"typecheck": "tsc --noEmit",
 		"ui:add": "pnpm dlx shadcn@latest add",

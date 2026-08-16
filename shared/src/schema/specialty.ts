@@ -48,9 +48,20 @@ export const specialtyResponseSchema = globalResponseSchema.extend({
 	data: SpecialtySchema,
 });
 
+/**
+ * `GET /specialties` list rows only — how many facilities and how many
+ * Doctor/Nurse staff currently have each specialty assigned, computed via
+ * `Specialty.linkCount` grouped by `specialty_id`. Not present on the bare
+ * `SpecialtySchema` used by the detail/create/update endpoints.
+ */
+export const SpecialtyListItemSchema = SpecialtySchema.extend({
+	facility_count: z.number(),
+	staff_count: z.number(),
+});
+
 export const specialtyListResponseSchema = paginatedGlobalResponseSchema.extend(
 	{
-		data: z.array(SpecialtySchema),
+		data: z.array(SpecialtyListItemSchema),
 	},
 );
 
@@ -77,17 +88,13 @@ export const assignFacilitySpecialtySchema = z.object({
 	specialty_id: uuidSchema,
 });
 
-export const facilitySpecialtyListResponseSchema = globalResponseSchema.extend(
-	{
-		data: z.array(FacilitySpecialtyLinkSchema),
-	},
-);
+export const facilitySpecialtyListResponseSchema = globalResponseSchema.extend({
+	data: z.array(FacilitySpecialtyLinkSchema),
+});
 
-export const facilitySpecialtyLinkResponseSchema = globalResponseSchema.extend(
-	{
-		data: FacilitySpecialtyLinkSchema,
-	},
-);
+export const facilitySpecialtyLinkResponseSchema = globalResponseSchema.extend({
+	data: FacilitySpecialtyLinkSchema,
+});
 
 export const facilitySpecialtyUnassignParamsSchema = z.object({
 	id: uuidSchema,

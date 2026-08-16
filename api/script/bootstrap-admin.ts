@@ -64,7 +64,9 @@ async function bootstrapAdmin(): Promise<void> {
 
 	console.log(`✅ Administrator created — ${email}`);
 	if (generatedPassword) {
-		console.log(`   Generated password (shown once, save it now): ${generatedPassword}`);
+		console.log(
+			`   Generated password (shown once, save it now): ${generatedPassword}`,
+		);
 	}
 }
 

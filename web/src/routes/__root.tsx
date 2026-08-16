@@ -27,10 +27,13 @@ export interface RouterContext {
 	user: AuthUser | null;
 }
 
+const themeInitScript = `(function(){try{var t=localStorage.getItem("vite-ui-theme");if(t==="light"||t==="dark"){document.documentElement.classList.remove("light","dark");document.documentElement.classList.add(t);}}catch(e){}})();`;
+
 const RootDocument = ({ children }: PropsWithChildren) => {
 	return (
-		<html lang="en" className="dark">
+		<html lang="en" className="dark" suppressHydrationWarning>
 			<head>
+				<script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
 				<HeadContent />
 			</head>
 			<body suppressHydrationWarning>

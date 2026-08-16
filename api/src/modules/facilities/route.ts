@@ -10,6 +10,7 @@ import {
 	facilityResponseSchema,
 	facilityListResponseSchema,
 	timelineListResponseSchema,
+	facilityDetailResponseSchema,
 	assignFacilitySpecialtySchema,
 	facilitySpecialtyListResponseSchema,
 	facilitySpecialtyLinkResponseSchema,
@@ -63,7 +64,7 @@ export const route: FastifyPluginAsync = async (
 		schema: {
 			params: facilityParamsSchema,
 			response: {
-				200: facilityResponseSchema,
+				200: facilityDetailResponseSchema,
 				401: globalResponseSchema,
 				403: globalResponseSchema,
 				404: globalResponseSchema,

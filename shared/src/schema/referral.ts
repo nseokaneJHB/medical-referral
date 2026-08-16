@@ -133,6 +133,7 @@ export const referralResponseSchema = globalResponseSchema.extend({
 
 export const referralListResponseSchema = paginatedGlobalResponseSchema.extend({
 	data: z.array(ReferralSchema),
+	status_counts: z.record(ReferralStatusEnum, integerSchema),
 });
 
 export const referralParamsSchema = z.object({
@@ -148,6 +149,11 @@ export const referralsReportQuerySchema = z
 	.object({
 		to: stringSchema.optional().describe("End date for filtering results"),
 		from: stringSchema.optional().describe("Start date for filtering results"),
+		tz_offset: stringSchema
+			.optional()
+			.describe(
+				"Client's UTC offset in minutes (Date.prototype.getTimezoneOffset() convention) — anchors `from`/`to` day boundaries to the client's local calendar day instead of UTC",
+			),
 	})
 	.refine(
 		(data) =>

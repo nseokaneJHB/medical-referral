@@ -247,3 +247,6 @@ documented without opening every folder.
 | [027](027-search-wildcard-correctness/scenario.md) | Search boxes and literal wildcard characters | Nurse, Doctor, Manager, Administrator | Patients, Referrals, Facilities, Users, Specialties | 2026-08-16 |
 | [028](028-sort-parameter-safety/scenario.md) | Sort-parameter safety across list endpoints | Nurse, Doctor, Manager, Administrator | Patients, Referrals, Facilities, Users, Specialties | 2026-08-16 |
 | [029](029-history-visibility-and-data-export/scenario.md) | History visibility at scale, and getting data out of the app | Manager, Administrator, Nurse, Doctor | Audit, Referrals, Facilities, Users | 2026-08-16 |
+| [030](030-accessibility-keyboard-and-screen-reader/scenario.md) | Screen-reader and keyboard-only access to core workflows | Nurse, Doctor | Patients, Referrals, Auth | 2026-08-16 |
+| [031](031-date-range-filters-across-timezones/scenario.md) | Date-range filters across timezones | Nurse, Doctor, Manager, Administrator | Patients, Referrals, Dashboard | 2026-08-16 |
+| [032](032-non-english-names-and-accent-search/scenario.md) | Non-English names and accent-insensitive search | Nurse, Doctor, Manager, Administrator | Patients, Users, Facilities, Specialties | 2026-08-16 |

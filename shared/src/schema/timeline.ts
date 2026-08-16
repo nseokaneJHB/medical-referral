@@ -54,6 +54,7 @@ export const AppealSchema = TimelineSchema.extend({
 
 export const appealListResponseSchema = paginatedGlobalResponseSchema.extend({
 	data: z.array(AppealSchema),
+	by_type: z.object({ user: z.number(), facility: z.number() }),
 });
 
 /**
@@ -69,9 +70,10 @@ export const ManagerAuditSchema = TimelineSchema.extend({
 	reason: stringSchema.nullable(),
 });
 
-export const managerAuditListResponseSchema = paginatedGlobalResponseSchema.extend({
-	data: z.array(ManagerAuditSchema),
-});
+export const managerAuditListResponseSchema =
+	paginatedGlobalResponseSchema.extend({
+		data: z.array(ManagerAuditSchema),
+	});
 
 /**
  * Single-row response — used for `POST /account/appeal` (echoes the

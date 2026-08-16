@@ -12,7 +12,12 @@ import {
 	specialtyListResponseSchema,
 } from "@referral-tracking/shared";
 
-import { specialties, specialty, specialtyCreate, specialtyUpdate } from "./service";
+import {
+	specialties,
+	specialty,
+	specialtyCreate,
+	specialtyUpdate,
+} from "./service";
 
 import { EVENT_NAMES } from "../../lib/constant";
 

@@ -8,7 +8,7 @@ import {
 	type Role,
 } from "@referral-tracking/shared";
 
-import { zeroFillCounts } from "../../lib/util";
+import { zeroFillCounts, localDateStartToUtc } from "../../lib/util";
 
 import type { WhereClause } from "../../core/helpers";
 
@@ -52,11 +52,11 @@ export const referralsReport = async (
 	if (request.query.from) {
 		where.created_at = {
 			...where.created_at,
-			gte: new Date(`${request.query.from}T00:00:00.000Z`),
+			gte: localDateStartToUtc(request.query.from, request.query.tz_offset),
 		};
 	}
 	if (request.query.to) {
-		const end = new Date(`${request.query.to}T00:00:00.000Z`);
+		const end = localDateStartToUtc(request.query.to, request.query.tz_offset);
 		end.setUTCDate(end.getUTCDate() + 1);
 		where.created_at = { ...where.created_at, lt: end };
 	}

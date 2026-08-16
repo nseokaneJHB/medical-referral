@@ -14,10 +14,8 @@ import {
 	HistoryIcon,
 	XCircleIcon,
 	Building2Icon,
-	CheckCheckIcon,
 	CheckCircleIcon,
 	FilePlus2Icon,
-	PauseCircleIcon,
 	ArrowLeftRightIcon,
 	ClipboardListIcon,
 } from "lucide-react";
@@ -591,10 +589,16 @@ export const Route = createFileRoute("/_authenticated/")({
 	loader: async ({ context, deps }) => {
 		const { queryClient, user } = context;
 
+		const tz_offset =
+			typeof window !== "undefined"
+				? String(new Date().getTimezoneOffset())
+				: undefined;
+		const queryDeps = { ...deps, tz_offset };
+
 		const report = (
 			await queryClient.ensureQueryData({
 				queryKey: [...QUERY_KEYS.REPORTS_REFERRALS, deps],
-				queryFn: () => referralsReportRequest({ data: deps }),
+				queryFn: () => referralsReportRequest({ data: queryDeps }),
 			})
 		).data;
 
@@ -603,7 +607,7 @@ export const Route = createFileRoute("/_authenticated/")({
 				queryClient
 					.ensureQueryData({
 						queryKey: [QUERY_KEYS.DASHBOARD_DOCTOR, deps],
-						queryFn: () => doctorSummaryRequest({ data: deps }),
+						queryFn: () => doctorSummaryRequest({ data: queryDeps }),
 					})
 					.then((r) => r.data),
 				queryClient
@@ -638,7 +642,7 @@ export const Route = createFileRoute("/_authenticated/")({
 				queryClient
 					.ensureQueryData({
 						queryKey: [QUERY_KEYS.DASHBOARD_ADMIN, deps],
-						queryFn: () => adminSummaryRequest({ data: deps }),
+						queryFn: () => adminSummaryRequest({ data: queryDeps }),
 					})
 					.then((r) => r.data),
 				queryClient
@@ -701,7 +705,7 @@ export const Route = createFileRoute("/_authenticated/")({
 				queryClient
 					.ensureQueryData({
 						queryKey: [QUERY_KEYS.DASHBOARD_MANAGER, deps],
-						queryFn: () => managerSummaryRequest({ data: deps }),
+						queryFn: () => managerSummaryRequest({ data: queryDeps }),
 					})
 					.then((r) => r.data),
 				queryClient
@@ -762,7 +766,7 @@ export const Route = createFileRoute("/_authenticated/")({
 			queryClient
 				.ensureQueryData({
 					queryKey: [QUERY_KEYS.DASHBOARD_NURSE, deps],
-					queryFn: () => nurseSummaryRequest({ data: deps }),
+					queryFn: () => nurseSummaryRequest({ data: queryDeps }),
 				})
 				.then((r) => r.data),
 			queryClient

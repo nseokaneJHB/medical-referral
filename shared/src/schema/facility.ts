@@ -1,6 +1,11 @@
 import { z } from "zod";
 
-import { uuidSchema, stringSchema, facilityStatusSchema } from "./field";
+import {
+	uuidSchema,
+	stringSchema,
+	integerSchema,
+	facilityStatusSchema,
+} from "./field";
 
 import {
 	globalResponseSchema,
@@ -42,6 +47,26 @@ export const facilityResponseSchema = globalResponseSchema.extend({
 
 export const facilityListResponseSchema = paginatedGlobalResponseSchema.extend({
 	data: z.array(FacilitySchema),
+	status_counts: z.record(facilityStatusSchema, integerSchema),
+});
+
+/**
+ * `GET /facilities/:id` only — referral and specialty counts for this
+ * specific facility, same shape/reasoning as `UserDoctorStatsSchema` in
+ * `schema/user.ts`.
+ */
+export const FacilityStatsSchema = z.object({
+	referrals_received: integerSchema,
+	active_referrals: integerSchema,
+	specialties_count: integerSchema,
+});
+
+export const FacilityDetailSchema = FacilitySchema.extend({
+	stats: FacilityStatsSchema,
+});
+
+export const facilityDetailResponseSchema = globalResponseSchema.extend({
+	data: FacilityDetailSchema,
 });
 
 export const facilityParamsSchema = z.object({

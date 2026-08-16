@@ -14,6 +14,7 @@ import {
 	transferRequestSchema,
 	patientResponseSchema,
 	patientListResponseSchema,
+	patientDetailResponseSchema,
 } from "@referral-tracking/shared";
 
 import {
@@ -86,7 +87,7 @@ export const route: FastifyPluginAsync = async (
 		schema: {
 			params: patientParamsSchema,
 			response: {
-				200: patientResponseSchema,
+				200: patientDetailResponseSchema,
 				401: globalResponseSchema,
 				403: globalResponseSchema,
 				404: globalResponseSchema,

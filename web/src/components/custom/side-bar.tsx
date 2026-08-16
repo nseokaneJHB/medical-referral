@@ -61,7 +61,11 @@ import { ThemeToggle } from "@/components/custom/theme-toggle";
 
 import { SignOutButton } from "@/components/sign-out-button";
 
-import { isManager, canViewNavItem, resolveModerationNamespace } from "@/lib/permissions";
+import {
+	isManager,
+	canViewNavItem,
+	resolveModerationNamespace,
+} from "@/lib/permissions";
 
 import { QUERY_KEYS } from "@/api/constant";
 import { usersRequest } from "@/api/users";
@@ -144,8 +148,8 @@ export const SideBar = () => {
 
 	const { state, toggleSidebar } = useSidebar();
 
-	const visibleNavItems = NAV_ITEMS.filter(
-		(item) => canViewNavItem(user, item),
+	const visibleNavItems = NAV_ITEMS.filter((item) =>
+		canViewNavItem(user, item),
 	);
 
 	const showUsersBadge = visibleNavItems.some(
@@ -292,12 +296,12 @@ export const SideBar = () => {
 										</Link>
 									</SidebarMenuButton>
 									{(item.to as string) in badgeCounts && (
-										<SidebarMenuBadge className="right-2 min-w-5 rounded-full bg-destructive px-1.5 text-destructive-foreground top-1/2! -translate-y-1/2!">
+										<SidebarMenuBadge className="bg-destructive text-destructive-foreground top-1/2! right-2 min-w-5 -translate-y-1/2! rounded-full px-1.5">
 											{badgeCounts[item.to as string] ?? 0}
 										</SidebarMenuBadge>
 									)}
 									{(item.to as string) in totalBadgeCounts && (
-										<SidebarMenuBadge className="right-2 min-w-5 rounded-full bg-muted px-1.5 text-muted-foreground top-1/2! -translate-y-1/2!">
+										<SidebarMenuBadge className="bg-muted text-muted-foreground top-1/2! right-2 min-w-5 -translate-y-1/2! rounded-full px-1.5">
 											{totalBadgeCounts[item.to as string] ?? 0}
 										</SidebarMenuBadge>
 									)}

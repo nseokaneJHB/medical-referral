@@ -4,7 +4,14 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { CheckIcon, EyeIcon, XIcon } from "lucide-react";
+import {
+	CheckIcon,
+	EyeIcon,
+	XIcon,
+	GavelIcon,
+	UserIcon,
+	BuildingIcon,
+} from "lucide-react";
 
 import {
 	FRONTEND_URLS,
@@ -34,16 +41,13 @@ import {
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 
 import { Loader } from "@/components/custom/loader";
+import { StatCard } from "@/components/custom/stat-card";
 import { ReadOnlyField } from "@/components/custom/read-only-field";
 import { RowActionsMenu } from "@/components/custom/row-actions-menu";
 import { ReasonActionButton } from "@/components/custom/reason-action-button";
 
 import { QUERY_KEYS } from "@/api/constant";
-import {
-	denyAppeal,
-	approveAppeal,
-	appealsRequest,
-} from "@/api/appeals";
+import { denyAppeal, approveAppeal, appealsRequest } from "@/api/appeals";
 
 import { canManageUsers, resolveModerationNamespace } from "@/lib/permissions";
 
@@ -124,7 +128,8 @@ const AppealDetailsDialog = ({
 					<DialogHeader>
 						<DialogTitle>Appeal details</DialogTitle>
 						<DialogDescription>
-							Submitted {getRelativeTime(appeal.changed_at as unknown as string)}
+							Submitted{" "}
+							{getRelativeTime(appeal.changed_at as unknown as string)}
 						</DialogDescription>
 					</DialogHeader>
 					<div className="space-y-4">
@@ -135,10 +140,7 @@ const AppealDetailsDialog = ({
 								value={stringToTitleCase(appeal.type)}
 							/>
 						</div>
-						<ReadOnlyField
-							label="Submitted by"
-							value={appeal.changer.name}
-						/>
+						<ReadOnlyField label="Submitted by" value={appeal.changer.name} />
 						<div className="flex w-full flex-col gap-1">
 							<span className="text-sm font-medium">Reason</span>
 							<p className="text-foreground rounded-md border bg-transparent p-3 text-sm whitespace-pre-wrap">
@@ -182,6 +184,24 @@ const AppealsPage = () => {
 				</CardHeader>
 			</Card>
 
+			<div className="grid gap-4 sm:grid-cols-3">
+				<StatCard
+					icon={GavelIcon}
+					value={String(response.total)}
+					label="Open appeals"
+				/>
+				<StatCard
+					icon={UserIcon}
+					value={String(response.by_type.user)}
+					label="User appeals"
+				/>
+				<StatCard
+					icon={BuildingIcon}
+					value={String(response.by_type.facility)}
+					label="Facility appeals"
+				/>
+			</div>
+
 			<Card>
 				<CardContent>
 					<Table>
@@ -210,7 +230,9 @@ const AppealsPage = () => {
 								<TableRow key={appeal.id}>
 									<TableCell>{appeal.subject.name ?? "—"}</TableCell>
 									<TableCell>
-										<Badge variant="info">{stringToTitleCase(appeal.type)}</Badge>
+										<Badge variant="info">
+											{stringToTitleCase(appeal.type)}
+										</Badge>
 									</TableCell>
 									<TableCell className="max-w-60 truncate">
 										{appeal.notes}

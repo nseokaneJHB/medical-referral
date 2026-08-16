@@ -1,15 +1,19 @@
 import { useState } from "react";
 
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import {
+	createFileRoute,
+	useNavigate,
+	Link as RouterLink,
+} from "@tanstack/react-router";
+import { useSuspenseQuery } from "@tanstack/react-query";
 
 import {
-	flexRender,
 	useReactTable,
 	createColumnHelper,
 	getCoreRowModel,
 } from "@tanstack/react-table";
 
-import { PlusIcon } from "lucide-react";
+import { PlusIcon, EyeIcon, UsersIcon, UserPlusIcon } from "lucide-react";
 
 import {
 	GENDER,
@@ -21,16 +25,19 @@ import {
 } from "@referral-tracking/shared";
 
 import { Card, CardTitle, CardHeader, CardContent } from "@/components/ui/card";
-import { Table, TableRow, TableBody, TableCell } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Field, FieldLabel } from "@/components/ui/field";
+import { TableHead } from "@/components/ui/table";
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 
 import { Link } from "@/components/custom/link";
 import { Loader } from "@/components/custom/loader";
+import { StatCard } from "@/components/custom/stat-card";
+import { Table } from "@/components/custom/table";
 import { SelectInput } from "@/components/custom/select-input";
 import { SearchField } from "@/components/custom/search-field";
+import { RowActionsMenu } from "@/components/custom/row-actions-menu";
 import { PaginationFooter } from "@/components/custom/pagination-footer";
-import { SortableTableHeader } from "@/components/custom/sortable-table-header";
 
 import { QUERY_KEYS } from "@/api/constant";
 import { patientsRequest } from "@/api/patients";
@@ -65,7 +72,7 @@ const SORTABLE_COLUMNS = [
 	"first_name",
 	"last_name",
 	"date_of_birth",
-	"created",
+	"created_at",
 ];
 
 const PatientsPage = () => {
@@ -73,7 +80,22 @@ const PatientsPage = () => {
 
 	const { user } = Route.useRouteContext();
 	const search = Route.useSearch();
-	const response = Route.useLoaderData();
+
+	/**
+	 * `useSuspenseQuery` (not `Route.useLoaderData()`) deliberately — the
+	 * loader's `ensureQueryData` primes this exact cache entry, so this
+	 * doesn't cost an extra fetch, but unlike `useLoaderData` it's a live
+	 * subscription: the detail page's `invalidateQueries` after a mutation
+	 * (e.g. flag/unflag) is enough on its own to make this list re-render
+	 * with fresh data. `useLoaderData` reads a snapshot from the router's
+	 * own match cache, which isn't subscribed to query-cache invalidation
+	 * at all — a change made on the detail page would toast success there
+	 * but leave this list showing stale data indefinitely.
+	 */
+	const { data: response } = useSuspenseQuery({
+		queryKey: [...QUERY_KEYS.PATIENTS, search],
+		queryFn: () => patientsRequest({ data: search }),
+	});
 
 	const [searchInput, setSearchInput] = useState(search.search ?? "");
 
@@ -126,6 +148,19 @@ const PatientsPage = () => {
 					)}
 				</CardHeader>
 			</Card>
+
+			<div className="grid gap-4 sm:grid-cols-2">
+				<StatCard
+					icon={UsersIcon}
+					value={String(response.total)}
+					label="Total patients"
+				/>
+				<StatCard
+					icon={UserPlusIcon}
+					value={String(response.registered_this_period)}
+					label="Registered this month"
+				/>
+			</div>
 
 			<Card>
 				<CardContent className="flex flex-wrap items-end gap-2">
@@ -193,49 +228,33 @@ const PatientsPage = () => {
 
 			<Card>
 				<CardContent>
-					<Table>
-						<SortableTableHeader
-							table={table}
-							sortableColumns={SORTABLE_COLUMNS}
-							activeSort={search.sort}
-							activeOrder={search.order}
-							onSort={toggleSort}
-						/>
-						<TableBody>
-							{table.getRowModel().rows.length === 0 && (
-								<TableRow>
-									<TableCell
-										colSpan={columns.length + 1}
-										className="text-muted-foreground text-center"
+					<Table
+						table={table}
+						sortableColumns={SORTABLE_COLUMNS}
+						activeSort={search.sort}
+						activeOrder={search.order}
+						onSort={toggleSort}
+						emptyMessage="No patients found."
+						trailingHeader={
+							<TableHead className="text-right">Actions</TableHead>
+						}
+						rowActionClassName="text-right"
+						rowAction={(row) => (
+							<RowActionsMenu
+								label={`Actions for ${row.original.first_name} ${row.original.last_name}`}
+							>
+								<DropdownMenuItem asChild>
+									<RouterLink
+										to={FRONTEND_URLS.PATIENT}
+										params={{ patientId: row.original.id }}
 									>
-										No patients found.
-									</TableCell>
-								</TableRow>
-							)}
-							{table.getRowModel().rows.map((row) => (
-								<TableRow key={row.id}>
-									{row.getVisibleCells().map((cell) => (
-										<TableCell key={cell.id}>
-											{flexRender(
-												cell.column.columnDef.cell,
-												cell.getContext(),
-											)}
-										</TableCell>
-									))}
-									<TableCell>
-										<Link
-											variant="outline"
-											title="View patient"
-											to={FRONTEND_URLS.PATIENT}
-											params={{ patientId: row.original.id }}
-										>
-											View
-										</Link>
-									</TableCell>
-								</TableRow>
-							))}
-						</TableBody>
-					</Table>
+										<EyeIcon />
+										<span>View</span>
+									</RouterLink>
+								</DropdownMenuItem>
+							</RowActionsMenu>
+						)}
+					/>
 				</CardContent>
 			</Card>
 

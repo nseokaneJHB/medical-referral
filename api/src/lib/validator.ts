@@ -23,7 +23,13 @@ export const parseSortList = <TTable extends MySqlTable>(
 	const validColumns = Object.keys(model);
 
 	const invalid = columns.find((column) => !validColumns.includes(column));
-	if (invalid) throw new Error(`Invalid sort column: ${invalid}`);
+	if (invalid) {
+		const error = new Error(`Invalid sort column: ${invalid}`) as Error & {
+			statusCode: number;
+		};
+		error.statusCode = 400;
+		throw error;
+	}
 
 	return columns;
 };

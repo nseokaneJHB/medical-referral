@@ -22,7 +22,7 @@ import {
 	type ReferralSpecialtyListResponse,
 } from "@referral-tracking/shared";
 
-import { generateUuid } from "../../lib/util";
+import { zeroFillCounts, generateUuid, localDateStartToUtc } from "../../lib/util";
 import { parseEnumList, parseSortList } from "../../lib/validator";
 import {
 	canActOnReferral,
@@ -174,10 +174,16 @@ export const referrals = async (
 		];
 	}
 
+	// Snapshot taken before the query-string filters below are layered on —
+	// the stats stay a stable role-scoped picture, not reactive to whatever
+	// the caller currently has typed into search/status/date filters.
+	const roleScopeWhere: WhereClause<ReferralModelSelect> = { ...where };
+
 	const dateFilter: WhereOperator<Date> = {};
-	if (query.from) dateFilter.gte = new Date(`${query.from}T00:00:00.000Z`);
+	if (query.from)
+		dateFilter.gte = localDateStartToUtc(query.from, query.tz_offset);
 	if (query.to) {
-		const end = new Date(`${query.to}T00:00:00.000Z`);
+		const end = localDateStartToUtc(query.to, query.tz_offset);
 		end.setUTCDate(end.getUTCDate() + 1);
 		dateFilter.lt = end;
 	}
@@ -214,11 +220,17 @@ export const referrals = async (
 		include: REFERRAL_INCLUDE,
 	});
 
+	const statusCounts = zeroFillCounts(
+		await server.core.referral.count(roleScopeWhere, "status"),
+		REFERRAL_STATUS,
+	);
+
 	const { status, code } = HTTP_RESPONSE_CODE.OK;
 	reply.status(status).send({
 		code,
 		message: "Referrals retrieved.",
 		...result,
+		status_counts: statusCounts,
 	});
 };
 

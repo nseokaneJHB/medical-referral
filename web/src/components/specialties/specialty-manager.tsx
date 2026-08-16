@@ -67,10 +67,16 @@ export const SpecialtyManager = ({
 		<div className="space-y-3">
 			<div className="flex flex-wrap gap-2">
 				{assigned.length === 0 && (
-					<p className="text-muted-foreground text-sm">No specialties assigned.</p>
+					<p className="text-muted-foreground text-sm">
+						No specialties assigned.
+					</p>
 				)}
 				{assigned.map((link) => (
-					<Badge key={link.id} variant="secondary" title={link.specialty.description}>
+					<Badge
+						key={link.id}
+						variant="secondary"
+						title={link.specialty.description}
+					>
 						{link.specialty.name}
 						{editable && (
 							<button

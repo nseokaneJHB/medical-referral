@@ -72,7 +72,12 @@ export const Error = ({ error }: ErrorComponentProps) => {
 				</Button>
 
 				{isRoot ? (
-					<Link title="Home" size="lg" to={FRONTEND_URLS.HOME} variant="default">
+					<Link
+						title="Home"
+						size="lg"
+						to={FRONTEND_URLS.HOME}
+						variant="default"
+					>
 						<HomeIcon className="h-5 w-5 transition-transform group-hover:scale-110" />
 						<span>Home</span>
 					</Link>
