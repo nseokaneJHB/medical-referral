@@ -2025,3 +2025,11 @@ worth building generically (one reusable export mechanism across every
 list endpoint) given how many different lists exist, or should it start
 narrowly with just the audit log, which is the most obviously
 compliance-motivated use case?
+
+## Runbook doc + updated README
+
+**Status:** Parked 2026-08-17. User wants (1) a new doc explaining how to
+run this project (setup, envs, docker, dev commands) and (2) an updated
+`README.md` describing the project itself — problem domain and the stack
+being used. Not started yet; user explicitly said to park it while they
+switch focus to pointing the database at AWS.
