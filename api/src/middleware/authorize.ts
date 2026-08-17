@@ -46,6 +46,13 @@ export const authorize = (allowedRoles: Role | Role[]) => {
 			);
 		}
 
+		if (user.must_change_password) {
+			return forbidden(
+				reply,
+				"You must change your temporary password before continuing. Use PATCH /account/change-password.",
+			);
+		}
+
 		if (user.role !== ROLES.ADMINISTRATOR && user.facility_id) {
 			const facility = await request.server.core.facility.one({
 				where: { id: user.facility_id },

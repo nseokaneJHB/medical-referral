@@ -32,6 +32,10 @@ export const Route = createFileRoute("/_authenticated")({
 			throw redirect({ to: FRONTEND_URLS.ACCOUNT_STATUS });
 		}
 
+		if (user.must_change_password) {
+			throw redirect({ to: FRONTEND_URLS.CHANGE_PASSWORD });
+		}
+
 		return { user };
 	},
 });

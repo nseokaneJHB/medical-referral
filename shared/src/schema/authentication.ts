@@ -6,6 +6,7 @@ import {
 	emailSchema,
 	uuidSchema,
 	stringSchema,
+	booleanSchema,
 	userStatusSchema,
 } from "./field";
 
@@ -102,6 +103,7 @@ export const sessionResponseSchema = globalResponseSchema.extend({
 			role: roleSchema,
 			status: userStatusSchema,
 			facility_id: stringSchema.nullable(),
+			must_change_password: booleanSchema,
 		})
 		.nullable(),
 });

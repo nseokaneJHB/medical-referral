@@ -1724,3 +1724,93 @@ same page, not one threaded through the other.
   specialty tag from within it (dialog stayed open, no redirect submitted),
   then closed the dialog and confirmed the tag persisted on the page's
   Specialties card.
+
+**2026-08-16, scenario-testing bug sweep (8 fixes, committed `31b01eb`) —
+not this doc's own scope, but several fixes extend structures this doc
+owns.** `TIMELINE_ACTION` gained `UPDATED` (editing a patient's
+demographic fields or a facility's name/address previously wrote no
+timeline row — BUG-012/013); reassigning a referral's doctor past
+`PENDING` now writes a timeline row too (BUG-008); a second appeal filed
+before the first was decided was permanently undecidable, for both user
+and facility appeals — fixed (BUG-009); referrals could never actually be
+rejected through the API — no status combination allowed it, Doctors can
+now reject an `ACCEPTED` referral (BUG-006). Full list in the commit
+message; this doc only tracks the subset touching its own design surface.
+
+**2026-08-17, stat cards + layout pass (`e11271e`) — not this doc's
+scope**, except BUG-016 (`patientCreate` omitted `flagged`/`flag_reason`
+from its response, so Fastify's Zod response validation 500'd every
+successful patient creation) touches the patient-flagging feature this
+doc designed.
+
+**2026-08-17 — specialty manager added to the user detail page, shared
+`UNUSABLE_USER_STATUSES`/`UNUSABLE_FACILITY_STATUSES`/
+`APPEALABLE_USER_STATUSES` constants moved from `api/src/lib/permission.ts`
+into `shared/src/constant.ts` (so frontend and backend can both reuse them
+without duplicating the arrays), and a `password_set_at` timestamp added
+to `UserDetailSchema` (derived from `account.updated_at`, shown on the
+admin reset-password dialog as "Password set X ago") — committed
+`6e8f6e1`.
+
+**2026-08-17 — frontend permissions-file thread, actually closed.** The
+2026-08-13 entry above queued "finish the remaining 15 inline checks" but
+that never happened as its own dedicated pass — re-audited today by
+grepping every route file for `role === ROLES`:
+
+- `referrals/$referralId.tsx`, `appeals/index.tsx`, `transfers/index.tsx`,
+  and `side-bar.tsx` are confirmed clean (0 inline `role === ROLES.X`
+  checks left) — this migration did land at some point, just was never
+  logged here.
+- `_authenticated/index.tsx` (dashboard, 7 checks) and `audit/index.tsx`
+  (2 checks, added later when the audit pages merged) are **deliberately
+  left as literal `role === ROLES.X` / `data.role === ROLES.X`
+  comparisons — not an oversight.** Both dispatch on a discriminated-union
+  loader return shape (`{ role: "DOCTOR", summary: DoctorSummary, ... } |
+  { role: "ADMINISTRATOR", ... } | ...`). TypeScript only narrows a union
+  on a literal comparison against the discriminant field — swapping either
+  check for a boolean-returning predicate (`isDoctor(data)`) breaks that
+  narrowing entirely, since the predicates in `web/src/lib/permissions.ts`
+  aren't declared as type guards (`user is X`). This was tried and
+  reverted once already — see `audit/index.tsx`'s own comment above its
+  `AuditPage` dispatcher, which documents the mistake for exactly this
+  reason. Converting the predicates into real type guards was considered
+  and rejected as not worth it for a one-line `===` with no other
+  condition attached. This queued item is now resolved as "correctly left
+  alone," not still open.
+
+**2026-08-17 — forced password-change flow for admin-issued temporary
+passwords (new feature, closes the 2026-08-12 gap noted above: "backend
+sets `must_change_password: true` on every admin-created account but the
+frontend has zero handling of that field anywhere").**
+
+- `GET /session`'s response now includes `must_change_password` (already
+  computed on `request.user` via `SessionManager.mapUser`, just never
+  surfaced past the session endpoint) — `sessionResponseSchema`
+  (`shared/src/schema/authentication.ts`) and
+  `modules/authentication/service.ts`'s `session` handler.
+- New `PATCH /account/change-password` (self-service, `app.authenticate`
+  only — same "reachable regardless of account status" reasoning as
+  `/account/status` and `/account/appeal`, since a `must_change_password`
+  account is `ACTIVE` and must still be able to fix its own password):
+  verifies `current_password` against the stored hash
+  (`lib/password.ts`'s `verifyPassword`), rejects with 409 if it doesn't
+  match, otherwise re-hashes `new_password` via `hashPassword` (Argon2id,
+  same as every other password write in this system) and clears
+  `must_change_password`.
+- **Backend enforcement, not just a frontend nudge**:
+  `middleware/authorize.ts`'s existing account-usability gate — the one
+  every role-gated route already gets "for free" — now also blocks any
+  request from a `must_change_password: true` account, mirroring exactly
+  how it already blocks a non-`ACTIVE` account. `/account/change-password`
+  itself bypasses `app.authorize` (same as `/account/status` and
+  `/account/appeal`), so this doesn't lock a user out of the one route
+  they need to fix it.
+- Frontend: new standalone `/change-password` route (outside
+  `_authenticated`, same tier as `/account-status`); `_authenticated.tsx`'s
+  `beforeLoad` redirects there when `user.must_change_password` is true
+  (checked right after the existing `status !== ACTIVE` redirect). Form
+  via `react-hook-form` + `zodResolver` (current/new/confirm-new-password
+  fields, mirrors `sign-up.tsx`'s password/confirmPassword pattern). On
+  success, invalidates the session query and navigates home — the same
+  pattern `sign-in.tsx`/`sign-up.tsx` already use after any auth-state
+  change.

@@ -1,17 +1,25 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 
+import { fromNodeHeaders } from "better-auth/node";
+
 import {
 	TIMELINE_TYPE,
 	TIMELINE_ACTION,
 	HTTP_RESPONSE_CODE,
 } from "@referral-tracking/shared";
 
+import { auth } from "../../lib/auth";
 import { generateUuid } from "../../lib/util";
 import { canFileAppeal } from "../../lib/permission";
+import { hashPassword, verifyPassword } from "../../lib/password";
 
 import { AppealManager } from "../../management/appeal";
 
-import type { AccountStatusRequest, AppealSubmitRequest } from "./type";
+import type {
+	AccountStatusRequest,
+	AppealSubmitRequest,
+	ChangePasswordRequest,
+} from "./type";
 
 /**
  * Latest timeline row for an entity, whatever action it was — used as
@@ -127,4 +135,69 @@ export const appealSubmit = async (
 		message: "Appeal submitted.",
 		data: { ...entry, changer: { id: user.id, name: user.name } },
 	});
+};
+
+export const changePassword = async (
+	request: FastifyRequest<ChangePasswordRequest>,
+	reply: FastifyReply<ChangePasswordRequest>,
+): Promise<void> => {
+	const user = request.user!;
+
+	const account = await request.server.core.account.one({
+		where: { user_id: user.id },
+		select: { id: true, password: true },
+	});
+
+	if (!account || !account.password) {
+		const { status, code } = HTTP_RESPONSE_CODE.NOT_FOUND;
+		return reply
+			.status(status)
+			.send({ code, message: "No credential account found for this user." });
+	}
+
+	const valid = await verifyPassword({
+		hash: account.password,
+		password: request.body.current_password,
+	});
+
+	if (!valid) {
+		const { status, code } = HTTP_RESPONSE_CODE.CONFLICT;
+		return reply
+			.status(status)
+			.send({ code, message: "Current password is incorrect." });
+	}
+
+	await request.server.core.account.update({
+		where: { id: account.id },
+		data: { password: await hashPassword(request.body.new_password) },
+		select: { id: true },
+	});
+
+	await request.server.core.user.update({
+		where: { id: user.id },
+		data: { must_change_password: false },
+		select: { id: true },
+	});
+
+	/**
+	 * better-auth's session cookie-cache (`lib/auth.ts`'s `session.cookieCache`)
+	 * embeds `must_change_password` at sign-in time and has no way to know
+	 * this row just changed underneath it — re-running the sign-in flow
+	 * server-side with the new password re-issues a fresh cookie reflecting
+	 * the cleared flag, so the caller isn't immediately blocked by
+	 * `middleware/authorize.ts` on their very next request after an
+	 * otherwise-successful password change. Same mechanism
+	 * `modules/authentication/service.ts`'s `signIn` handler already uses.
+	 */
+	const signInResponse = await auth.api.signInEmail({
+		asResponse: true,
+		headers: fromNodeHeaders(request.headers),
+		body: { email: user.email, password: request.body.new_password },
+	});
+
+	const freshCookies = signInResponse.headers.getSetCookie();
+	if (freshCookies.length > 0) reply.header("set-cookie", freshCookies);
+
+	const { status, code } = HTTP_RESPONSE_CODE.OK;
+	reply.status(status).send({ code, message: "Password changed." });
 };

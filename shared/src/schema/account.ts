@@ -35,3 +35,14 @@ export const accountStatusSchema = z.object({
 export const accountStatusResponseSchema = globalResponseSchema.extend({
 	data: accountStatusSchema,
 });
+
+/**
+ * `PATCH /account/change-password` — self-service password change. Used
+ * both for the forced flow (an admin-issued temporary password,
+ * `must_change_password: true`) and any later voluntary change; either
+ * way the caller must prove they know the current password.
+ */
+export const changePasswordSchema = z.object({
+	current_password: stringSchema.min(1, "Current password is required"),
+	new_password: stringSchema.min(8, "Password must be at least 8 characters"),
+});

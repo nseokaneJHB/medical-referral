@@ -30,6 +30,7 @@ export const FRONTEND_URLS = {
 	TRANSFERS: "/transfers",
 	APPEALS: "/appeals",
 	ACCOUNT_STATUS: "/account-status",
+	CHANGE_PASSWORD: "/change-password",
 } as const;
 
 export type FrontendRedirectUrlPaths = typeof FRONTEND_URLS;
@@ -186,6 +187,7 @@ export const API_PATHS = {
 
 	ACCOUNT_STATUS: "/status",
 	ACCOUNT_APPEAL: "/appeal",
+	ACCOUNT_CHANGE_PASSWORD: "/change-password",
 
 	ADMINISTRATOR_MANAGER_APPROVE: "/managers/:id/approve",
 	ADMINISTRATOR_MANAGER_REJECT: "/managers/:id/reject",

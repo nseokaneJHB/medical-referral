@@ -5,7 +5,9 @@ import {
 	API_URLS,
 	API_PATHS,
 	type AppealBody,
+	type GlobalResponse,
 	type TimelineResponse,
+	type ChangePasswordBody,
 	type AccountStatusResponse,
 } from "@referral-tracking/shared";
 
@@ -34,6 +36,16 @@ export const submitAppeal = async (
 ): Promise<TimelineResponse> => {
 	const { data } = await api.post<TimelineResponse>(
 		`${baseUrl}${API_PATHS.ACCOUNT_APPEAL}`,
+		payload,
+	);
+	return data;
+};
+
+export const changePassword = async (
+	payload: ChangePasswordBody,
+): Promise<GlobalResponse> => {
+	const { data } = await api.patch<GlobalResponse>(
+		`${baseUrl}${API_PATHS.ACCOUNT_CHANGE_PASSWORD}`,
 		payload,
 	);
 	return data;

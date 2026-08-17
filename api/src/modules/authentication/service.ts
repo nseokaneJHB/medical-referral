@@ -236,6 +236,9 @@ export const session = async (
 					facility_id:
 						// eslint-disable-next-line @typescript-eslint/no-explicit-any
 						(userSession.user as any).facility_id ?? null,
+					must_change_password:
+						// eslint-disable-next-line @typescript-eslint/no-explicit-any
+						(userSession.user as any).must_change_password ?? false,
 				}
 			: null,
 	};
