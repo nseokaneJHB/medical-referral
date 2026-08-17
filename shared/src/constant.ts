@@ -320,6 +320,39 @@ export const APPEALABLE_FACILITY_STATUSES: (typeof FACILITY_STATUS)[keyof typeof
 	];
 
 /**
+ * User statuses that block platform access. Used by `lib/permission.ts`
+ * (backend) and `web/src/lib/permissions.ts` (frontend) to gate whether a
+ * user account is usable for its intended role.
+ */
+export const UNUSABLE_USER_STATUSES = [
+	USER_STATUS.PENDING,
+	USER_STATUS.REJECTED,
+	USER_STATUS.DISABLED,
+] as ReadonlyArray<string>;
+
+/**
+ * Facility statuses that block platform access. Same shape as
+ * `UNUSABLE_USER_STATUSES` — used by permission-gating logic on both backend
+ * and frontend.
+ */
+export const UNUSABLE_FACILITY_STATUSES = [
+	FACILITY_STATUS.PENDING,
+	FACILITY_STATUS.REJECTED,
+	FACILITY_STATUS.SUSPENDED,
+] as ReadonlyArray<string>;
+
+/**
+ * User statuses that permit filing an appeal. A user in any of these states
+ * can sign in restricted to submitting an appeal against the status change
+ * and viewing its decision.
+ */
+export const APPEALABLE_USER_STATUSES = [
+	USER_STATUS.REJECTED,
+	USER_STATUS.FLAGGED,
+	USER_STATUS.DISABLED,
+] as ReadonlyArray<string>;
+
+/**
  * Generalized append-only audit log (`timeline` table) — covers Users,
  * Facilities, and Referrals moderation/status history in one shared shape.
  * `type` says which entity `entity` (a bare id, not a real FK — polymorphic

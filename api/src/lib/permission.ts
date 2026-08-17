@@ -1,7 +1,8 @@
 import {
 	ROLES,
-	USER_STATUS,
-	FACILITY_STATUS,
+	UNUSABLE_USER_STATUSES,
+	UNUSABLE_FACILITY_STATUSES,
+	APPEALABLE_USER_STATUSES,
 	APPEALABLE_FACILITY_STATUSES,
 	type Role,
 } from "@referral-tracking/shared";
@@ -26,25 +27,6 @@ import type {
  * caller makes before calling in here, not something modeled by these
  * functions.
  */
-
-const UNUSABLE_USER_STATUSES: ReadonlyArray<UserModelSelect["status"]> = [
-	USER_STATUS.PENDING,
-	USER_STATUS.REJECTED,
-	USER_STATUS.DISABLED,
-];
-
-const UNUSABLE_FACILITY_STATUSES: ReadonlyArray<FacilityModelSelect["status"]> =
-	[
-		FACILITY_STATUS.PENDING,
-		FACILITY_STATUS.REJECTED,
-		FACILITY_STATUS.SUSPENDED,
-	];
-
-const APPEALABLE_USER_STATUSES: ReadonlyArray<UserModelSelect["status"]> = [
-	USER_STATUS.REJECTED,
-	USER_STATUS.FLAGGED,
-	USER_STATUS.DISABLED,
-];
 
 /**
  * Coarse account-level gate, applied by `middleware/authorize.ts` on every

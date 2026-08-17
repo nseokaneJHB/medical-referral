@@ -52,6 +52,13 @@ export const UserDoctorStatsSchema = z.object({
 export const UserDetailSchema = UserSchema.omit({ facility_id: true }).extend({
 	facility: facilityRefSchema.nullable(),
 	stats: UserDoctorStatsSchema.optional(),
+	/**
+	 * When this user's credential `account.password` was last set (initial
+	 * creation or a subsequent admin reset) — `null` only if no credential
+	 * account exists at all, which shouldn't normally happen. Powers the
+	 * "Password set X ago" note on the admin reset-password dialog.
+	 */
+	password_set_at: z.date().nullable(),
 });
 
 export const userDetailResponseSchema = globalResponseSchema.extend({

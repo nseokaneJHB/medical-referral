@@ -177,13 +177,22 @@ export const user = async (
 			? await doctorStats(request.server.core, user.id)
 			: undefined;
 
+	const account = await request.server.core.account.one({
+		where: { user_id: user.id },
+		select: { updated_at: true },
+	});
+
 	const { status, code } = HTTP_RESPONSE_CODE.OK;
 	reply.status(status).send({
 		code,
 		message: "User retrieved.",
 		// `include`-derived fields (`facility`) aren't modeled by `WithCount` —
 		// present at runtime, just invisible to this type. See `core/helpers.ts`.
-		data: { ...user, stats } as unknown as UserDetailResponse["data"],
+		data: {
+			...user,
+			stats,
+			password_set_at: account?.updated_at ?? null,
+		} as unknown as UserDetailResponse["data"],
 	});
 };
 

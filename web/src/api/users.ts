@@ -15,6 +15,7 @@ import {
 	type TimelineListResponse,
 	type CreateUserByAdminBody,
 	type CreateUserByAdminResponse,
+	type ResetUserPasswordResponse,
 } from "@referral-tracking/shared";
 
 import { api } from "@/api";
@@ -195,6 +196,21 @@ export const createUser = async (
 	const { data } = await api.post<CreateUserByAdminResponse>(
 		`${API_URLS(env.VITE_API_VERSION).ADMINISTRATOR}${API_PATHS.ADMINISTRATOR_USER_CREATE}`,
 		payload,
+	);
+	return data;
+};
+
+/**
+ * Administrator-only: regenerate a user's password — the recovery path
+ * when a just-issued (or any) temporary password is lost before being
+ * shared, since it's never recoverable once hashed.
+ */
+export const resetUserPassword = async (
+	id: string,
+): Promise<ResetUserPasswordResponse> => {
+	const { data } = await api.patch<ResetUserPasswordResponse>(
+		`${API_URLS(env.VITE_API_VERSION).ADMINISTRATOR}${buildUrlWithParams(API_PATHS.ADMINISTRATOR_USER_RESET_PASSWORD, { id })}`,
+		{},
 	);
 	return data;
 };

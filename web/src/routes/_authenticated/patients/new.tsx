@@ -15,6 +15,7 @@ import {
 	type CreatePatientBody,
 } from "@referral-tracking/shared";
 
+import { isNurse } from "@/lib/permissions";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,7 +30,6 @@ import { useToastMutation } from "@/hooks/use-toast-mutation";
 
 import { QUERY_KEYS } from "@/api/constant";
 import { createPatient } from "@/api/patients";
-import { isNurse } from "@/lib/permissions";
 
 const GENDER_ITEMS = Object.values(GENDER).map((value) => ({
 	value,
