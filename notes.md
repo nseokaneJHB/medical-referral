@@ -1,1 +1,0 @@
-I was testing and this is what I found "1. The clear is not on the search 2. I created a user called someone somewhere and I signed in as a manager. I saw that on the status column it displays something weird on that row in the audit page"

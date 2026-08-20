@@ -519,8 +519,8 @@ const ManagerFacilityAudit = ({
 										<SubjectCell entry={entry} viewerId={user.id} />
 									</TableCell>
 									<TableCell className="max-w-32 truncate">
-										{entry.next ? (
-											<Badge variant={STATUS_VARIANT[entry.next] ?? "outline"}>
+										{entry.next && STATUS_VARIANT[entry.next] ? (
+											<Badge variant={STATUS_VARIANT[entry.next]}>
 												{stringToTitleCase(entry.next)}
 											</Badge>
 										) : (

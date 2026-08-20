@@ -127,6 +127,17 @@ const FacilitiesPage = () => {
 		});
 	};
 
+	const clearSearch = () => {
+		setSearchInput("");
+		navigate({
+			search: (prev) => ({
+				...prev,
+				search: undefined,
+				page: "1",
+			}),
+		});
+	};
+
 	const toggleSort = (column: string) => {
 		navigate({
 			search: (prev) => {
@@ -211,6 +222,7 @@ const FacilitiesPage = () => {
 						value={searchInput}
 						onChange={setSearchInput}
 						onCommit={commitSearch}
+						onClear={clearSearch}
 						placeholder="Search by name or address..."
 					/>
 				</CardContent>

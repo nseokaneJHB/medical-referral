@@ -121,6 +121,17 @@ const PatientsPage = () => {
 		});
 	};
 
+	const clearSearch = () => {
+		setSearchInput("");
+		navigate({
+			search: (prev) => ({
+				...prev,
+				search: undefined,
+				page: "1",
+			}),
+		});
+	};
+
 	const toggleSort = (column: string) => {
 		navigate({
 			search: (prev) => {
@@ -221,6 +232,7 @@ const PatientsPage = () => {
 						value={searchInput}
 						onChange={setSearchInput}
 						onCommit={commitSearch}
+						onClear={clearSearch}
 						placeholder="Search by name or phone..."
 					/>
 				</CardContent>

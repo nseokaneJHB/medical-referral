@@ -16,6 +16,7 @@ import {
 	HTTP_CODE,
 	SignUpSchema,
 	FRONTEND_URLS,
+	signUpRoleSchema,
 	stringToTitleCase,
 	type SignUpBody,
 	type GlobalResponse,
@@ -46,7 +47,7 @@ const signUpFormSchema = SignUpSchema.extend({
 
 type SignUpFormValues = z.infer<typeof signUpFormSchema>;
 
-const ROLE_ITEMS = Object.values(ROLES).map((role) => ({
+const ROLE_ITEMS = signUpRoleSchema.options.map((role) => ({
 	value: role,
 	label: stringToTitleCase(role),
 }));
