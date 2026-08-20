@@ -9,83 +9,6 @@ own planning doc (like `docs/roles-permissions.md`) and link back here.
 Referenced from a prior (lost) session — details not recaptured yet. Need to
 ask the user what this idea actually entailed before it can be scoped.
 
-## Facilities picker — searchable select (hybrid)
-
-**Resolved — shipped 2026-08-14.** Hybrid async search, confirmed working
-end to end (live-verified in browser, not just typechecked) at all 5 real
-call sites — the original backlog note claiming "6 screens" was stale:
-`patients/new.tsx` and `referrals/index.tsx` never had a facility picker at
-all, and `users/index.tsx`'s create-user dialog was missing from the list.
-
-- `web/src/hooks/use-debounced-value.ts` — generic `useDebouncedValue<T>`,
-  no debounce dependency existed before this.
-- `web/src/hooks/use-facility-search.ts` — wraps search-term state, the
-  debounce, and a `useQuery` gated on a non-empty debounced term (true
-  hybrid: no eager `page:1/limit:100` load). Takes `enabled`, `excludeId`
-  (drop one facility from results — the current one, for transfer/redirect
-  pickers) and `status` (e.g. Administrator's create-user dialog still only
-  offers `APPROVED` facilities).
-- `SelectInput` (`web/src/components/custom/select-input.tsx`) gained three
-  purely-additive, opt-in props: `onSearchChange`, `filterMode` (`"client"`
-  default vs `"server"`, which flips `shouldFilter` off on the underlying
-  `Command`), and `loading` (shows "Searching..." in place of the empty
-  state). Every other existing call site is untouched — defaults preserve
-  old behavior exactly.
-- Applied at all 5 sites: `patients/$patientId.tsx` (transfer dialog,
-  excludes current facility), `referrals/new.tsx`, `referrals/$referralId.tsx`
-  (the trickiest one — previously one eager query fed both the edit-form
-  field and the Redirect dialog via a prop; now each owns its own
-  independent `useFacilitySearch` call, since Redirect needs a different
-  exclusion than the edit field), `sign-up.tsx`, `users/index.tsx` (create-user
-  dialog, `status: APPROVED`).
-- Verified live in the browser signed in as Nurse/Doctor/Administrator:
-  confirmed no eager list before typing, a single debounced network request
-  per pause in typing (not one per keystroke), correct facility exclusion
-  in both the transfer and redirect dialogs, and correct `APPROVED`-only
-  scoping in the create-user dialog.
-
-## Facility specialties
-
-**Resolved — shipped 2026-08-13.** Administrator-managed `specialties`
-reference vocabulary (create/rename, no delete — same no-hard-delete stance
-as the rest of the app), assignable many-to-many to both facilities and
-Doctor/Nurse staff. Answers to the open questions below as actually built:
-
-- **Doctor/Nurse specialty is fully independent** of their facility's list —
-  a personal credential, not derived/constrained by what the facility has.
-- **Surfaced in three places**: a dedicated `/specialties` admin page
-  (Administrator-only, list/create/rename), a Specialties card on the
-  facility detail page (Administrator or that facility's own Manager), and a
-  Specialties card on the Doctor/Nurse user detail page (Administrator, or
-  the Manager of that Doctor/Nurse's own facility) — badges with inline
-  remove plus a searchable add-picker (`SpecialtyManager`, shared between
-  both detail pages).
-- **Admin-managed controlled vocabulary**, not free text — confirmed, matches
-  what the schema already committed to.
-- **Referral-routing-by-specialty — picked up and shipped 2026-08-14**, see
-  `docs/roles-permissions.md`. A Nurse can tag a referral with needed
-  specialties at creation; a Doctor can add/remove tags independently of
-  redirecting, from the detail page or from inside the Redirect dialog.
-  New `referral_specialties` join table, `canManageReferralSpecialties`
-  permission.
-- **Facilities filter-by-specialty — picked up and shipped 2026-08-14.** A
-  multi-select `Specialty` filter on the Administrator `/facilities` list,
-  next to the existing `Status` filter — narrows to facilities offering any
-  of the picked specialties. Backend: comma-separated `specialty` query
-  param on `GET /facilities`, resolved via `facility_specialties` (batch
-  id lookup, same pattern as `getPatientFlagStatuses`) then ANDed into the
-  existing visibility/status where-clause. Distinct from the still-parked
-  "Facilities picker — searchable select (hybrid)" item above — that one is
-  about the plain facility-picker dropdowns silently capping at 100
-  results, not about filtering by specialty.
-- Backend: `GET/POST /specialties`, `PATCH /specialties/:id` (Administrator
-  create/rename); `GET/POST /facilities/:id/specialties`,
-  `DELETE /facilities/:id/specialties/:specialtyId`; same three shapes under
-  `/users/:id/specialties` and `/referrals/:id/specialties`. Seed data
-  (`api/script/seed.ts`) already covered this before the UI did — 2-4
-  specialties per operational facility, 1-2 per active Doctor/Nurse,
-  including the standard test accounts.
-
 ## User profile pages
 
 **Correction, 2026-08-16: this was never actually built — the note below
@@ -112,69 +35,38 @@ of this — self-service password change needs _some_ profile/settings
 page to live on, and building that page would naturally cover both gaps
 (name editing and password) at once.
 
-## Self-service password change (+ profile/settings page)
+## Self-service password change — voluntary access still missing
 
-- **Raised 2026-08-12**, right after shipping Administrator password reset
-  (`docs/roles-permissions.md`'s 2026-08-12 session log entry) and the
-  Argon2 hashing cutover. User pointed out the resulting gap: once an
-  Administrator resets (or creates) a user's password, that user has no
-  way to ever change it themselves — confirmed by research, there is
-  currently **no self-service password-change capability anywhere in the
-  system**:
-  - Backend: better-auth's built-in `changePassword` endpoint isn't even
-    routed — `api/src/modules/authentication/route.ts` only registers
-    sign-up/sign-in/sign-out/session, no catch-all `auth.handler` mounted.
-  - Frontend: no profile/settings/account page exists at all (`account-
-status.tsx` is facility-approval/appeal, not account settings), no API
-    call for it, no nav link.
-  - `must_change_password` (set on every admin-created/admin-reset
-    account) is defined and flows into the session/account response
-    (`shared/src/schema/account.ts`) but is completely inert on the
-    frontend — nothing reads it, no forced-change screen, no redirect.
-    Previously flagged as "not yet built" in `docs/roles-permissions.md`
-    when the create-user flow shipped; now more consequential since
-    admin-reset is also live and it's the _only_ password-change path.
-- **User's explicit requirement:** this must be coupled with a real
-  profile/settings page, not bolted on as a standalone password-change
-  form somewhere ad hoc. Ties directly to the "User profile pages" item
-  above, which only resolved the name-only piece and explicitly deferred
-  email/password.
-- Not scoped yet — needs its own planning pass covering at minimum: where
-  the page lives in nav, whether `changePassword` gets exposed via
-  better-auth's handler or a custom endpoint (consistent with the
-  Argon2/`api/src/lib/password.ts` hashing setup, not better-auth's
-  scrypt default), and whether/how `must_change_password` finally gets
-  read client-side (forced-change redirect on sign-in vs. a passive
-  banner on the new settings page).
-- Status: **parked, not started.**
-- **Two adjacent gaps found via scenario testing 2026-08-16** (see
-  `docs/scenarios/017-...`), worth folding into whatever eventually picks
-  this up rather than tracking as separate items:
-  - This entry covers a signed-in user changing their own password —
-    there's a second, narrower "forgot password while locked out
-    entirely" case that a settings-page change form alone wouldn't
-    solve, since it requires being able to authenticate first. Today
-    that case has exactly one path: ask an Administrator to reset it for
-    you (`userResetPassword`,
-    `api/src/modules/administrator/service.ts:707-753`) — there's no
-    email-based recovery flow, and better-auth's own `forgetPassword`/
-    `resetPassword` endpoints are configured but dark (no
-    `sendResetPassword` callback supplied, `api/src/lib/auth.ts:41-48`).
-  - **An Administrator's password reset doesn't invalidate the target's
-    existing sessions.** `userResetPassword` only writes
-    `account.password` and `must_change_password` — it never touches the
-    `session` table. If a reset is happening *because* an account was
-    compromised, whatever session the attacker already holds stays valid
-    until its own natural expiry (`SESSION_EXPIRES_IN`, 7 days by
-    default) or a manual sign-out; the reset doesn't evict anyone.
-  - **The reset itself isn't written to the persisted audit trail.**
-    `api/src/modules/administrator/service.ts` never calls
-    `core.timeline.create` for this or any other administrator action —
-    it only sets a Fastify event name that feeds the structured request
-    logger (`api/src/middleware/logging.ts`), not the product's own
-    Manager/Administrator audit UI (`api/src/management/audit.ts`).
-    There's no queryable record inside the app itself of who reset whose
-    password and when.
+**Partially resolved 2026-08-17** (see `docs/roles-permissions.md`'s
+2026-08-17 session log entry) — `PATCH /account/change-password` now
+exists (custom endpoint through `api/src/lib/password.ts`'s Argon2id, not
+better-auth's built-in `changePassword`) and works for any authenticated
+account regardless of status, plus a standalone `/change-password` route
+the frontend force-redirects to when `must_change_password` is true. That
+closes the original, most urgent case: an admin-created or admin-reset
+account is no longer stuck with a permanent temporary password.
+
+**Still open:** there's no voluntary path to the same page. A normal
+`ACTIVE` user who simply wants to change their own password (not because
+they were forced to) has no nav link, profile page, or settings entry
+anywhere that reaches `/change-password` — confirmed by grep, the only
+thing that navigates there is `_authenticated.tsx`'s forced redirect. The
+original ask's other half — a real profile/settings page, also covering
+self-service name editing (see "User profile pages" above) — was never
+built; the endpoint exists but nothing voluntary reaches it.
+
+Two adjacent gaps, still open, found via scenario testing 2026-08-16 (see
+`docs/scenarios/017-...`):
+
+- No email-based "forgot password while locked out entirely" recovery —
+  the only path remains an Administrator reset (`userResetPassword`,
+  `api/src/modules/administrator/service.ts:707-753`); better-auth's own
+  `forgetPassword`/`resetPassword` endpoints are configured but dark (no
+  `sendResetPassword` callback, `api/src/lib/auth.ts:41-48`).
+- An Administrator's password reset still doesn't invalidate the target's
+  existing sessions (`userResetPassword` only writes `account.password`/
+  `must_change_password`, never touches `session`), and the reset itself
+  still isn't written to the persisted `timeline` audit trail.
 
 ## Frontend module organization — API calls sharded by role
 
@@ -194,8 +86,8 @@ status.tsx` is facility-approval/appeal, not account settings), no API
   _same_ call for every role with only server-side scoping differing
   (Patients/Referrals/Facilities reads) — those stay in a shared module.
   Duplicating them per role folder would just be copy-paste, the same
-  mistake already found and fixed once this session (the facilities picker
-  duplicated across 6 screens, see above).
+  mistake already found and fixed once this session in an unrelated area
+  (a facility-picker component that had been duplicated across screens).
 - **User overruled the caveat above (2026-08-09): full role-based
   duplication, on purpose, even for shared entities.** Reasoning: it lets
   each role's slice evolve independently later (e.g. omitting a field from
@@ -271,241 +163,65 @@ X)` checks throughout one shared component (which is roughly what
   placement for the policy evaluation logic, above) to settle once this is
   actually built.
 
-## Shared list-page components (filter bar, status badges, action buttons)
-
-**Resolved — shipped 2026-08-15.** Picked up after the facilities-picker
-hybrid search (above). A fresh survey at pickup time found the original
-2026-08-13 framing was partly stale — Users' status badge was never a binary
-success/error (it's a full 6-way map, same shape as Referrals/Facilities),
-and Referrals/Patients' create button was never `Link`'s ghost variant (both
-already used the filled `default` variant) — so the actual build targeted
-the duplication that was real and verified, not the original symptom list:
-
-- **`VariantBadge`** (`web/src/components/custom/variant-badge.tsx`) —
-  replaces 5 identical `<Badge variant={MAP[value]}>{stringToTitleCase(value)}</Badge>`
-  cell renderers (Users' role/status, Facilities' status, Referrals'
-  priority/status) with `<VariantBadge value={x} type="userStatus" />` etc.
-  Centralizes all 5 variant maps into one file, keyed by an explicit `type`
-  discriminator — deliberately _not_ auto-dispatched by scanning which enum
-  a value belongs to, because this app's enums genuinely collide on value
-  (`PENDING` appears in `USER_STATUS`, `FACILITY_STATUS`, _and_
-  `REFERRAL_STATUS`; `REJECTED` the same three; `FLAGGED` in both
-  `USER_STATUS` and `FACILITY_STATUS`) — an auto-dispatch design would
-  silently pick the wrong variant for at least two of the three colliding
-  domains. `type` makes the lookup an exact `VARIANT_MAPS[type][value]`
-  double hash-lookup instead of a guess. No icons — considered (a similar
-  component, `BadgeWithIcon`, exists in the `ubuntu-stories` reference
-  project) and explicitly deferred; would need ~26 icons picked from
-  scratch since none of that project's enum values overlap with this app's.
-- **`SortableTableHeader`** (`web/src/components/custom/sortable-table-header.tsx`) —
-  the sort-icon-toggling header row, byte-identical across all 4 pages
-  (confirmed by diff, the single largest duplicated block found). Takes
-  `table`, `sortableColumns`, `activeSort`/`activeOrder`, `onSort`, and an
-  optional `trailingHeader` (defaults to a blank `<TableHead />`; Users
-  passes a custom right-aligned "Actions" cell instead of forcing
-  uniformity where the pages genuinely differ).
-- **`PaginationFooter`** (`web/src/components/custom/pagination-footer.tsx`) —
-  the "Page X of Y · N total" + Prev/Next block, confirmed byte-identical
-  across all 4 pages before extracting.
-- **`SearchField`** (`web/src/components/custom/search-field.tsx`) — the
-  search-input-plus-button pinned right (`ml-auto`). Normalized one small
-  accidental divergence: Users/Facilities had drifted to `items-center`,
-  Referrals/Patients to `items-end` — not a deliberate choice either place,
-  now uniformly `items-center`.
-- **Revisited 2026-08-15 (later same day): generic `Table` built after
-  all.** The reasoning above against wrapping the `ubuntu-stories` reference
-  component still stands — that component owns sort/page state internally
-  via `manualSorting`/`manualPagination: true`, a real mismatch with this
-  app's URL-driven, loader-computed state. But the user pushed back on
-  conflating "don't port that specific implementation" with "can't build a
-  generic table at all," and reconsidered using vanilla
-  `@tanstack/react-table` for a from-scratch wrapper matching this app's
-  actual pattern. Checking the 4 pages confirmed columns were already
-  properly defined via `createColumnHelper` and rendered through
-  `flexRender` — the only remaining duplication was the row-body loop
-  (empty-state row, `getRowModel().rows.map()` + cell `flexRender`, trailing
-  action cell) sitting next to `SortableTableHeader`. Built
-  `Table` (`web/src/components/custom/table.tsx`) wrapping both: takes
-  `table`, `sortableColumns`/`activeSort`/`activeOrder`/`onSort` (passed
-  through to `SortableTableHeader`), `emptyMessage`, and a `rowAction: (row)
-=> ReactNode` render prop for the divergent trailing cell (Users needs a
-  `RowActionsMenu` dropdown with role-conditional moderation items; the
-  other 3 pages need a plain `View` link) plus `rowActionClassName` for
-  Users' right-aligned variant. `columnCount` for the empty-state `colSpan`
-  is derived from `table.getAllColumns().length`, not passed as a prop.
-  Named `Table` (not `GenericTable`) — collides with `ui/table.tsx`'s
-  `Table`, resolved the same way the codebase already resolves this exact
-  collision in `custom/input.tsx`: alias the shadcn import
-  (`Table as ShadCnTable`) inside the custom file, export the plain name.
-  Also checked the official TanStack Table docs
-  (tanstack.com/table/latest/docs/overview) for anything else worth
-  adopting — column visibility/pinning/resizing, row selection, global
-  filtering/faceting, virtualization. None apply: this app's tables only
-  ever hold one already-server-filtered, already-paginated page of data (no
-  full dataset ever reaches the client for client-side filtering/faceting to
-  operate on), page sizes are small enough that virtualization has no
-  target, and there's no current bulk-action requirement that would justify
-  row selection. The codebase's existing `createColumnHelper` + `flexRender`
-  usage was already the idiomatic pattern; no manual-mode flags needed since
-  the loader, not react-table, computes the page.
-  - **No generic `FilterBar` wrapper.** The actual filter _controls_ differ
-    genuinely per page (gender/DOB range vs status/specialty vs
-    priority/status/date-range vs role/status) — only the search-box piece
-    was truly shared, which `SearchField` covers.
-  - Facilities' missing create button (no `POST /facilities` route exists —
-    facilities are created via sign-up) and Patients' missing status column
-    (Patient has no status field) both stayed as-is — not drift to fix, the
-    shared pieces are opt-in per page, not forced onto every page.
-- Verified: `git diff` exact-match on every generated edit (no delegate
-  self-report trusted), a full `pnpm typecheck` pass, and live browser
-  testing (signed in as Administrator/Manager) across all 4 pages —
-  confirmed badge colors match pre-refactor exactly, sort-toggle updates
-  the URL and re-fetches, pagination advances pages, and Enter-to-search
-  round-trips through the URL to a filtered result.
-
-## Backend API URL structure — role-first paths
-
-- **Raised 2026-08-09.** User wants backend endpoints to lead with the role,
-  e.g. `/manager/dashboard/summary`, `/administrator/dashboard/summary`,
-  mirroring a role-first reorganization of `api/src/modules/` (today it's
-  resource-first: `modules/dashboard/route.ts` handles
-  `/nurse/summary`/`/doctor/summary`/`/admin/summary` under one dashboard
-  namespace). Asked directly whether this is REST-compliant.
-- **REST answer:** there's no actual rule against role/actor segments in a
-  URL — REST is about resource orientation and a uniform interface, not a
-  specific path grammar, and plenty of real APIs segment by actor
-  (`/me/...`, `/admin/...`). So this isn't "non-RESTful." Two things worth
-  being precise about instead:
-  - **A role-prefixed URL is never a substitute for server-side
-    authorization**, and shouldn't create the impression it is — hitting
-    `/administrator/dashboard/summary` as a Nurse must still be rejected by
-    the exact same `app.authorize([...])` check as today, regardless of
-    which path segment was used to get there. URLs are never an access
-    control mechanism by themselves.
-  - **Recommend a hybrid, not uniform role-first everywhere:** role-first
-    fits cleanly where the resource genuinely differs by role already —
-    dashboard summaries are already 4 distinct response schemas today
-    (`adminSummaryResponseSchema`, `nurseSummaryResponseSchema`, etc.), and
-    moderation/appeal actions are inherently role-specific operations. But
-    Patients/Referrals/Facilities reads are the exact same endpoint serving
-    multiple roles today, scoped server-side from `request.user.role` — the
-    textbook RESTful shape (one resource, auth determines scope, not the
-    URL). Fully role-prefixing those too would turn 1 registered route into
-    up to 4 per resource, even with the logic itself staying centralized
-    via the shared-parameterized-function pattern above — more endpoint
-    surface to register and document, working against the "reduce sprawl"
-    goal this whole conversation started from. Not yet confirmed which way
-    to go on the shared-CRUD resources specifically — flagging the tradeoff
-    rather than deciding it.
-- **Confirmed 2026-08-09 — split by read vs. write, not by resource:**
-  - **Reads stay resource-first, unprefixed:** `GET /patients`,
-    `GET /patients/:id`, `GET /referrals`, `GET /referrals/:id`,
-    `GET /facilities`, `GET /facilities/:id`. These are the one part of
-    this redesign where multiple roles genuinely hit identical semantics —
-    same query, same response schema (`PatientSchema`, etc.), same
-    endpoint, only the row-level scoping differs, computed server-side from
-    `request.user`. There's no real difference to expose in the URL here;
-    splitting these into `/manager/patients`, `/nurse/patients`, etc. would
-    be pure duplicate routing for zero behavioral gain.
-  - **Writes and actions go role-first**, because under the permission
-    matrix just finished, they already _are_ role-exclusive in practice,
-    not just organizationally — Doctor's patient update (`history` only)
-    and Nurse's patient update (everything but `facility_id`) aren't really
-    the same operation with different degrees of access, they're two
-    different operations that happen to touch the same row. Examples:
-    `POST /nurse/patients` (create), `PATCH /doctor/patients/:id`,
-    `PATCH /nurse/patients/:id`, `PATCH /manager/referrals/:id` (assign
-    doctor), `PATCH /doctor/referrals/:id/redirect`,
-    `PATCH /administrator/facilities/:id/flag`,
-    `PATCH /administrator/facilities/:id/suspend`. All the brand-new
-    action endpoints from this redesign (patient transfer request/approve,
-    appeal, redirect) are role-exclusive from the start anyway, so this
-    isn't retrofitting — it's just making explicit in the URL a split that
-    the permission model already made real. Bonus: today's
-    `PATCH /referrals/:id` is honestly a little opaque — you have to read
-    the handler to discover Nurse and Manager can do very different things
-    through what looks like "the same" endpoint. Role-first writes make
-    that visible in the route table instead of buried in an `if`.
-  - Backend module folders mirror this: `modules/patients/`,
-    `modules/referrals/`, `modules/facilities/` keep the shared read
-    handlers; `modules/nurse/`, `modules/doctor/`, `modules/manager/`,
-    `modules/administrator/` hold the write/action handlers specific to
-    each.
-  - Doesn't conflict with the frontend going fully role-based (including
-    reads, duplicated on purpose) — that's file organization for developer
-    ergonomics on one side of the wire, independent of what URL it actually
-    calls. `web/src/api/manager/patients.ts` can still call the shared,
-    unprefixed `GET /patients`.
-- Status: **confirmed.**
 
 ## Session log
 
-- **2026-08-08**: During the roles/permissions discussion, user parked three
-  items for later: the facilities searchable-select hybrid fix (decision
-  captured above), facility specialties + doctor specialty assignment, and
-  user self-service profile pages. Also referenced an earlier "employee_id"
-  idea from the lost session that needs to be re-asked.
-- **2026-08-09**: user profile pages resolved in the main doc, entry here
-  superseded. New topic: frontend module organization by role. User pushed
-  back on assistant's shared-module caveat and won the argument (thin
-  wrappers, low duplication cost, domain already role-divergent) — full
-  per-role duplication in the API layer, confirmed. Component layer also
-  goes role-based, but URLs stay role-agnostic — thin route-file dispatcher
-  pattern proposed. Assistant pushed back on taking component duplication
-  too far for pages that are one shared layout with role-gated actions
-  (referral/patient detail) rather than genuinely different views
-  (dashboard) — not yet resolved.
+- **2026-08-08**: During the roles/permissions discussion, user parked
+  several items for later, most now shipped and removed from this file —
+  see `docs/roles-permissions.md` for the facility-specialties and
+  facilities-picker features specifically. Also referenced an earlier
+  "employee_id" idea from the lost session that needs to be re-asked (still
+  open, above).
+- **2026-08-09**: New topic: frontend module organization by role. User
+  pushed back on assistant's shared-module caveat and won the argument
+  (thin wrappers, low duplication cost, domain already role-divergent) —
+  full per-role duplication in the API layer, confirmed. Component layer
+  also goes role-based, but URLs stay role-agnostic — thin route-file
+  dispatcher pattern proposed. Assistant pushed back on taking component
+  duplication too far for pages that are one shared layout with role-gated
+  actions (referral/patient detail) rather than genuinely different views
+  (dashboard) — not yet resolved. (Still open as of 2026-08-20 — see the
+  entry above; only the direction is confirmed, `web/src/api/` isn't
+  actually sharded by role yet.)
 - **2026-08-12**: new item parked, self-service password change coupled
   with a profile/settings page — raised right after Administrator password
   reset shipped, exposing that no self-service password-change path exists
   anywhere. User explicit: not to be implemented now, just logged.
-- **2026-08-14**: referral-routing-by-specialty, previously logged here as
-  deliberately out of scope, picked up and shipped — see the Facility
-  specialties entry above and `docs/roles-permissions.md`.
-- **2026-08-14 (later same day)**: facilities filter-by-specialty picked up
-  and shipped too — see the Facility specialties entry above. Also fixed,
-  unrelated to any backlog item: `SelectInput` single-select had no way to
-  clear a made selection, discovered while testing the specialty picker;
-  added a `clearable` prop (shows an "x" next to the chevron, grouped in
-  its own flex container so the trigger's `justify-between` doesn't spread
-  it away from the chevron) and wired it into `SpecialtyManager`.
-- **2026-08-14 (later still)**: user asked for two more parked items, in
-  order — facilities picker hybrid search first, then shared list-page
-  components. Facilities picker hybrid search shipped, see the entry above
-  (corrected the stale "6 screens" claim to the real 5, and decoupled
+  (Partially shipped 2026-08-17 — see the entry above.)
+- **2026-08-14**: Facility specialties (Administrator vocabulary +
+  facility/staff assignment), referral-routing-by-specialty, and facilities
+  filter-by-specialty all shipped this day and the next — see
+  `docs/roles-permissions.md` for the full build. Also fixed, unrelated to
+  any backlog item: `SelectInput` single-select had no way to clear a made
+  selection, discovered while testing the specialty picker; added a
+  `clearable` prop (shows an "x" next to the chevron, grouped in its own
+  flex container so the trigger's `justify-between` doesn't spread it away
+  from the chevron) and wired it into `SpecialtyManager`.
+- **2026-08-14 (later still)**: facilities picker hybrid search shipped
+  (corrected a stale "6 screens" claim to the real 5, and decoupled
   `referrals/$referralId.tsx`'s dual-consumer picker into two independent
   searches in the process). Shared list-page components picked up next.
-- **2026-08-15**: shared list-page components shipped, see the entry above.
-  Scoped down from the original ask after a fresh survey found some of the
-  2026-08-13 framing (binary Users badge, ghost-variant create buttons) was
-  stale — built `VariantBadge`/`SortableTableHeader`/`PaginationFooter`/
-  `SearchField` against the duplication that was actually still there,
-  explicitly skipped a generic `Table` wrapper and `FilterBar` (real
-  architectural mismatch + genuinely-different-per-page filter controls,
-  not worth forcing). Also referenced the `ubuntu-stories` project's badge
-  component at its _current_ HEAD (not just the originally-pinned commit,
-  which turned out to no longer reflect that project's own direction) —
-  found it evolved into an auto-dispatch design that would have been an
-  actual bug here, since this app's status enums collide on value
-  (`PENDING`/`REJECTED` each appear in 3 different enums) in a way that
-  project's enums don't.
-- **2026-08-15 (later still)**: user asked to (1) fix the actual collision
-  bug confirmed to exist in `ubuntu-stories`' `BadgeWithIcon` — `CHILDREN`
-  is a value in both its `CATEGORIES` and `AGE_GROUPS` enums, and its
-  auto-dispatch `GROUP_HANDLERS.find(g => g.check.includes(value))` would
-  silently resolve an `AgeGroup` of `CHILDREN` to the `Category` handler
-  (whichever enum is listed first in the array wins) — reachable in practice
-  via `story-card.tsx`, which renders both `story.group` and `story.category`
-  badges side by side. Fixed in that repo (outside this one, no CLAUDE.md
-  delegation constraint applies there) the same way `VariantBadge` was
-  fixed here: replaced the enum-scanning auto-dispatch with an explicit
-  `type` discriminator prop and a direct `Record<type, handler>` lookup,
-  updated all 9 call sites. Then (2) built the generic `Table` — see the
-  updated entry above — after reconsidering that vanilla
-  `@tanstack/react-table` (not the reference repo's specific
-  implementation) was never actually ruled out, only that repo's
-  manual-mode design was. TanStack Table docs review folded into that same
-  entry.
+- **2026-08-15**: shared list-page components shipped (`VariantBadge`,
+  `SortableTableHeader`, `PaginationFooter`, `SearchField`, and later the
+  same day a generic `Table` wrapper around vanilla `@tanstack/react-table`)
+  — scoped down from the original ask after a fresh survey found some of
+  the 2026-08-13 framing (binary Users badge, ghost-variant create buttons)
+  was stale. Explicitly skipped a generic `FilterBar` (genuinely-different-
+  per-page filter controls, not worth forcing). Also referenced the
+  `ubuntu-stories` project's badge component at its _current_ HEAD (not
+  just the originally-pinned commit) — found it had evolved into an
+  auto-dispatch design that would have been an actual bug here, since this
+  app's status enums collide on value (`PENDING`/`REJECTED` each appear in
+  3 different enums) in a way that project's enums don't.
+- **2026-08-15 (later still)**: fixed the same collision-bug class in that
+  reference repo (`ubuntu-stories`, outside this codebase) for its own
+  `BadgeWithIcon` component — `CHILDREN` is a value in both its
+  `CATEGORIES` and `AGE_GROUPS` enums, and its auto-dispatch
+  `GROUP_HANDLERS.find(g => g.check.includes(value))` would silently
+  resolve an `AgeGroup` of `CHILDREN` to the `Category` handler. Fixed the
+  same way `VariantBadge` was fixed here: an explicit `type` discriminator
+  prop and a direct `Record<type, handler>` lookup, updated across all 9
+  call sites in that repo.
 - **2026-08-15 (later still)**: mid-verification of the `Table` component,
   user raised a general concern — feature-specific components that own their
   own state, especially data-fetching, shouldn't sit in
@@ -603,21 +319,16 @@ the duplication that was real and verified, not the original symptom list:
   intended action's own toast. Fixed with `event.stopPropagation()` in
   both inner forms' `onSubmit`; re-verified via network-request inspection
   (exactly one PATCH per action, no stray second request) and console
-  checks. Separately surfaced, **not fixed** (pre-existing, out of scope
-  for this task): neither patient nor referral detail page refreshes its
-  `Route.useLoaderData()`-sourced fields in place after a mutation —
-  `invalidatePatient`/`invalidateReferral`'s `queryClient.invalidateQueries`
-  + `router.invalidate({ sync: true })` doesn't repaint the loader data
-  without a full navigation/reload, even though the mutation and its
-  server-side effect are correct (confirmed via React Query devtools: the
-  `["patients","detail",id]` query has zero active observers, and a
-  directly-subscribed `useQuery` on the same referral page, e.g. the
-  status-history timeline, *does* refresh live). Affects every mutation on
-  both detail pages (save, flag/unflag, transfer, redirect, status
-  update), predates this session's changes, and needs a dedicated
-  investigation — likely either subscribing loader data via `useQuery`
-  instead of `Route.useLoaderData()`, or finding why `router.invalidate()`
-  isn't re-running the loader's `ensureQueryData` as a real refetch.
+  checks. Separately surfaced at the time, flagged not fixed: neither
+  patient nor referral detail page refreshed its `Route.useLoaderData()`-
+  sourced fields in place after a mutation. **Since fixed** (undated in
+  this log, found already resolved when re-checking docs 2026-08-20): both
+  `patients/$patientId.tsx` and `referrals/$referralId.tsx` now read their
+  detail data via `useSuspenseQuery` (keyed identically to the loader's
+  `ensureQueryData` call) instead of `Route.useLoaderData()`, with an
+  inline comment on each explaining why — the same fix already applied to
+  the `users`/`transfers` list pages back on 2026-08-12
+  (`docs/roles-permissions.md`). No longer an open gap.
 
 ## Administrator audit page shows logins only, not actual actions
 
@@ -2026,10 +1737,3 @@ list endpoint) given how many different lists exist, or should it start
 narrowly with just the audit log, which is the most obviously
 compliance-motivated use case?
 
-## Runbook doc + updated README
-
-**Status:** Parked 2026-08-17. User wants (1) a new doc explaining how to
-run this project (setup, envs, docker, dev commands) and (2) an updated
-`README.md` describing the project itself — problem domain and the stack
-being used. Not started yet; user explicitly said to park it while they
-switch focus to pointing the database at AWS.

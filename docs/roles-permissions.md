@@ -1,18 +1,21 @@
 # Roles & Permissions — Planning Doc
 
 See also: [docs/backlog.md](./backlog.md) for parked ideas raised in passing
-(facility specialties, user profile pages, etc.) that overlap with this work
-but aren't in scope yet.
+(user profile pages, self-service password-change nav access, etc.) that
+overlap with this work but aren't in scope yet.
 
-Status: **IMPLEMENTATION IN PROGRESS.** Design (matrix, timeline table shape,
-approval-chain flow) is fully confirmed — see below. As of 2026-08-10, the
-rename, centralized permission module, approval-chain/appeals routes, and
-shared timeline table are **substantially built already**, discovered via a
-code audit after a VS Code crash lost the in-session record of how far this
-had gotten (see "Session log"). Treat the "Current implementation status"
-section right below as the first thing to check after any crash/restart —
-it's more current than the narrative sections further down, which still
-describe the design conversation, not the build.
+Status: **DONE.** This doc's original scope — full Manager rename,
+centralized permission module (backend `api/src/lib/permission.ts` and
+frontend `web/src/lib/permissions.ts`), the approval-chain/appeals routes,
+and the shared `timeline` table — is fully built and live, including the
+frontend permissions-file thread that stayed open longest (closed
+2026-08-17, see the session log's last entries). Ongoing feature work that
+happened to build on top of this design (patient transfer, redirect,
+specialties, forced password-change, etc.) is also folded into the session
+log below as it shipped. New scope gaps found since (via scenario testing)
+live in `docs/backlog.md`, not here. Treat the "Current implementation
+status" section right below as the fastest way to see what's actually
+built without reading the full narrative/decision history further down.
 
 ## Current implementation status (as of 2026-08-10, post-crash audit)
 
@@ -265,7 +268,11 @@ SUSPEND`. No page lets an Administrator flag or suspend a facility, or
   No form for the temp-password admin-create flow; only public sign-up
   exists on the frontend.
 
-Picking all four up now.
+**All four done as of 2026-08-12/13** — facility moderation and the
+appeals review queue shipped in the 2026-08-12 "appeals review queue built"
+session log entry below; Manager facility-appeal and Administrator-created
+user accounts shipped in the "new session" entry the same day. No longer
+outstanding.
 
 ## Repo now under git (2026-08-10)
 
