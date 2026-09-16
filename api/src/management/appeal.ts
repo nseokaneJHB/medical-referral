@@ -1,4 +1,5 @@
 import {
+	ROLES,
 	USER_STATUS,
 	TIMELINE_TYPE,
 	TIMELINE_ACTION,
@@ -12,13 +13,18 @@ import {
 
 import { generateUuid } from "../lib/util";
 
+import { AutoAssignmentManager } from "./auto-assignment";
+
 import type { CoreService } from "../core";
 
 import type { WhereClause, Pagination } from "../core/helpers";
 
 import type { TimelineModelSelect } from "../drizzle/schema";
 
-type AppealCore = Pick<CoreService, "timeline" | "user" | "facility">;
+type AppealCore = Pick<
+	CoreService,
+	"timeline" | "user" | "facility" | "referral" | "specialty"
+>;
 
 const TIMELINE_FIELDS = {
 	id: true,
@@ -232,7 +238,7 @@ export class AppealManager {
 		const current = isUser
 			? await this.core.user.one({
 					where: { id: options.entity },
-					select: { status: true },
+					select: { status: true, role: true, facility_id: true },
 				})
 			: await this.core.facility.one({
 					where: { id: options.entity },
@@ -276,6 +282,28 @@ export class AppealManager {
 			},
 			select: TIMELINE_FIELDS,
 		});
+
+		// Best-effort — reinstating a Doctor must succeed regardless of
+		// whether the auto-assignment matching logic underneath has a bug.
+		// See docs/auto-assignment.md.
+		if (
+			options.approve &&
+			isUser &&
+			"role" in current &&
+			current.role === ROLES.DOCTOR &&
+			current.facility_id
+		) {
+			try {
+				await new AutoAssignmentManager(this.core).recheckFacility(
+					current.facility_id,
+				);
+			} catch (error) {
+				console.error(
+					`Auto-assignment recheck failed after reinstating user ${options.entity}:`,
+					error,
+				);
+			}
+		}
 
 		return entry;
 	};

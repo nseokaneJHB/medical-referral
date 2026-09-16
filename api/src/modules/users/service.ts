@@ -20,6 +20,8 @@ import { zeroFillCounts, generateUuid } from "../../lib/util";
 import { parseEnumList, parseSortList } from "../../lib/validator";
 import { canViewUser, canManagerActOnStaff } from "../../lib/permission";
 
+import { AutoAssignmentManager } from "../../management/auto-assignment";
+
 import { UserModel, type UserModelSelect } from "../../drizzle/schema";
 
 import type { CoreService } from "../../core";
@@ -358,6 +360,19 @@ export const userSpecialtyAssign = async (
 		},
 		select: { id: true, user_id: true, created_at: true },
 	});
+
+	if (target.role === ROLES.DOCTOR && target.facility_id) {
+		try {
+			await new AutoAssignmentManager(request.server.core).recheckFacility(
+				target.facility_id,
+			);
+		} catch (error) {
+			request.log.error(
+				{ error, userId: target.id },
+				"Auto-assignment recheck failed after granting a specialty.",
+			);
+		}
+	}
 
 	const { status, code } = HTTP_RESPONSE_CODE.CREATED;
 	reply.status(status).send({

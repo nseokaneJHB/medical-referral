@@ -56,6 +56,12 @@ const ReferralBaseSchema = z.object({
 
 export const CreateReferralSchema = ReferralBaseSchema.extend({
 	priority: PriorityEnum.default(PRIORITY.MEDIUM),
+	specialty_ids: z
+		.array(uuidSchema)
+		.optional()
+		.describe(
+			"Specialties this referral needs, tagged atomically at creation.",
+		),
 });
 
 export const UpdateReferralSchema = ReferralBaseSchema.partial();

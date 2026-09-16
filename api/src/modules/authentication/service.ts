@@ -1,4 +1,4 @@
-import type { FastifyReply, FastifyRequest } from "fastify";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 
 import { fromNodeHeaders } from "better-auth/node";
 
@@ -8,6 +8,7 @@ import {
 	FACILITY_STATUS,
 	HTTP_RESPONSE_CODE,
 	type SessionResponse,
+	TWO_FACTOR_COOKIE_MAX_AGE_SECONDS,
 } from "@referral-tracking/shared";
 
 import { auth } from "../../lib/auth";
@@ -18,6 +19,10 @@ import type {
 	SignInRequest,
 	SignOutRequest,
 	SessionRequest,
+	TwoFactorSendOtpRequest,
+	TwoFactorVerifyOtpRequest,
+	TwoFactorVerifyTotpRequest,
+	TwoFactorVerifyBackupCodeRequest,
 } from "./type";
 
 /**
@@ -119,11 +124,81 @@ export const signUp = async (
 };
 
 /**
+ * Resolves a signed-in-but-not-yet-2FA-verified user's stale
+ * `two_factor_pending` `logins` rows to `FAILED` — see `docs/2fa.md`
+ * decision #6. Better-auth deliberately doesn't expose *whose* attempt
+ * just failed to a verify-totp/verify-backup-code/verify-otp caller (that
+ * identity lives only in its own signed two-factor cookie), so a failed
+ * second-factor attempt can't be resolved to FAILED the moment it happens.
+ * This runs instead on the user's *next* sign-in attempt, once enough time
+ * has passed that the pending cookie must have expired.
+ */
+const resolveStalePendingLogins = async (
+	server: FastifyInstance,
+	userId: string,
+): Promise<void> => {
+	const cutoff = new Date(
+		Date.now() - TWO_FACTOR_COOKIE_MAX_AGE_SECONDS * 1000,
+	);
+
+	const stale = await server.core.logins.many({
+		page: 1,
+		limit: 20,
+		where: {
+			user_id: userId,
+			status: LOGIN_STATUS.TWO_FACTOR_PENDING,
+			login_at: { lt: cutoff },
+		},
+		select: { id: true },
+	});
+
+	for (const row of stale.data) {
+		await server.core.logins.update({
+			where: { id: row.id },
+			data: {
+				status: LOGIN_STATUS.FAILED,
+				reason: "Second factor not completed.",
+			},
+			select: { id: true },
+		});
+	}
+};
+
+/**
+ * Resolves a user's most recent open `two_factor_pending` row to `SUCCESS`
+ * once they complete the second factor — mirrors `signOut`'s "most recent
+ * open row" lookup further below.
+ */
+const resolvePendingLoginSuccess = async (
+	server: FastifyInstance,
+	userId: string,
+): Promise<void> => {
+	const pending = await server.core.logins.many({
+		page: 1,
+		limit: 1,
+		order: { login_at: "desc" },
+		where: { user_id: userId, status: LOGIN_STATUS.TWO_FACTOR_PENDING },
+		select: { id: true },
+	});
+
+	const [row] = pending.data;
+	if (!row) return;
+
+	await server.core.logins.update({
+		where: { id: row.id },
+		data: { status: LOGIN_STATUS.SUCCESS },
+		select: { id: true },
+	});
+};
+
+/**
  * Resolves the user by email first (so a failed attempt against a *known*
  * email still gets an audit row — build-spec.md's `login_audit` table
  * (now `logins`) is meant to track attempts, not just successes) then logs
  * the outcome. Unknown emails aren't logged: there's no user row to attach
- * them to, and `logins.user_id` is a required FK.
+ * them to, and `logins.user_id` is a required FK. A correct password
+ * against a 2FA-enabled account logs `TWO_FACTOR_PENDING` instead of
+ * `SUCCESS` — see `docs/2fa.md` decision #6.
  */
 export const signIn = async (
 	request: FastifyRequest<SignInRequest>,
@@ -136,6 +211,10 @@ export const signIn = async (
 		select: { id: true },
 	});
 
+	if (existingUser) {
+		await resolveStalePendingLogins(request.server, existingUser.id);
+	}
+
 	const response = await auth.api.signInEmail({
 		asResponse: true,
 		headers: fromNodeHeaders(request.headers),
@@ -143,13 +222,23 @@ export const signIn = async (
 	});
 
 	if (existingUser) {
+		const body = (await response
+			.clone()
+			.json()
+			.catch(() => null)) as
+			| { message?: string; twoFactorRedirect?: boolean }
+			| null;
+
+		let status: (typeof LOGIN_STATUS)[keyof typeof LOGIN_STATUS];
 		let reason: string | null = null;
-		if (!response.ok) {
-			const errorBody = (await response
-				.clone()
-				.json()
-				.catch(() => null)) as { message?: string } | null;
-			reason = errorBody?.message ?? "Invalid email or password.";
+
+		if (body?.twoFactorRedirect) {
+			status = LOGIN_STATUS.TWO_FACTOR_PENDING;
+		} else if (!response.ok) {
+			status = LOGIN_STATUS.FAILED;
+			reason = body?.message ?? "Invalid email or password.";
+		} else {
+			status = LOGIN_STATUS.SUCCESS;
 		}
 
 		await request.server.core.logins.create({
@@ -159,7 +248,7 @@ export const signIn = async (
 				login_at: new Date(),
 				ip: request.ip,
 				device: request.headers["user-agent"] ?? null,
-				status: response.ok ? LOGIN_STATUS.SUCCESS : LOGIN_STATUS.FAILED,
+				status,
 				reason,
 			},
 			select: { id: true },
@@ -239,9 +328,94 @@ export const session = async (
 					must_change_password:
 						// eslint-disable-next-line @typescript-eslint/no-explicit-any
 						(userSession.user as any).must_change_password ?? false,
+					nda_accepted_version:
+						// eslint-disable-next-line @typescript-eslint/no-explicit-any
+						(userSession.user as any).nda_accepted_version ?? null,
+					two_factor_enabled:
+						// eslint-disable-next-line @typescript-eslint/no-explicit-any
+						(userSession.user as any).twoFactorEnabled ?? false,
 				}
 			: null,
 	};
 
 	reply.status(200).send(response);
+};
+
+export const twoFactorVerifyTotp = async (
+	request: FastifyRequest<TwoFactorVerifyTotpRequest>,
+	reply: FastifyReply<TwoFactorVerifyTotpRequest>,
+): Promise<void> => {
+	const response = await auth.api.verifyTOTP({
+		asResponse: true,
+		headers: fromNodeHeaders(request.headers),
+		body: request.body,
+	});
+
+	const body = (await response
+		.clone()
+		.json()
+		.catch(() => null)) as { user?: { id: string } } | null;
+
+	if (response.ok && body?.user?.id) {
+		await resolvePendingLoginSuccess(request.server, body.user.id);
+	}
+
+	return forwardAuthResponse(reply, response);
+};
+
+export const twoFactorVerifyBackupCode = async (
+	request: FastifyRequest<TwoFactorVerifyBackupCodeRequest>,
+	reply: FastifyReply<TwoFactorVerifyBackupCodeRequest>,
+): Promise<void> => {
+	const response = await auth.api.verifyBackupCode({
+		asResponse: true,
+		headers: fromNodeHeaders(request.headers),
+		body: request.body,
+	});
+
+	const body = (await response
+		.clone()
+		.json()
+		.catch(() => null)) as { user?: { id: string } } | null;
+
+	if (response.ok && body?.user?.id) {
+		await resolvePendingLoginSuccess(request.server, body.user.id);
+	}
+
+	return forwardAuthResponse(reply, response);
+};
+
+export const twoFactorSendOtp = async (
+	request: FastifyRequest<TwoFactorSendOtpRequest>,
+	reply: FastifyReply<TwoFactorSendOtpRequest>,
+): Promise<void> => {
+	const response = await auth.api.sendTwoFactorOTP({
+		asResponse: true,
+		headers: fromNodeHeaders(request.headers),
+		body: request.body,
+	});
+
+	return forwardAuthResponse(reply, response);
+};
+
+export const twoFactorVerifyOtp = async (
+	request: FastifyRequest<TwoFactorVerifyOtpRequest>,
+	reply: FastifyReply<TwoFactorVerifyOtpRequest>,
+): Promise<void> => {
+	const response = await auth.api.verifyTwoFactorOTP({
+		asResponse: true,
+		headers: fromNodeHeaders(request.headers),
+		body: request.body,
+	});
+
+	const body = (await response
+		.clone()
+		.json()
+		.catch(() => null)) as { user?: { id: string } } | null;
+
+	if (response.ok && body?.user?.id) {
+		await resolvePendingLoginSuccess(request.server, body.user.id);
+	}
+
+	return forwardAuthResponse(reply, response);
 };

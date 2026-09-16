@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ChangePasswordRouteImport } from './routes/change-password'
 import { Route as AccountStatusRouteImport } from './routes/account-status'
+import { Route as AcceptNdaRouteImport } from './routes/accept-nda'
 import { Route as PublicRouteImport } from './routes/_public'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
@@ -39,6 +40,11 @@ const ChangePasswordRoute = ChangePasswordRouteImport.update({
 const AccountStatusRoute = AccountStatusRouteImport.update({
   id: '/account-status',
   path: '/account-status',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AcceptNdaRoute = AcceptNdaRouteImport.update({
+  id: '/accept-nda',
+  path: '/accept-nda',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PublicRoute = PublicRouteImport.update({
@@ -149,6 +155,7 @@ const AuthenticatedFacilitiesFacilityIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
+  '/accept-nda': typeof AcceptNdaRoute
   '/account-status': typeof AccountStatusRoute
   '/change-password': typeof ChangePasswordRoute
   '/sign-in': typeof PublicSignInRoute
@@ -170,6 +177,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof AuthenticatedIndexRoute
+  '/accept-nda': typeof AcceptNdaRoute
   '/account-status': typeof AccountStatusRoute
   '/change-password': typeof ChangePasswordRoute
   '/sign-in': typeof PublicSignInRoute
@@ -193,6 +201,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/_public': typeof PublicRouteWithChildren
+  '/accept-nda': typeof AcceptNdaRoute
   '/account-status': typeof AccountStatusRoute
   '/change-password': typeof ChangePasswordRoute
   '/_public/sign-in': typeof PublicSignInRoute
@@ -217,6 +226,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/accept-nda'
     | '/account-status'
     | '/change-password'
     | '/sign-in'
@@ -238,6 +248,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/accept-nda'
     | '/account-status'
     | '/change-password'
     | '/sign-in'
@@ -260,6 +271,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_authenticated'
     | '/_public'
+    | '/accept-nda'
     | '/account-status'
     | '/change-password'
     | '/_public/sign-in'
@@ -284,6 +296,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   PublicRoute: typeof PublicRouteWithChildren
+  AcceptNdaRoute: typeof AcceptNdaRoute
   AccountStatusRoute: typeof AccountStatusRoute
   ChangePasswordRoute: typeof ChangePasswordRoute
 }
@@ -302,6 +315,13 @@ declare module '@tanstack/react-router' {
       path: '/account-status'
       fullPath: '/account-status'
       preLoaderRoute: typeof AccountStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/accept-nda': {
+      id: '/accept-nda'
+      path: '/accept-nda'
+      fullPath: '/accept-nda'
+      preLoaderRoute: typeof AcceptNdaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_public': {
@@ -497,6 +517,7 @@ const PublicRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   PublicRoute: PublicRouteWithChildren,
+  AcceptNdaRoute: AcceptNdaRoute,
   AccountStatusRoute: AccountStatusRoute,
   ChangePasswordRoute: ChangePasswordRoute,
 }

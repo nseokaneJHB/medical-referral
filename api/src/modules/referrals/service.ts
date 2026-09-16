@@ -31,6 +31,8 @@ import {
 	canManageReferralSpecialties,
 } from "../../lib/permission";
 
+import { AutoAssignmentManager } from "../../management/auto-assignment";
+
 import { ReferralModel, type ReferralModelSelect } from "../../drizzle/schema";
 
 import type {
@@ -114,17 +116,58 @@ export const referralCreate = async (
 	}
 
 	const doctor = role === ROLES.DOCTOR ? request.user!.id : request.body.doctor;
+	const { specialty_ids: specialtyIds, ...referralBody } = request.body;
 
-	const [created] = await request.server.core.referral.create({
-		data: {
-			...request.body,
-			id: generateUuid(),
-			referrer_id: request.user!.id,
-			origin_facility_id: patient.facility_id,
-			doctor,
+	const created = await request.server.core.connection.transaction(
+		async (tx) => {
+			const txCore = request.server.core.withTransaction(tx);
+
+			const [createdReferral] = await txCore.referral.create({
+				data: {
+					...referralBody,
+					id: generateUuid(),
+					referrer_id: request.user!.id,
+					origin_facility_id: patient.facility_id,
+					doctor,
+				},
+				select: { id: true },
+			});
+
+			if (specialtyIds && specialtyIds.length > 0) {
+				await txCore.specialty.linkCreate("referral", {
+					data: specialtyIds.map((specialtyId) => ({
+						id: generateUuid(),
+						referral_id: createdReferral.id,
+						specialty_id: specialtyId,
+					})),
+					select: { id: true },
+				});
+			}
+
+			return createdReferral;
 		},
-		select: { id: true },
-	});
+	);
+
+	// Auto-assignment is best-effort, run only after the referral (and its
+	// specialty links) are safely committed above, and only when no doctor
+	// was already specified manually — a bug in the matching logic must
+	// never prevent a referral from being created, and manual assignment
+	// always takes precedence. See docs/auto-assignment.md.
+	if (!doctor) {
+		try {
+			await new AutoAssignmentManager(request.server.core).attempt({
+				referralId: created.id,
+				facilityId: request.body.destination_facility_id,
+				specialtyIds: specialtyIds ?? [],
+				currentStatus: REFERRAL_STATUS.PENDING,
+			});
+		} catch (error) {
+			request.log.error(
+				{ error, referralId: created.id },
+				"Auto-assignment failed after referral creation.",
+			);
+		}
+	}
 
 	const referral = await request.server.core.referral.one({
 		where: { id: created.id },
@@ -786,6 +829,15 @@ export const referralSpecialtyAssign = async (
 		select: { id: true, referral_id: true, created_at: true },
 	});
 
+	try {
+		await new AutoAssignmentManager(core).revalidate(request.params.id);
+	} catch (error) {
+		request.log.error(
+			{ error, referralId: request.params.id },
+			"Auto-assignment revalidation failed after specialty tag.",
+		);
+	}
+
 	const { status, code } = HTTP_RESPONSE_CODE.CREATED;
 	reply.status(status).send({
 		code,
@@ -857,6 +909,15 @@ export const referralSpecialtyUnassign = async (
 		});
 	}
 
+	try {
+		await new AutoAssignmentManager(core).revalidate(request.params.id);
+	} catch (error) {
+		request.log.error(
+			{ error, referralId: request.params.id },
+			"Auto-assignment revalidation failed after specialty untag.",
+		);
+	}
+
 	const { status, code } = HTTP_RESPONSE_CODE.OK;
 	reply.status(status).send({ code, message: "Specialty untagged." });
 };
@@ -875,7 +936,13 @@ export const referralStatusUpdate = async (
 
 	const existing = await core.referral.one({
 		where: { id: request.params.id },
-		select: { id: true, status: true, referrer_id: true, doctor: true },
+		select: {
+			id: true,
+			status: true,
+			referrer_id: true,
+			doctor: true,
+			destination_facility_id: true,
+		},
 	});
 
 	if (!existing) {
@@ -942,6 +1009,19 @@ export const referralStatusUpdate = async (
 			select: { id: true },
 		});
 	});
+
+	if (isTerminal(next) && existing.doctor) {
+		try {
+			await new AutoAssignmentManager(core).recheckFacility(
+				existing.destination_facility_id,
+			);
+		} catch (error) {
+			request.log.error(
+				{ error, referralId: request.params.id },
+				"Auto-assignment recheck failed after referral went terminal.",
+			);
+		}
+	}
 
 	const referral = await core.referral.one({
 		where: { id: request.params.id },

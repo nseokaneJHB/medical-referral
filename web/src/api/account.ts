@@ -5,6 +5,7 @@ import {
 	API_URLS,
 	API_PATHS,
 	type AppealBody,
+	type AcceptNdaBody,
 	type GlobalResponse,
 	type TimelineResponse,
 	type ChangePasswordBody,
@@ -46,6 +47,16 @@ export const changePassword = async (
 ): Promise<GlobalResponse> => {
 	const { data } = await api.patch<GlobalResponse>(
 		`${baseUrl}${API_PATHS.ACCOUNT_CHANGE_PASSWORD}`,
+		payload,
+	);
+	return data;
+};
+
+export const acceptNda = async (
+	payload: AcceptNdaBody,
+): Promise<GlobalResponse> => {
+	const { data } = await api.patch<GlobalResponse>(
+		`${baseUrl}${API_PATHS.ACCOUNT_ACCEPT_NDA}`,
 		payload,
 	);
 	return data;

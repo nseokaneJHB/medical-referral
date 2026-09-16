@@ -1,4 +1,5 @@
 import { betterAuth } from "better-auth/minimal";
+import { twoFactor } from "better-auth/plugins";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 
 import {
@@ -6,11 +7,13 @@ import {
 	APP_NAME,
 	API_URLS,
 	USER_STATUS,
+	TWO_FACTOR_COOKIE_MAX_AGE_SECONDS,
 } from "@referral-tracking/shared";
 
 import * as schema from "../drizzle/schema";
 
 import { env } from "./env";
+import { sendEmail } from "./mailer";
 import { generateUuid } from "./util";
 import { connection } from "./database";
 import { hashPassword, verifyPassword } from "./password";
@@ -35,6 +38,7 @@ export const auth = betterAuth({
 			account: schema.AccountModel,
 			session: schema.SessionModel,
 			verification: schema.VerificationModel,
+			twoFactor: schema.TwoFactorModel,
 		},
 	}),
 
@@ -96,6 +100,19 @@ export const auth = betterAuth({
 				required: false,
 				defaultValue: false,
 			},
+			/**
+			 * Server-controlled. `null` until `PATCH /account/accept-nda` sets
+			 * it to the current `NDA_VERSION` — bumping that constant re-gates
+			 * everyone who accepted an older version. Deliberately embedded in
+			 * the session cookie-cache (unlike `nda_accepted_at`, an audit-only
+			 * column not registered here) so `middleware/authorize.ts` can gate
+			 * on it without a DB round trip.
+			 */
+			nda_accepted_version: {
+				input: false,
+				type: "string",
+				required: false,
+			},
 		},
 	},
 
@@ -155,6 +172,47 @@ export const auth = betterAuth({
 		max: env.RATE_LIMIT_MAX,
 		window: env.RATE_LIMIT_WINDOW,
 	},
+
+	/**
+	 * TOTP + email OTP + backup codes (see `docs/2fa.md`). `schema` remaps
+	 * the plugin's own camelCase field/table names to this codebase's
+	 * snake_case convention — the same `{ field: "column" }` mechanism
+	 * already used above for `emailVerified` → `"verified"`.
+	 * `skipVerificationOnEnable: false` (the default) means enabling 2FA
+	 * isn't considered active until the user proves they can produce a
+	 * valid code.
+	 */
+	plugins: [
+		twoFactor({
+			issuer: APP_NAME,
+			skipVerificationOnEnable: false,
+			twoFactorCookieMaxAge: TWO_FACTOR_COOKIE_MAX_AGE_SECONDS,
+			otpOptions: {
+				sendOTP: async ({ user, otp }) => {
+					await sendEmail({
+						to: user.email,
+						subject: `${APP_NAME} verification code`,
+						html: `<p>Your verification code is <strong>${otp}</strong>. It expires shortly.</p>`,
+					});
+				},
+			},
+			schema: {
+				user: {
+					fields: {
+						twoFactorEnabled: "two_factor_enabled",
+					},
+				},
+				twoFactor: {
+					fields: {
+						secret: "secret",
+						backupCodes: "backup_codes",
+						userId: "user_id",
+						verified: "verified",
+					},
+				},
+			},
+		}),
+	],
 
 	advanced: {
 		cookiePrefix: "referral-tracking-better-auth",

@@ -2,6 +2,7 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 
 import {
 	ROLES,
+	NDA_VERSION,
 	HTTP_RESPONSE_CODE,
 	type GlobalResponse,
 	type Role,
@@ -50,6 +51,13 @@ export const authorize = (allowedRoles: Role | Role[]) => {
 			return forbidden(
 				reply,
 				"You must change your temporary password before continuing. Use PATCH /account/change-password.",
+			);
+		}
+
+		if (user.nda_accepted_version !== NDA_VERSION) {
+			return forbidden(
+				reply,
+				"You must accept the NDA before continuing. Use PATCH /account/accept-nda.",
 			);
 		}
 

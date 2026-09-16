@@ -44,6 +44,15 @@ export class SessionManager {
 			must_change_password:
 				(rest as { must_change_password?: boolean }).must_change_password ??
 				false,
+			two_factor_enabled:
+				(rest as { twoFactorEnabled?: boolean }).twoFactorEnabled ?? false,
+			nda_accepted_version:
+				(rest as { nda_accepted_version?: string | null })
+					.nda_accepted_version ?? null,
+			// `nda_accepted_at` is audit-only and deliberately never registered
+			// as a better-auth `additionalField` (see `lib/auth.ts`), so it is
+			// never present on the session user at all — always `null` here.
+			nda_accepted_at: null,
 		};
 	};
 

@@ -3,6 +3,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { fromNodeHeaders } from "better-auth/node";
 
 import {
+	NDA_VERSION,
 	TIMELINE_TYPE,
 	TIMELINE_ACTION,
 	HTTP_RESPONSE_CODE,
@@ -16,10 +17,36 @@ import { hashPassword, verifyPassword } from "../../lib/password";
 import { AppealManager } from "../../management/appeal";
 
 import type {
+	AcceptNdaRequest,
 	AccountStatusRequest,
 	AppealSubmitRequest,
 	ChangePasswordRequest,
+	TwoFactorEnableRequest,
+	TwoFactorDisableRequest,
+	TwoFactorGetTotpUriRequest,
+	TwoFactorGenerateBackupCodesRequest,
 } from "./type";
+
+/**
+ * Forwards a better-auth `Response` (returned via `asResponse: true`) onto
+ * a Fastify reply — status, headers (including the session `Set-Cookie`),
+ * and JSON body all carry over as-is. Same helper as
+ * `modules/authentication/service.ts`'s.
+ */
+const forwardAuthResponse = async (
+	reply: FastifyReply,
+	response: Response,
+): Promise<void> => {
+	response.headers.forEach((value, key) => {
+		if (key.toLowerCase() === "content-length") return;
+		reply.header(key, value);
+	});
+
+	const body = await response.json().catch(() => null);
+
+	reply.status(response.status);
+	reply.send(body);
+};
 
 /**
  * Latest timeline row for an entity, whatever action it was — used as
@@ -69,6 +96,7 @@ export const accountStatus = async (
 		data: {
 			status: user.status,
 			must_change_password: user.must_change_password,
+			nda_accepted_version: user.nda_accepted_version,
 			reason,
 			facility: facility
 				? {
@@ -200,4 +228,105 @@ export const changePassword = async (
 
 	const { status, code } = HTTP_RESPONSE_CODE.OK;
 	reply.status(status).send({ code, message: "Password changed." });
+};
+
+export const acceptNda = async (
+	request: FastifyRequest<AcceptNdaRequest>,
+	reply: FastifyReply<AcceptNdaRequest>,
+): Promise<void> => {
+	const user = request.user!;
+
+	await request.server.core.user.update({
+		where: { id: user.id },
+		data: { nda_accepted_version: NDA_VERSION, nda_accepted_at: new Date() },
+		select: { id: true },
+	});
+
+	/**
+	 * Same stale-cookie-cache problem `changePassword` solves by re-signing
+	 * in — but there's no password available here. `getSession` with
+	 * `disableCookieCache` forces a fresh DB-backed read and, via
+	 * `asResponse: true`, hands back a `Set-Cookie` reflecting the updated
+	 * `nda_accepted_version`, so the caller isn't immediately re-blocked by
+	 * `middleware/authorize.ts` on their next request.
+	 */
+	const sessionResponse = await auth.api.getSession({
+		asResponse: true,
+		headers: fromNodeHeaders(request.headers),
+		query: { disableCookieCache: true },
+	});
+
+	const freshCookies = sessionResponse.headers.getSetCookie();
+	if (freshCookies.length > 0) reply.header("set-cookie", freshCookies);
+
+	const { status, code } = HTTP_RESPONSE_CODE.OK;
+	reply.status(status).send({ code, message: "NDA accepted." });
+};
+
+export const twoFactorEnable = async (
+	request: FastifyRequest<TwoFactorEnableRequest>,
+	reply: FastifyReply<TwoFactorEnableRequest>,
+): Promise<void> => {
+	const response = await auth.api.enableTwoFactor({
+		asResponse: true,
+		headers: fromNodeHeaders(request.headers),
+		body: request.body,
+	});
+
+	return forwardAuthResponse(reply, response);
+};
+
+/**
+ * `disableTwoFactor` rotates the session internally (fresh token issued,
+ * old one deleted) as part of turning 2FA off — its own response already
+ * carries the correct new session cookie, so we forward that directly
+ * rather than querying `getSession` again (which would look up the
+ * already-deleted old token and incorrectly clear the cookie instead of
+ * refreshing it).
+ */
+export const twoFactorDisable = async (
+	request: FastifyRequest<TwoFactorDisableRequest>,
+	reply: FastifyReply<TwoFactorDisableRequest>,
+): Promise<void> => {
+	const response = await auth.api.disableTwoFactor({
+		asResponse: true,
+		headers: fromNodeHeaders(request.headers),
+		body: request.body,
+	});
+
+	if (!response.ok) return forwardAuthResponse(reply, response);
+
+	const freshCookies = response.headers.getSetCookie();
+	if (freshCookies.length > 0) reply.header("set-cookie", freshCookies);
+
+	const { status, code } = HTTP_RESPONSE_CODE.OK;
+	reply
+		.status(status)
+		.send({ code, message: "Two-factor authentication disabled." });
+};
+
+export const twoFactorGetTotpUri = async (
+	request: FastifyRequest<TwoFactorGetTotpUriRequest>,
+	reply: FastifyReply<TwoFactorGetTotpUriRequest>,
+): Promise<void> => {
+	const response = await auth.api.getTOTPURI({
+		asResponse: true,
+		headers: fromNodeHeaders(request.headers),
+		body: request.body,
+	});
+
+	return forwardAuthResponse(reply, response);
+};
+
+export const twoFactorGenerateBackupCodes = async (
+	request: FastifyRequest<TwoFactorGenerateBackupCodesRequest>,
+	reply: FastifyReply<TwoFactorGenerateBackupCodesRequest>,
+): Promise<void> => {
+	const response = await auth.api.generateBackupCodes({
+		asResponse: true,
+		headers: fromNodeHeaders(request.headers),
+		body: request.body,
+	});
+
+	return forwardAuthResponse(reply, response);
 };

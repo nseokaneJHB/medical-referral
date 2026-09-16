@@ -40,6 +40,25 @@ export const UserModel = mysqlTable(
 			.default(false)
 			.notNull(),
 
+		/**
+		 * Version string of the NDA text the user last accepted (e.g. `"1"`),
+		 * matched against `NDA_VERSION` — `null` means never accepted (or the
+		 * NDA text has since been bumped past what they signed). Mirrors
+		 * `must_change_password`'s gating shape, not its "temporary credential"
+		 * meaning.
+		 */
+		nda_accepted_version: varchar("nda_accepted_version", { length: 32 }),
+		nda_accepted_at: timestamp("nda_accepted_at"),
+
+		/**
+		 * Mirrors better-auth's own `twoFactorEnabled` field, remapped to this
+		 * column via `twoFactor()`'s `schema` option in `lib/auth.ts` — true
+		 * once the user has at least one verified second-factor method.
+		 */
+		two_factor_enabled: boolean("two_factor_enabled")
+			.default(false)
+			.notNull(),
+
 		facility_id: varchar("facility_id", { length: 36 }).references(
 			() => FacilityModel.id,
 		),
