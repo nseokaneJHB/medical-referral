@@ -1,8 +1,8 @@
 # Two-factor authentication (TOTP + email OTP + backup codes)
 
 **Status:** Backend implemented and live-verified 2026-09-16/17. Frontend
-(enrollment UI, sign-in second-factor prompt) is a separate follow-up pass —
-not started.
+(enrollment UI, sign-in second-factor prompt) implemented and live-verified
+2026-09-19 — see "Frontend verification status" below.
 
 ## What this touches, in plain terms
 
@@ -311,6 +311,63 @@ Not separately exercised: the stale-pending-login sweep (`resolveStalePendingLog
 actually firing after a real 10-minute wait (verified by reading the code
 and confirming the query logic against the schema, not by waiting out the
 window); rate limiting on the `/two-factor/*` paths (the plugin's own
-`window: 10s, max: 3` — trusted as built-in, not independently hammered);
-trusted-device behavior (`trustDevice: true` on a verify call — accepted on
-the plugin's documented behavior, not exercised this pass).
+`window: 10s, max: 3` — trusted as built-in, not independently hammered).
+
+## Frontend verification status
+
+Implemented 2026-09-19: a new `/settings` route (Account Settings shell,
+reachable from the sidebar profile dropdown — no general profile/password
+sections yet, see `docs/backlog.md`'s self-service password change entry
+for that fast-follow) hosting a 2FA section (enable/QR/backup codes/
+disable/regenerate), plus the sign-in page's second-factor step (method
+picker, email-OTP send/verify, backup-code fallback, trust-device
+checkbox). Client functions added to `web/src/api/auth.ts` (4,
+unauthenticated/two-factor-cookie) and `web/src/api/account.ts` (4,
+authenticated). New dependency: `qrcode.react` (QR rendering).
+
+Also fixed in this pass: `shared/src/schema/account.ts`'s
+`twoFactorEnable`/`GetTotpUri`/`GenerateBackupCodes` response schemas were
+still typed as this app's `{code, message, data}` envelope, left over from
+before the backend's "Response-schema mismatch" bug fix (see above) — the
+actual routes forward better-auth's raw flat bodies. Corrected to match
+reality; this was dead/misleading code, not a live bug (nothing consumed
+those types yet), caught while building the frontend client against them.
+
+Live-verified end to end against the full Docker Compose stack (API + web
++ Mailpit), using the seeded `doctor@gmail.com` account, cleaned back to a
+2FA-disabled baseline afterward:
+
+- **Enable → confirm**: password dialog → QR code renders (via
+  `qrcode.react`) → backup codes display → confirming with a real
+  authenticator-app-equivalent TOTP code (computed client-side via
+  `crypto.subtle` HMAC-SHA1 from the QR's `otpauth://` URI, never exposing
+  the raw secret) enables 2FA and refreshes the session.
+- **Sign-in second factor — all three paths exercised**: TOTP (via the
+  enrollment-confirm path, same `twoFactorVerifyTotp` function), backup
+  code (consumed one of the issued codes, landed on the dashboard), and
+  email OTP (code retrieved from Mailpit's own API, `send`/`verify` both
+  round-tripped correctly).
+- **Trust this device**: checked during an OTP sign-in; the next sign-in
+  with the same browser skipped the second-factor prompt entirely,
+  confirming the trusted-device cookie set by `forwardAuthResponse` is
+  honored — not exercised in the backend-only pass, closes that gap.
+- **Regenerate backup codes** and **Disable**: both password-confirm
+  dialogs work; disable correctly preserves the session (no unexpected
+  sign-out) and reverts the Settings UI to the disabled state.
+- **Settings nav entry**: added to the sidebar's profile dropdown (above
+  Sign out), renders and navigates correctly.
+
+Not separately exercised live: the "View QR code" (`get-totp-uri`)
+dialog's own button click — spot-checked via code review only (identical
+`PasswordConfirmDialog`-adjacent structure to the already-verified
+regenerate-codes dialog, different endpoint).
+
+One dev-environment issue hit and fixed along the way, unrelated to the
+app code: the Docker Compose `web` container's `node_modules` (a separate
+named volume from the host) didn't pick up the new `qrcode.react`
+dependency via a plain `pnpm install` inside the container — pnpm reported
+"already up to date" without actually linking the package, even after
+clearing `.modules.yaml` and the directory contents. Fixed with
+`pnpm add qrcode.react@4.2.0` run inside the container's `web/` workspace,
+which forced the actual link (no lockfile/package.json drift — the
+version already matched what was on the host).

@@ -64,21 +64,33 @@ export const twoFactorPasswordConfirmSchema = z.object({
 	password: stringSchema.min(1, "Password is required"),
 });
 
-/** `POST /account/two-factor/enable` response — QR-code URI + one-time backup codes. */
-export const twoFactorEnableResponseSchema = globalResponseSchema.extend({
-	data: z.object({
-		totpURI: stringSchema,
-		backupCodes: z.array(stringSchema),
-	}),
+/**
+ * `POST /account/two-factor/enable` response — QR-code URI + one-time backup
+ * codes. Raw better-auth response shape, not this app's `{code, message,
+ * data}` envelope — the route deliberately omits a response schema and
+ * forwards better-auth's body as-is (see docs/2fa.md's "Response-schema
+ * mismatch" bug note).
+ */
+export const twoFactorEnableResponseSchema = z.object({
+	totpURI: stringSchema,
+	backupCodes: z.array(stringSchema),
 });
 
-/** `POST /account/two-factor/get-totp-uri` response — re-displays the QR code without regenerating the secret. */
-export const twoFactorGetTotpUriResponseSchema = globalResponseSchema.extend({
-	data: z.object({ totpURI: stringSchema }),
+/**
+ * `POST /account/two-factor/get-totp-uri` response — re-displays the QR code
+ * without regenerating the secret. Raw better-auth shape, same reason as
+ * above.
+ */
+export const twoFactorGetTotpUriResponseSchema = z.object({
+	totpURI: stringSchema,
 });
 
-/** `POST /account/two-factor/generate-backup-codes` response — a fresh set, invalidating the previous one. */
-export const twoFactorGenerateBackupCodesResponseSchema =
-	globalResponseSchema.extend({
-		data: z.object({ backupCodes: z.array(stringSchema) }),
-	});
+/**
+ * `POST /account/two-factor/generate-backup-codes` response — a fresh set,
+ * invalidating the previous one. Raw better-auth shape, same reason as
+ * above.
+ */
+export const twoFactorGenerateBackupCodesResponseSchema = z.object({
+	status: booleanSchema,
+	backupCodes: z.array(stringSchema),
+});

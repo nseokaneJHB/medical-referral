@@ -34,6 +34,7 @@ export const FRONTEND_URLS = {
 	ACCOUNT_STATUS: "/account-status",
 	CHANGE_PASSWORD: "/change-password",
 	ACCEPT_NDA: "/accept-nda",
+	SETTINGS: "/settings",
 } as const;
 
 export type FrontendRedirectUrlPaths = typeof FRONTEND_URLS;

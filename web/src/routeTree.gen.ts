@@ -17,6 +17,7 @@ import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as PublicSignUpRouteImport } from './routes/_public/sign-up'
 import { Route as PublicSignInRouteImport } from './routes/_public/sign-in'
+import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedUsersIndexRouteImport } from './routes/_authenticated/users/index'
 import { Route as AuthenticatedTransfersIndexRouteImport } from './routes/_authenticated/transfers/index'
 import { Route as AuthenticatedSpecialtiesIndexRouteImport } from './routes/_authenticated/specialties/index'
@@ -69,6 +70,11 @@ const PublicSignInRoute = PublicSignInRouteImport.update({
   id: '/sign-in',
   path: '/sign-in',
   getParentRoute: () => PublicRoute,
+} as any)
+const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedUsersIndexRoute = AuthenticatedUsersIndexRouteImport.update({
   id: '/users/',
@@ -158,6 +164,7 @@ export interface FileRoutesByFullPath {
   '/accept-nda': typeof AcceptNdaRoute
   '/account-status': typeof AccountStatusRoute
   '/change-password': typeof ChangePasswordRoute
+  '/settings': typeof AuthenticatedSettingsRoute
   '/sign-in': typeof PublicSignInRoute
   '/sign-up': typeof PublicSignUpRoute
   '/facilities/$facilityId': typeof AuthenticatedFacilitiesFacilityIdRoute
@@ -180,6 +187,7 @@ export interface FileRoutesByTo {
   '/accept-nda': typeof AcceptNdaRoute
   '/account-status': typeof AccountStatusRoute
   '/change-password': typeof ChangePasswordRoute
+  '/settings': typeof AuthenticatedSettingsRoute
   '/sign-in': typeof PublicSignInRoute
   '/sign-up': typeof PublicSignUpRoute
   '/facilities/$facilityId': typeof AuthenticatedFacilitiesFacilityIdRoute
@@ -204,6 +212,7 @@ export interface FileRoutesById {
   '/accept-nda': typeof AcceptNdaRoute
   '/account-status': typeof AccountStatusRoute
   '/change-password': typeof ChangePasswordRoute
+  '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_public/sign-in': typeof PublicSignInRoute
   '/_public/sign-up': typeof PublicSignUpRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
@@ -229,6 +238,7 @@ export interface FileRouteTypes {
     | '/accept-nda'
     | '/account-status'
     | '/change-password'
+    | '/settings'
     | '/sign-in'
     | '/sign-up'
     | '/facilities/$facilityId'
@@ -251,6 +261,7 @@ export interface FileRouteTypes {
     | '/accept-nda'
     | '/account-status'
     | '/change-password'
+    | '/settings'
     | '/sign-in'
     | '/sign-up'
     | '/facilities/$facilityId'
@@ -274,6 +285,7 @@ export interface FileRouteTypes {
     | '/accept-nda'
     | '/account-status'
     | '/change-password'
+    | '/_authenticated/settings'
     | '/_public/sign-in'
     | '/_public/sign-up'
     | '/_authenticated/'
@@ -358,6 +370,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/sign-in'
       preLoaderRoute: typeof PublicSignInRouteImport
       parentRoute: typeof PublicRoute
+    }
+    '/_authenticated/settings': {
+      id: '/_authenticated/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/users/': {
       id: '/_authenticated/users/'
@@ -461,6 +480,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteChildren {
+  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
   AuthenticatedFacilitiesFacilityIdRoute: typeof AuthenticatedFacilitiesFacilityIdRoute
   AuthenticatedPatientsPatientIdRoute: typeof AuthenticatedPatientsPatientIdRoute
@@ -479,6 +499,7 @@ interface AuthenticatedRouteChildren {
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
   AuthenticatedFacilitiesFacilityIdRoute:
     AuthenticatedFacilitiesFacilityIdRoute,

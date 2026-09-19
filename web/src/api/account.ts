@@ -10,6 +10,10 @@ import {
 	type TimelineResponse,
 	type ChangePasswordBody,
 	type AccountStatusResponse,
+	type TwoFactorEnableResponse,
+	type TwoFactorGetTotpUriResponse,
+	type TwoFactorPasswordConfirmBody,
+	type TwoFactorGenerateBackupCodesResponse,
 } from "@referral-tracking/shared";
 
 import { api } from "@/api";
@@ -57,6 +61,52 @@ export const acceptNda = async (
 ): Promise<GlobalResponse> => {
 	const { data } = await api.patch<GlobalResponse>(
 		`${baseUrl}${API_PATHS.ACCOUNT_ACCEPT_NDA}`,
+		payload,
+	);
+	return data;
+};
+
+// Starts enrollment: returns a fresh TOTP secret (as a QR URI) and one-time
+// backup codes. Not active until confirmed via `twoFactorVerifyTotp`
+// (see @/api/auth) — see docs/2fa.md decision #5.
+export const twoFactorEnable = async (
+	payload: TwoFactorPasswordConfirmBody,
+): Promise<TwoFactorEnableResponse> => {
+	const { data } = await api.post<TwoFactorEnableResponse>(
+		`${baseUrl}${API_PATHS.ACCOUNT_TWO_FACTOR_ENABLE}`,
+		payload,
+	);
+	return data;
+};
+
+export const twoFactorDisable = async (
+	payload: TwoFactorPasswordConfirmBody,
+): Promise<GlobalResponse> => {
+	const { data } = await api.post<GlobalResponse>(
+		`${baseUrl}${API_PATHS.ACCOUNT_TWO_FACTOR_DISABLE}`,
+		payload,
+	);
+	return data;
+};
+
+// Re-displays the QR code for an already-enrolled account (e.g. to scan on
+// a new device) without regenerating the underlying secret.
+export const twoFactorGetTotpUri = async (
+	payload: TwoFactorPasswordConfirmBody,
+): Promise<TwoFactorGetTotpUriResponse> => {
+	const { data } = await api.post<TwoFactorGetTotpUriResponse>(
+		`${baseUrl}${API_PATHS.ACCOUNT_TWO_FACTOR_GET_TOTP_URI}`,
+		payload,
+	);
+	return data;
+};
+
+// Issues a fresh set of backup codes, invalidating the previous set.
+export const twoFactorGenerateBackupCodes = async (
+	payload: TwoFactorPasswordConfirmBody,
+): Promise<TwoFactorGenerateBackupCodesResponse> => {
+	const { data } = await api.post<TwoFactorGenerateBackupCodesResponse>(
+		`${baseUrl}${API_PATHS.ACCOUNT_TWO_FACTOR_GENERATE_BACKUP_CODES}`,
 		payload,
 	);
 	return data;
