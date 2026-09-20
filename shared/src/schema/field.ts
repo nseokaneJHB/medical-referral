@@ -7,6 +7,7 @@ import {
 	USER_STATUS,
 	ORDER_DIRECTION,
 	FACILITY_STATUS,
+	TWO_FACTOR_METHOD,
 } from "../constant";
 
 import { stringToTitleCase } from "../util";
@@ -144,6 +145,10 @@ export const facilityStatusSchema = z
 	.describe("Facility's approval/moderation status");
 
 export const genderSchema = z.enum(GENDER).describe("Patient's gender");
+
+export const twoFactorMethodSchema = z
+	.enum(TWO_FACTOR_METHOD)
+	.describe("Second-factor method");
 
 /** Minimal nested reference to a facility — id + name, for display. */
 export const facilityRefSchema = z.object({

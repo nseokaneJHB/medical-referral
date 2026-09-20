@@ -7,16 +7,19 @@ import {
 } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
 
-import { z } from "zod";
 import { useForm, useController } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import {
 	SignInSchema,
 	FRONTEND_URLS,
+	TWO_FACTOR_METHOD,
 	type SignInBody,
 	type GlobalResponse,
 	type SignInResponse,
+	type TwoFactorMethod,
+	TwoFactorVerifyTotpSchema,
+	type TwoFactorVerifyTotpBody,
 } from "@referral-tracking/shared";
 
 import { Button } from "@/components/ui/button";
@@ -39,23 +42,18 @@ import {
 	twoFactorVerifyBackupCode,
 } from "@/api/auth";
 
-const twoFactorCodeSchema = z.object({
-	code: z.string().min(1, "Code is required"),
-	trustDevice: z.boolean(),
-});
-
-type TwoFactorCodeValues = z.infer<typeof twoFactorCodeSchema>;
-
 const SignInPage = () => {
 	const router = useRouter();
 	const navigate = useNavigate();
 
 	const { queryClient } = Route.useRouteContext();
 
-	const [pendingMethods, setPendingMethods] = useState<Array<
-		"totp" | "otp"
-	> | null>(null);
-	const [activeMethod, setActiveMethod] = useState<"totp" | "otp">("totp");
+	const [pendingMethods, setPendingMethods] = useState<
+		TwoFactorMethod[] | null
+	>(null);
+	const [activeMethod, setActiveMethod] = useState<TwoFactorMethod>(
+		TWO_FACTOR_METHOD.TOTP,
+	);
 	const [useBackupCode, setUseBackupCode] = useState(false);
 	const [otpSent, setOtpSent] = useState(false);
 
@@ -73,9 +71,9 @@ const SignInPage = () => {
 		handleSubmit: handleTwoFactorSubmit,
 		setValue: setTwoFactorValue,
 		setError: setTwoFactorError,
-	} = useForm<TwoFactorCodeValues>({
+	} = useForm<TwoFactorVerifyTotpBody>({
 		mode: "onChange",
-		resolver: zodResolver(twoFactorCodeSchema),
+		resolver: zodResolver(TwoFactorVerifyTotpSchema),
 		defaultValues: { code: "", trustDevice: false },
 	});
 
@@ -103,7 +101,7 @@ const SignInPage = () => {
 				if (data.twoFactorRedirect) {
 					const methods = data.twoFactorMethods ?? [];
 					setPendingMethods(methods);
-					setActiveMethod(methods[0] ?? "totp");
+					setActiveMethod(methods[0] ?? TWO_FACTOR_METHOD.TOTP);
 					return;
 				}
 				await onSignedIn();
@@ -126,23 +124,24 @@ const SignInPage = () => {
 	const onSendOtp = async () =>
 		useToastMutation({
 			loading: "Sending code...",
-			promise: sendOtpMutation.mutateAsync(trustDeviceField.value),
+			promise: sendOtpMutation.mutateAsync(trustDeviceField.value ?? false),
 			onSuccess: async () => setOtpSent(true),
 		});
 
 	const verifyMutation = useMutation<
 		GlobalResponse,
 		Error,
-		TwoFactorCodeValues
+		TwoFactorVerifyTotpBody
 	>({
 		mutationFn: (payload) => {
 			if (useBackupCode) return twoFactorVerifyBackupCode(payload);
-			if (activeMethod === "otp") return twoFactorVerifyOtp(payload);
+			if (activeMethod === TWO_FACTOR_METHOD.OTP)
+				return twoFactorVerifyOtp(payload);
 			return twoFactorVerifyTotp(payload);
 		},
 	});
 
-	const onVerify = async (payload: TwoFactorCodeValues) =>
+	const onVerify = async (payload: TwoFactorVerifyTotpBody) =>
 		useToastMutation({
 			loading: "Verifying...",
 			promise: verifyMutation.mutateAsync(payload),
@@ -152,7 +151,7 @@ const SignInPage = () => {
 			},
 		});
 
-	const switchMethod = (method: "totp" | "otp") => {
+	const switchMethod = (method: TwoFactorMethod) => {
 		setActiveMethod(method);
 		setOtpSent(false);
 		setTwoFactorValue("code", "");
@@ -165,7 +164,7 @@ const SignInPage = () => {
 
 	const onBackToSignIn = () => {
 		setPendingMethods(null);
-		setActiveMethod("totp");
+		setActiveMethod(TWO_FACTOR_METHOD.TOTP);
 		setUseBackupCode(false);
 		setOtpSent(false);
 		setTwoFactorValue("code", "");
@@ -173,10 +172,11 @@ const SignInPage = () => {
 
 	if (pendingMethods) {
 		const hasBothMethods =
-			pendingMethods.includes("totp") && pendingMethods.includes("otp");
+			pendingMethods.includes(TWO_FACTOR_METHOD.TOTP) &&
+			pendingMethods.includes(TWO_FACTOR_METHOD.OTP);
 		const isVerifying = verifyMutation.isPending;
 		const awaitingOtpSend =
-			activeMethod === "otp" && !otpSent && !useBackupCode;
+			activeMethod === TWO_FACTOR_METHOD.OTP && !otpSent && !useBackupCode;
 
 		return (
 			<form
@@ -193,18 +193,26 @@ const SignInPage = () => {
 								<Button
 									type="button"
 									title="Authenticator app"
-									variant={activeMethod === "totp" ? "default" : "outline"}
+									variant={
+										activeMethod === TWO_FACTOR_METHOD.TOTP
+											? "default"
+											: "outline"
+									}
 									className="flex-1"
-									onClick={() => switchMethod("totp")}
+									onClick={() => switchMethod(TWO_FACTOR_METHOD.TOTP)}
 								>
 									Authenticator app
 								</Button>
 								<Button
 									type="button"
 									title="Email code"
-									variant={activeMethod === "otp" ? "default" : "outline"}
+									variant={
+										activeMethod === TWO_FACTOR_METHOD.OTP
+											? "default"
+											: "outline"
+									}
 									className="flex-1"
-									onClick={() => switchMethod("otp")}
+									onClick={() => switchMethod(TWO_FACTOR_METHOD.OTP)}
 								>
 									Email code
 								</Button>
@@ -243,7 +251,7 @@ const SignInPage = () => {
 								required
 								name="code"
 								label={
-									activeMethod === "otp"
+									activeMethod === TWO_FACTOR_METHOD.OTP
 										? "Code emailed to you"
 										: "Authenticator code"
 								}
@@ -279,18 +287,20 @@ const SignInPage = () => {
 							</Button>
 						)}
 
-						{activeMethod === "otp" && otpSent && !useBackupCode && (
-							<Button
-								type="button"
-								title="Resend code"
-								variant="link"
-								className="h-auto p-0 text-sm"
-								disabled={sendOtpMutation.isPending}
-								onClick={onSendOtp}
-							>
-								Resend code
-							</Button>
-						)}
+						{activeMethod === TWO_FACTOR_METHOD.OTP &&
+							otpSent &&
+							!useBackupCode && (
+								<Button
+									type="button"
+									title="Resend code"
+									variant="link"
+									className="h-auto p-0 text-sm"
+									disabled={sendOtpMutation.isPending}
+									onClick={onSendOtp}
+								>
+									Resend code
+								</Button>
+							)}
 
 						<div className="flex items-center justify-between">
 							<Button

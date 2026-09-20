@@ -50,6 +50,12 @@ const envSchema = z.object({
 	SESSION_UPDATE_AGE: z.string().default("86400").transform(Number),
 	SESSION_EXPIRES_IN: z.string().default("604800").transform(Number),
 
+	/** Must match twoFactor()'s twoFactorCookieMaxAge in api/src/lib/auth.ts — both read this same env var, so they can't drift out of sync. */
+	TWO_FACTOR_COOKIE_MAX_AGE_SECONDS: z
+		.string()
+		.default("600")
+		.transform(Number),
+
 	API_VERSION: z
 		.string()
 		.regex(

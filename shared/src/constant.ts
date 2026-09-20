@@ -541,5 +541,7 @@ export const LOGIN_STATUS = {
 	TWO_FACTOR_PENDING: "two_factor_pending",
 } as const;
 
-/** Must match twoFactor()'s twoFactorCookieMaxAge in api/src/lib/auth.ts, so signIn's stale-pending sweep can't drift out of sync. */
-export const TWO_FACTOR_COOKIE_MAX_AGE_SECONDS = 600;
+export const TWO_FACTOR_METHOD = {
+	TOTP: "totp",
+	OTP: "otp",
+} as const;

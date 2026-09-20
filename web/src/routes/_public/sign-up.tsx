@@ -116,15 +116,7 @@ const SignUpPage = () => {
 	const onSubmit = async (payload: SignUpFormValues) =>
 		useToastMutation({
 			loading: "Creating your account...",
-			promise: signUpMutation.mutateAsync({
-				name: payload.name,
-				email: payload.email,
-				password: payload.password,
-				role: payload.role,
-				facility_id: payload.facility_id,
-				new_facility_name: payload.new_facility_name,
-				new_facility_address: payload.new_facility_address,
-			}),
+			promise: signUpMutation.mutateAsync(payload),
 			onSuccess: async () => {
 				queryClient.removeQueries({ queryKey: QUERY_KEYS.ME });
 				await router.invalidate();

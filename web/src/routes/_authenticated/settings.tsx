@@ -4,6 +4,7 @@ import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
 
 import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 
 import { QRCodeSVG } from "qrcode.react";
 
@@ -17,8 +18,12 @@ import {
 
 import {
 	type GlobalResponse,
+	TwoFactorVerifyTotpSchema,
 	type TwoFactorEnableResponse,
+	type TwoFactorVerifyTotpBody,
+	twoFactorPasswordConfirmSchema,
 	type TwoFactorGetTotpUriResponse,
+	type TwoFactorPasswordConfirmBody,
 	type TwoFactorGenerateBackupCodesResponse,
 } from "@referral-tracking/shared";
 
@@ -71,25 +76,31 @@ const PasswordConfirmDialog = ({
 	description: string;
 	confirmLabel: string;
 	variant?: "default" | "error-outline";
-	mutationFn: (password: string) => Promise<GlobalResponse>;
+	mutationFn: (
+		payload: TwoFactorPasswordConfirmBody,
+	) => Promise<GlobalResponse>;
 	onOpenChange: (open: boolean) => void;
 	onSuccess: () => Promise<void>;
 }) => {
-	const { control, handleSubmit, reset, setError } = useForm<{
-		password: string;
-	}>({
-		mode: "onChange",
-		defaultValues: { password: "" },
-	});
+	const { control, handleSubmit, reset, setError } =
+		useForm<TwoFactorPasswordConfirmBody>({
+			mode: "onChange",
+			resolver: zodResolver(twoFactorPasswordConfirmSchema),
+			defaultValues: { password: "" },
+		});
 
 	const password = useFormField({ name: "password", control });
 
-	const mutation = useMutation<GlobalResponse, Error, string>({ mutationFn });
+	const mutation = useMutation<
+		GlobalResponse,
+		Error,
+		TwoFactorPasswordConfirmBody
+	>({ mutationFn });
 
-	const onSubmit = async (values: { password: string }) =>
+	const onSubmit = async (values: TwoFactorPasswordConfirmBody) =>
 		useToastMutation({
 			loading: `${confirmLabel}...`,
-			promise: mutation.mutateAsync(values.password),
+			promise: mutation.mutateAsync(values),
 			onSuccess: async () => {
 				reset();
 				onOpenChange(false);
@@ -168,8 +179,9 @@ const EnableTwoFactorDialog = ({
 		TwoFactorEnableResponse["data"] | null
 	>(null);
 
-	const passwordForm = useForm<{ password: string }>({
+	const passwordForm = useForm<TwoFactorPasswordConfirmBody>({
 		mode: "onChange",
+		resolver: zodResolver(twoFactorPasswordConfirmSchema),
 		defaultValues: { password: "" },
 	});
 	const password = useFormField({
@@ -177,19 +189,24 @@ const EnableTwoFactorDialog = ({
 		control: passwordForm.control,
 	});
 
-	const codeForm = useForm<{ code: string }>({
+	const codeForm = useForm<TwoFactorVerifyTotpBody>({
 		mode: "onChange",
+		resolver: zodResolver(TwoFactorVerifyTotpSchema),
 		defaultValues: { code: "" },
 	});
 	const code = useFormField({ name: "code", control: codeForm.control });
 
-	const enableMutation = useMutation<TwoFactorEnableResponse, Error, string>({
-		mutationFn: (pwd) => twoFactorEnable({ password: pwd }),
-	});
+	const enableMutation = useMutation<
+		TwoFactorEnableResponse,
+		Error,
+		TwoFactorPasswordConfirmBody
+	>({ mutationFn: twoFactorEnable });
 
-	const confirmMutation = useMutation<GlobalResponse, Error, string>({
-		mutationFn: (totpCode) => twoFactorVerifyTotp({ code: totpCode }),
-	});
+	const confirmMutation = useMutation<
+		GlobalResponse,
+		Error,
+		TwoFactorVerifyTotpBody
+	>({ mutationFn: twoFactorVerifyTotp });
 
 	const reset = () => {
 		setEnrollment(null);
@@ -197,20 +214,20 @@ const EnableTwoFactorDialog = ({
 		codeForm.reset();
 	};
 
-	const onSubmitPassword = async (values: { password: string }) =>
+	const onSubmitPassword = async (values: TwoFactorPasswordConfirmBody) =>
 		useToastMutation({
 			loading: "Starting enrollment...",
-			promise: enableMutation.mutateAsync(values.password),
+			promise: enableMutation.mutateAsync(values),
 			onSuccess: async (result) => setEnrollment(result.data),
 			onError: async (error) => {
 				passwordForm.setError("password", { message: error.message });
 			},
 		});
 
-	const onSubmitCode = async (values: { code: string }) =>
+	const onSubmitCode = async (values: TwoFactorVerifyTotpBody) =>
 		useToastMutation({
 			loading: "Confirming...",
-			promise: confirmMutation.mutateAsync(values.code),
+			promise: confirmMutation.mutateAsync(values),
 			onSuccess: async () => {
 				reset();
 				onOpenChange(false);
@@ -331,22 +348,24 @@ const ViewQrCodeDialog = ({
 }) => {
 	const [totpURI, setTotpURI] = useState<string | null>(null);
 
-	const { control, handleSubmit, reset, setError } = useForm<{
-		password: string;
-	}>({
-		mode: "onChange",
-		defaultValues: { password: "" },
-	});
+	const { control, handleSubmit, reset, setError } =
+		useForm<TwoFactorPasswordConfirmBody>({
+			mode: "onChange",
+			resolver: zodResolver(twoFactorPasswordConfirmSchema),
+			defaultValues: { password: "" },
+		});
 	const password = useFormField({ name: "password", control });
 
-	const mutation = useMutation<TwoFactorGetTotpUriResponse, Error, string>({
-		mutationFn: (pwd) => twoFactorGetTotpUri({ password: pwd }),
-	});
+	const mutation = useMutation<
+		TwoFactorGetTotpUriResponse,
+		Error,
+		TwoFactorPasswordConfirmBody
+	>({ mutationFn: twoFactorGetTotpUri });
 
-	const onSubmit = async (values: { password: string }) =>
+	const onSubmit = async (values: TwoFactorPasswordConfirmBody) =>
 		useToastMutation({
 			loading: "Loading QR code...",
-			promise: mutation.mutateAsync(values.password),
+			promise: mutation.mutateAsync(values),
 			onSuccess: async (result) => setTotpURI(result.data.totpURI),
 			onError: async (error) => {
 				setError("password", { message: error.message });
@@ -422,24 +441,24 @@ const RegenerateBackupCodesDialog = ({
 }) => {
 	const [codes, setCodes] = useState<string[] | null>(null);
 
-	const { control, handleSubmit, reset, setError } = useForm<{
-		password: string;
-	}>({
-		mode: "onChange",
-		defaultValues: { password: "" },
-	});
+	const { control, handleSubmit, reset, setError } =
+		useForm<TwoFactorPasswordConfirmBody>({
+			mode: "onChange",
+			resolver: zodResolver(twoFactorPasswordConfirmSchema),
+			defaultValues: { password: "" },
+		});
 	const password = useFormField({ name: "password", control });
 
 	const mutation = useMutation<
 		TwoFactorGenerateBackupCodesResponse,
 		Error,
-		string
-	>({ mutationFn: (pwd) => twoFactorGenerateBackupCodes({ password: pwd }) });
+		TwoFactorPasswordConfirmBody
+	>({ mutationFn: twoFactorGenerateBackupCodes });
 
-	const onSubmit = async (values: { password: string }) =>
+	const onSubmit = async (values: TwoFactorPasswordConfirmBody) =>
 		useToastMutation({
 			loading: "Generating new backup codes...",
-			promise: mutation.mutateAsync(values.password),
+			promise: mutation.mutateAsync(values),
 			onSuccess: async (result) => setCodes(result.data.backupCodes),
 			onError: async (error) => {
 				setError("password", { message: error.message });
@@ -612,7 +631,7 @@ const TwoFactorSection = () => {
 				description="Your account will only require a password to sign in."
 				confirmLabel="Disable"
 				variant="error-outline"
-				mutationFn={(pwd) => twoFactorDisable({ password: pwd })}
+				mutationFn={twoFactorDisable}
 				onOpenChange={setDisableOpen}
 				onSuccess={refreshSession}
 			/>

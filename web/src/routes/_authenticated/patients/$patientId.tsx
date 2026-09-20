@@ -68,6 +68,8 @@ const GENDER_ITEMS = Object.values(GENDER).map((value) => ({
 	label: stringToTitleCase(value),
 }));
 
+type ReasonFormValues = { reason: string };
+
 /**
  * Doctor-only flag/unflag control. Advisory marker, not a status/lifecycle
  * value — see `docs/roles-permissions.md` — so this is a simple direct
@@ -93,7 +95,7 @@ const FlagPatientAction = ({
 		: z.string().min(1, "A reason is required.");
 	const formSchema = z.object({ reason: reasonSchema });
 
-	const { control, handleSubmit, reset } = useForm<{ reason: string }>({
+	const { control, handleSubmit, reset } = useForm<ReasonFormValues>({
 		mode: "onChange",
 		resolver: zodResolver(formSchema),
 		defaultValues: { reason: "" },
@@ -108,7 +110,7 @@ const FlagPatientAction = ({
 				: flagPatient(patientId, { reason: notes }),
 	});
 
-	const onSubmit = async (payload: { reason: string }) =>
+	const onSubmit = async (payload: ReasonFormValues) =>
 		useToastMutation({
 			loading: flagged ? "Unflagging patient..." : "Flagging patient...",
 			promise: flagMutation.mutateAsync(payload.reason),

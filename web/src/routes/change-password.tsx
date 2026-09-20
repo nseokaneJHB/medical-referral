@@ -76,10 +76,7 @@ const ChangePasswordPage = () => {
 	const onSubmit = async (payload: ChangePasswordFormValues) =>
 		useToastMutation({
 			loading: "Changing password...",
-			promise: changePasswordMutation.mutateAsync({
-				current_password: payload.current_password,
-				new_password: payload.new_password,
-			}),
+			promise: changePasswordMutation.mutateAsync(payload),
 			onSuccess: async () => {
 				queryClient.removeQueries({ queryKey: QUERY_KEYS.ME });
 				await router.invalidate();

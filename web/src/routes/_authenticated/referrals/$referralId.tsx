@@ -125,6 +125,8 @@ const REASON_NOT_REQUIRED_TARGETS = new Set<ReferralStatus>([
 	REFERRAL_STATUS.IN_PROGRESS,
 ]);
 
+type StatusNotesFormValues = { notes: string };
+
 /**
  * Doctor-only. Server enforces the destination must be `APPROVED` and a
  * facility this referral hasn't already been at — this dialog only
@@ -380,11 +382,10 @@ const ReferralDetailPage = () => {
 	// requiredness (see REASON_NOT_REQUIRED_TARGETS) — so this uses
 	// useForm/useFormField without a zodResolver, and requiredness is
 	// enforced per-button below instead.
-	const { control: notesControl, reset: resetStatusNotes } = useForm<{
-		notes: string;
-	}>({
-		defaultValues: { notes: "" },
-	});
+	const { control: notesControl, reset: resetStatusNotes } =
+		useForm<StatusNotesFormValues>({
+			defaultValues: { notes: "" },
+		});
 	const statusNotes = useFormField({ name: "notes", control: notesControl });
 
 	const updateReferralMutation = useMutation<

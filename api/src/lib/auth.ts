@@ -7,7 +7,6 @@ import {
 	APP_NAME,
 	API_URLS,
 	USER_STATUS,
-	TWO_FACTOR_COOKIE_MAX_AGE_SECONDS,
 } from "@referral-tracking/shared";
 
 import * as schema from "../drizzle/schema";
@@ -171,7 +170,7 @@ export const auth = betterAuth({
 		twoFactor({
 			issuer: APP_NAME,
 			skipVerificationOnEnable: false,
-			twoFactorCookieMaxAge: TWO_FACTOR_COOKIE_MAX_AGE_SECONDS,
+			twoFactorCookieMaxAge: env.TWO_FACTOR_COOKIE_MAX_AGE_SECONDS,
 			otpOptions: {
 				sendOTP: async ({ user, otp }) => {
 					await sendEmail({

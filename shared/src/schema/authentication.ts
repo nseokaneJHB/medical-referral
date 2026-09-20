@@ -8,6 +8,7 @@ import {
 	stringSchema,
 	booleanSchema,
 	userStatusSchema,
+	twoFactorMethodSchema,
 } from "./field";
 
 import { globalResponseSchema } from "./global";
@@ -96,7 +97,7 @@ export const SignInSchema = z.object({
 
 export const signInResponseSchema = globalResponseSchema.extend({
 	twoFactorRedirect: z.literal(true).optional(),
-	twoFactorMethods: z.array(z.enum(["totp", "otp"])).optional(),
+	twoFactorMethods: z.array(twoFactorMethodSchema).optional(),
 });
 
 export const sessionResponseSchema = globalResponseSchema.extend({

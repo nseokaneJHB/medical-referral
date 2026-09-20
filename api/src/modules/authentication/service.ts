@@ -8,9 +8,10 @@ import {
 	FACILITY_STATUS,
 	HTTP_RESPONSE_CODE,
 	type SessionResponse,
-	TWO_FACTOR_COOKIE_MAX_AGE_SECONDS,
+	type TwoFactorMethod,
 } from "@referral-tracking/shared";
 
+import { env } from "../../lib/env";
 import { auth } from "../../lib/auth";
 import { generateUuid } from "../../lib/util";
 import { httpCodeForStatus } from "../../lib/http-response";
@@ -126,7 +127,7 @@ const resolveStalePendingLogins = async (
 	userId: string,
 ): Promise<void> => {
 	const cutoff = new Date(
-		Date.now() - TWO_FACTOR_COOKIE_MAX_AGE_SECONDS * 1000,
+		Date.now() - env.TWO_FACTOR_COOKIE_MAX_AGE_SECONDS * 1000,
 	);
 
 	const stale = await server.core.logins.many({
@@ -200,7 +201,7 @@ export const signIn = async (
 	const body = (await response.json().catch(() => null)) as {
 		message?: string;
 		twoFactorRedirect?: boolean;
-		twoFactorMethods?: Array<"totp" | "otp">;
+		twoFactorMethods?: TwoFactorMethod[];
 	} | null;
 
 	if (existingUser) {
