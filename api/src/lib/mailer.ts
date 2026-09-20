@@ -19,10 +19,7 @@ const transport = createTransport({
 		: undefined,
 });
 
-/**
- * Send one transactional email through the SMTP transport; errors are
- * logged, not thrown, so a flaky send can't fail the request calling it.
- */
+/** Errors are logged, not thrown, so a flaky send can't fail the request calling it. */
 export const sendEmail = async (content: EmailContent): Promise<void> => {
 	try {
 		await transport.sendMail({

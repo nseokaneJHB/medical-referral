@@ -23,7 +23,6 @@ const baseUrl = API_URLS(env.VITE_API_VERSION).AUTH;
 
 export type AuthUser = NonNullable<SessionResponse["user"]>;
 
-// Sign up (client side)
 export const signUp = async (payload: SignUpBody): Promise<GlobalResponse> => {
 	const url = `${baseUrl}${API_PATHS.SIGN_UP}`;
 
@@ -32,8 +31,7 @@ export const signUp = async (payload: SignUpBody): Promise<GlobalResponse> => {
 	return data;
 };
 
-// Sign in (client side) — may come back asking for a second factor instead
-// of a session; see `SignInResponse.twoFactorRedirect`.
+/** May come back asking for a second factor instead of a session; see SignInResponse.twoFactorRedirect. */
 export const signIn = async (
 	payload: SignInBody,
 ): Promise<SignInResponse> => {
@@ -44,7 +42,6 @@ export const signIn = async (
 	return data;
 };
 
-// Sign out (client side)
 export const signOut = async (): Promise<GlobalResponse> => {
 	const url = `${baseUrl}${API_PATHS.SIGN_OUT}`;
 
@@ -70,13 +67,7 @@ export const sessionRequest = createServerFn({
 	return data;
 });
 
-/**
- * Completes sign-in's second factor with an authenticator-app code. Also
- * doubles as the "confirm enrollment" step right after
- * `POST /account/two-factor/enable` for an already-authenticated caller —
- * better-auth's own handler supports both cases off whichever cookie
- * (two-factor-pending or session) is present, see docs/2fa.md.
- */
+/** Also doubles as the "confirm enrollment" step right after POST /account/two-factor/enable — see docs/2fa.md. */
 export const twoFactorVerifyTotp = async (
 	payload: TwoFactorVerifyTotpBody,
 ): Promise<GlobalResponse> => {
@@ -87,7 +78,6 @@ export const twoFactorVerifyTotp = async (
 	return data;
 };
 
-// Completes sign-in's second factor with a one-time backup code.
 export const twoFactorVerifyBackupCode = async (
 	payload: TwoFactorVerifyBackupCodeBody,
 ): Promise<GlobalResponse> => {
@@ -98,7 +88,6 @@ export const twoFactorVerifyBackupCode = async (
 	return data;
 };
 
-// Sends a fresh email OTP for the pending sign-in.
 export const twoFactorSendOtp = async (
 	payload: TwoFactorSendOtpBody,
 ): Promise<GlobalResponse> => {
@@ -109,7 +98,6 @@ export const twoFactorSendOtp = async (
 	return data;
 };
 
-// Completes sign-in's second factor with the emailed OTP code.
 export const twoFactorVerifyOtp = async (
 	payload: TwoFactorVerifyOtpBody,
 ): Promise<GlobalResponse> => {

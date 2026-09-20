@@ -10,15 +10,7 @@ import {
 
 import { UserModel } from "./user";
 
-/**
- * Owned by better-auth's `twoFactor()` plugin (`lib/auth.ts`) — column names
- * here are the snake_case remap targets configured via that plugin's own
- * `schema` option, not names this app invented independently. `created_at`/
- * `updated_at` aren't part of the plugin's own schema (it never sets them),
- * but are safe to keep for consistency with every other table — MySQL's
- * own column defaults populate them regardless of what the adapter's
- * INSERT statement explicitly lists.
- */
+/** Column names are the snake_case remap targets configured via twoFactor()'s own schema option in lib/auth.ts, not invented independently. */
 export const TwoFactorModel = mysqlTable(
 	"two_factor",
 	{

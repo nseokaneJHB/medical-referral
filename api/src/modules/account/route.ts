@@ -24,18 +24,7 @@ import {
 
 import { EVENT_NAMES } from "../../lib/constant";
 
-/**
- * Self-service — reachable regardless of account status (only
- * `app.authenticate`, deliberately no `app.authorize`) since a `PENDING`/
- * `REJECTED`/`FLAGGED`/`DISABLED` account must still be able to see its own
- * status and file an appeal. See `middleware/authenticate.ts`'s docstring.
- * `change-password` is here for the same reason — a `must_change_password`
- * account is `ACTIVE` but blocked from every other route by
- * `middleware/authorize.ts`, so it must still be reachable via
- * `app.authenticate` alone. Same for `accept-nda` — an unsigned-NDA account
- * is `ACTIVE` but blocked from every other route by
- * `middleware/authorize.ts`'s NDA check, so it must stay reachable here too.
- */
+/** Deliberately app.authenticate only, no app.authorize — every route here must stay reachable to accounts middleware/authorize.ts would otherwise block. */
 export const route: FastifyPluginAsync = async (
 	app: FastifyInstance,
 ): Promise<void> => {

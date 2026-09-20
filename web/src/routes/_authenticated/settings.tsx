@@ -56,12 +56,7 @@ import {
 	twoFactorGenerateBackupCodes,
 } from "@/api/account";
 
-/**
- * Password-confirm dialog shared shape for the one 2FA management action
- * that only needs a password and a plain `GlobalResponse`-shaped result
- * (disable) — enroll, view-QR, and regenerate-backup-codes each have their
- * own richer post-success displays (QR/codes) so they aren't built on this.
- */
+/** Only used by disable — enroll, view-QR, and regenerate-backup-codes each have their own richer post-success displays. */
 const PasswordConfirmDialog = ({
 	open,
 	title,

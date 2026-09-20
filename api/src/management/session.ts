@@ -49,9 +49,7 @@ export class SessionManager {
 			nda_accepted_version:
 				(rest as { nda_accepted_version?: string | null })
 					.nda_accepted_version ?? null,
-			// `nda_accepted_at` is audit-only and deliberately never registered
-			// as a better-auth `additionalField` (see `lib/auth.ts`), so it is
-			// never present on the session user at all — always `null` here.
+			/** Audit-only, never registered as a better-auth additionalField, so never present on the session user. */
 			nda_accepted_at: null,
 		};
 	};

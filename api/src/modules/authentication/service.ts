@@ -123,16 +123,7 @@ export const signUp = async (
 	});
 };
 
-/**
- * Resolves a signed-in-but-not-yet-2FA-verified user's stale
- * `two_factor_pending` `logins` rows to `FAILED` — see `docs/2fa.md`
- * decision #6. Better-auth deliberately doesn't expose *whose* attempt
- * just failed to a verify-totp/verify-backup-code/verify-otp caller (that
- * identity lives only in its own signed two-factor cookie), so a failed
- * second-factor attempt can't be resolved to FAILED the moment it happens.
- * This runs instead on the user's *next* sign-in attempt, once enough time
- * has passed that the pending cookie must have expired.
- */
+/** Better-auth doesn't expose whose 2FA attempt just failed, so this resolves stale pending rows on the user's next sign-in instead — see docs/2fa.md decision #6. */
 const resolveStalePendingLogins = async (
 	server: FastifyInstance,
 	userId: string,
@@ -164,11 +155,7 @@ const resolveStalePendingLogins = async (
 	}
 };
 
-/**
- * Resolves a user's most recent open `two_factor_pending` row to `SUCCESS`
- * once they complete the second factor — mirrors `signOut`'s "most recent
- * open row" lookup further below.
- */
+/** Mirrors signOut's "most recent open row" lookup further below. */
 const resolvePendingLoginSuccess = async (
 	server: FastifyInstance,
 	userId: string,
@@ -191,15 +178,7 @@ const resolvePendingLoginSuccess = async (
 	});
 };
 
-/**
- * Resolves the user by email first (so a failed attempt against a *known*
- * email still gets an audit row — build-spec.md's `login_audit` table
- * (now `logins`) is meant to track attempts, not just successes) then logs
- * the outcome. Unknown emails aren't logged: there's no user row to attach
- * them to, and `logins.user_id` is a required FK. A correct password
- * against a 2FA-enabled account logs `TWO_FACTOR_PENDING` instead of
- * `SUCCESS` — see `docs/2fa.md` decision #6.
- */
+/** Unknown emails aren't logged (no user row to attach the FK to); a correct password against a 2FA-enabled account logs TWO_FACTOR_PENDING instead of SUCCESS. */
 export const signIn = async (
 	request: FastifyRequest<SignInRequest>,
 	reply: FastifyReply<SignInRequest>,

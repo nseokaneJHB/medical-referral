@@ -283,9 +283,7 @@ export class AppealManager {
 			select: TIMELINE_FIELDS,
 		});
 
-		// Best-effort — reinstating a Doctor must succeed regardless of
-		// whether the auto-assignment matching logic underneath has a bug.
-		// See docs/auto-assignment.md.
+		/** Best-effort — reinstating a Doctor must succeed regardless of a bug in the matching logic underneath. */
 		if (
 			options.approve &&
 			isUser &&

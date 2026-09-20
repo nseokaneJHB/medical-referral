@@ -27,7 +27,6 @@ export const onResponseLoggingHook = async (
 	if (ignoredRoutes.includes(request.url)) {
 		return;
 	}
-	// 1. Extract correlation ID from request context
 	const correlationId = request.correlationId;
 
 	const { statusCode } = reply;

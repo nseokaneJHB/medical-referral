@@ -541,12 +541,5 @@ export const LOGIN_STATUS = {
 	TWO_FACTOR_PENDING: "two_factor_pending",
 } as const;
 
-/**
- * Matches `twoFactor()`'s `twoFactorCookieMaxAge` in `api/src/lib/auth.ts`
- * — how long a user has to complete their second factor after a correct
- * password before that attempt is considered abandoned/expired. Kept as
- * one shared constant so `signIn`'s stale-pending-login sweep
- * (`modules/authentication/service.ts`) can't drift out of sync with the
- * plugin's own cookie lifetime.
- */
+/** Must match twoFactor()'s twoFactorCookieMaxAge in api/src/lib/auth.ts, so signIn's stale-pending sweep can't drift out of sync. */
 export const TWO_FACTOR_COOKIE_MAX_AGE_SECONDS = 600;

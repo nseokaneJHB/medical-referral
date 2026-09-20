@@ -15,13 +15,7 @@ type AutoAssignmentCore = Pick<
 	"user" | "referral" | "specialty" | "timeline"
 >;
 
-/**
- * Non-terminal referral statuses — a doctor's "workload" for auto-assignment
- * purposes is their count of referrals in one of these. Kept local rather
- * than derived from `TERMINAL_REFERRAL_STATUSES` at runtime — same
- * hardcoded-list style as `TERMINAL_REFERRAL_STATUSES` itself
- * (`shared/src/constant.ts`).
- */
+/** Kept local rather than derived from TERMINAL_REFERRAL_STATUSES at runtime, same hardcoded-list style as that constant. */
 const NON_TERMINAL_REFERRAL_STATUSES: (typeof REFERRAL_STATUS)[keyof typeof REFERRAL_STATUS][] =
 	[
 		REFERRAL_STATUS.PENDING,
@@ -30,19 +24,7 @@ const NON_TERMINAL_REFERRAL_STATUSES: (typeof REFERRAL_STATUS)[keyof typeof REFE
 		REFERRAL_STATUS.ON_HOLD,
 	];
 
-/**
- * Doctor auto-assignment: workload-based, strictly same-facility, specialty-
- * matched. Full design/reasoning in `docs/auto-assignment.md`. Composes
- * `core.user`/`core.referral`/`core.specialty`/`core.timeline` (no direct
- * Drizzle access — that stays exclusive to `core/*.ts`), same layering as
- * `ModerationManager`/`AppealManager` in this directory.
- *
- * Bound to whatever `core`/executor it's constructed with. Construct with
- * `core.withTransaction(tx)`'s result to run inside a transaction; every
- * caller of this class treats it as best-effort (wrapped in its own
- * try/catch) rather than something whose failure should roll back the
- * action that triggered it — see callers for why.
- */
+/** Full design in docs/auto-assignment.md; every caller treats this as best-effort, not something whose failure should roll back the triggering action. */
 export class AutoAssignmentManager {
 	private readonly core: AutoAssignmentCore;
 
@@ -50,13 +32,7 @@ export class AutoAssignmentManager {
 		this.core = core;
 	}
 
-	/**
-	 * Picks the least-loaded eligible Doctor at `facilityId` — `role: DOCTOR`,
-	 * `status: ACTIVE`, and (when `specialtyIds` is non-empty) overlapping at
-	 * least one of them via `user_specialties` — and returns their id, or
-	 * `null` if none qualify. Ties broken by lowest `id` for determinism.
-	 * Read-only; makes no DB writes.
-	 */
+	/** Ties broken by lowest id for determinism. */
 	private pickDoctor = async (
 		facilityId: string,
 		specialtyIds: string[],
@@ -103,17 +79,7 @@ export class AutoAssignmentManager {
 		return best?.id ?? null;
 	};
 
-	/**
-	 * Finds and assigns the least-loaded eligible Doctor at `facilityId` to
-	 * `referralId`, auto-accepting (mirrors every other doctor-assignment
-	 * path) if `currentStatus` is `PENDING`. Writes a `DOCTOR_ASSIGNED`
-	 * timeline row noting it was automatic. Returns `null` (no writes at
-	 * all) if no eligible doctor exists — leaves the referral exactly as it
-	 * was, same as today's ordinary "unassigned" state.
-	 *
-	 * Never throws for "no match" — only for a genuine DB error. Callers
-	 * treat even that as best-effort (see class docstring).
-	 */
+	/** Auto-accepts (mirrors every other doctor-assignment path) when currentStatus is PENDING; never throws for "no match", only for a genuine DB error. */
 	attempt = async (options: {
 		referralId: string;
 		facilityId: string;
@@ -142,10 +108,7 @@ export class AutoAssignmentManager {
 			select: { id: true },
 		});
 
-		// `changer_id` is a NOT NULL FK to a real person — there's no "system"
-		// actor, so the assigned doctor themselves is recorded as the
-		// changer; `notes` is what actually distinguishes this from every
-		// other doctor-assignment path's timeline row.
+		/** changer_id is a NOT NULL FK to a real person; no "system" actor exists, so the assigned doctor is recorded as their own changer. */
 		await this.core.timeline.create({
 			data: {
 				id: generateUuid(),
@@ -163,13 +126,7 @@ export class AutoAssignmentManager {
 		return { doctorId: doctor.id, doctorName: doctor.name };
 	};
 
-	/**
-	 * Re-attempts auto-assignment for every unassigned, non-terminal referral
-	 * destined for `facilityId` — call after something that could free up a
-	 * matching doctor there (a referral there goes terminal, a doctor there
-	 * is reactivated, a doctor there gains a specialty). Best-effort per
-	 * referral; one failing doesn't stop the rest.
-	 */
+	/** Best-effort per referral — one failing doesn't stop the rest. */
 	recheckFacility = async (facilityId: string): Promise<void> => {
 		const unassigned = await this.core.referral.many({
 			page: 1,
@@ -206,18 +163,7 @@ export class AutoAssignmentManager {
 		}
 	};
 
-	/**
-	 * Re-checks whether `referralId`'s currently assigned doctor still
-	 * overlaps its current specialty set — call after a specialty tag is
-	 * added to or removed from an already-assigned referral (the only two
-	 * events that can change that set after assignment). No-op if the
-	 * referral is unassigned, terminal, already past `ACCEPTED` (treatment
-	 * has started — not silently reassigned out from under whoever's
-	 * already handling it), or has no specialty tags at all (nothing to
-	 * mismatch against). Otherwise, if the assigned doctor has zero overlap
-	 * with the current tags, unassigns them (reverting an auto-accept back
-	 * to `PENDING`), logs it, and immediately retries auto-assignment.
-	 */
+	/** No-op once past ACCEPTED — treatment has started, so we don't silently reassign out from under whoever's already handling it. */
 	revalidate = async (referralId: string): Promise<void> => {
 		const referral = await this.core.referral.one({
 			where: { id: referralId },

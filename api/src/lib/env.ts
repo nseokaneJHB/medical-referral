@@ -32,12 +32,7 @@ const envSchema = z.object({
 	RATE_LIMIT_MAX: z.string().default("5").transform(Number),
 	RATE_LIMIT_WINDOW: z.string().default("60").transform(Number),
 
-	/**
-	 * SMTP transport for transactional email (currently: 2FA email OTP).
-	 * Defaults point at the dev-only Mailpit container (`compose.yml`) —
-	 * SMTP_USER/PASS default empty since Mailpit needs no auth; a real
-	 * provider in production sets all five.
-	 */
+	/** Defaults point at the dev-only Mailpit container; SMTP_USER/PASS default empty since Mailpit needs no auth. */
 	SMTP_HOST: z.string().default("mailpit"),
 	SMTP_PORT: z.string().default("1025").transform(Number),
 	SMTP_USER: z.string().default(""),

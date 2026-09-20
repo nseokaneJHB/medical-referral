@@ -66,14 +66,7 @@ export const route: FastifyPluginAsync = async (
 		},
 	});
 
-	/**
-	 * These 4 routes are deliberately NOT behind `app.authenticate` — they
-	 * run off better-auth's own short-lived two-factor cookie (set by
-	 * `signInEmail`'s 2FA-redirect response), not a full app session. The
-	 * same endpoints also double as the "confirm enrollment" step right
-	 * after `POST /account/two-factor/enable` for an already-authenticated
-	 * caller — better-auth's own handler supports both cases internally.
-	 */
+	/** Deliberately not behind app.authenticate — these run off better-auth's own short-lived two-factor cookie, not a full app session. */
 	app.route({
 		method: "POST",
 		url: API_PATHS.TWO_FACTOR_VERIFY_TOTP,

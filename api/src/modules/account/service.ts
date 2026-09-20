@@ -221,14 +221,7 @@ export const acceptNda = async (
 		select: { id: true },
 	});
 
-	/**
-	 * Same stale-cookie-cache problem `changePassword` solves by re-signing
-	 * in — but there's no password available here. `getSession` with
-	 * `disableCookieCache` forces a fresh DB-backed read and, via
-	 * `asResponse: true`, hands back a `Set-Cookie` reflecting the updated
-	 * `nda_accepted_version`, so the caller isn't immediately re-blocked by
-	 * `middleware/authorize.ts` on their next request.
-	 */
+	/** disableCookieCache forces a fresh DB-backed read so the caller isn't immediately re-blocked by middleware/authorize.ts. */
 	const sessionResponse = await auth.api.getSession({
 		asResponse: true,
 		headers: fromNodeHeaders(request.headers),
@@ -254,14 +247,7 @@ export const twoFactorEnable = async (
 	return reply.status(200).send(result);
 };
 
-/**
- * `disableTwoFactor` rotates the session internally (fresh token issued,
- * old one deleted) as part of turning 2FA off — its own response already
- * carries the correct new session cookie, so we forward that directly
- * rather than querying `getSession` again (which would look up the
- * already-deleted old token and incorrectly clear the cookie instead of
- * refreshing it).
- */
+/** disableTwoFactor rotates the session internally, so its response cookie is forwarded directly — a fresh getSession call would look up the already-deleted old token. */
 export const twoFactorDisable = async (
 	request: FastifyRequest<TwoFactorDisableRequest>,
 	reply: FastifyReply<TwoFactorDisableRequest>,

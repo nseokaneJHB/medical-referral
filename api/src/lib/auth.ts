@@ -100,14 +100,7 @@ export const auth = betterAuth({
 				required: false,
 				defaultValue: false,
 			},
-			/**
-			 * Server-controlled. `null` until `PATCH /account/accept-nda` sets
-			 * it to the current `NDA_VERSION` — bumping that constant re-gates
-			 * everyone who accepted an older version. Deliberately embedded in
-			 * the session cookie-cache (unlike `nda_accepted_at`, an audit-only
-			 * column not registered here) so `middleware/authorize.ts` can gate
-			 * on it without a DB round trip.
-			 */
+			/** Embedded in the session cookie-cache (unlike nda_accepted_at) so middleware/authorize.ts can gate on it without a DB round trip. */
 			nda_accepted_version: {
 				input: false,
 				type: "string",
@@ -173,15 +166,7 @@ export const auth = betterAuth({
 		window: env.RATE_LIMIT_WINDOW,
 	},
 
-	/**
-	 * TOTP + email OTP + backup codes (see `docs/2fa.md`). `schema` remaps
-	 * the plugin's own camelCase field/table names to this codebase's
-	 * snake_case convention — the same `{ field: "column" }` mechanism
-	 * already used above for `emailVerified` → `"verified"`.
-	 * `skipVerificationOnEnable: false` (the default) means enabling 2FA
-	 * isn't considered active until the user proves they can produce a
-	 * valid code.
-	 */
+	/** skipVerificationOnEnable: false means enabling 2FA isn't active until the user proves they can produce a valid code. */
 	plugins: [
 		twoFactor({
 			issuer: APP_NAME,

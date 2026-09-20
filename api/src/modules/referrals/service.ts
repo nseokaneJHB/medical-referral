@@ -148,11 +148,7 @@ export const referralCreate = async (
 		},
 	);
 
-	// Auto-assignment is best-effort, run only after the referral (and its
-	// specialty links) are safely committed above, and only when no doctor
-	// was already specified manually — a bug in the matching logic must
-	// never prevent a referral from being created, and manual assignment
-	// always takes precedence. See docs/auto-assignment.md.
+	/** Best-effort and runs only after the transaction above commits — a matching bug must never prevent referral creation. */
 	if (!doctor) {
 		try {
 			await new AutoAssignmentManager(request.server.core).attempt({

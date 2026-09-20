@@ -115,24 +115,22 @@ export const sessionResponseSchema = globalResponseSchema.extend({
 		.nullable(),
 });
 
-/** `POST /auth/two-factor/verify-totp` — completes sign-in's second factor, or confirms enrollment right after `POST /account/two-factor/enable`. */
+/** Also confirms enrollment right after POST /account/two-factor/enable, not just sign-in's second factor. */
 export const TwoFactorVerifyTotpSchema = z.object({
 	code: stringSchema.min(1, "Code is required"),
 	trustDevice: booleanSchema.optional(),
 });
 
-/** `POST /auth/two-factor/verify-backup-code` — same two contexts as verify-totp, using a one-time backup code instead. */
+/** Same dual context as TwoFactorVerifyTotpSchema, using a one-time backup code instead. */
 export const TwoFactorVerifyBackupCodeSchema = z.object({
 	code: stringSchema.min(1, "Backup code is required"),
 	trustDevice: booleanSchema.optional(),
 });
 
-/** `POST /auth/two-factor/send-otp` — sends a fresh email OTP for the pending sign-in. */
 export const TwoFactorSendOtpSchema = z.object({
 	trustDevice: booleanSchema.optional(),
 });
 
-/** `POST /auth/two-factor/verify-otp` — verifies the emailed OTP code. */
 export const TwoFactorVerifyOtpSchema = z.object({
 	code: stringSchema.min(1, "Code is required"),
 	trustDevice: booleanSchema.optional(),
