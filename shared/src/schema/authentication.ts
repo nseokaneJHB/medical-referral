@@ -94,6 +94,11 @@ export const SignInSchema = z.object({
 	password: stringSchema.min(1, "Password is required"),
 });
 
+export const signInResponseSchema = globalResponseSchema.extend({
+	twoFactorRedirect: z.literal(true).optional(),
+	twoFactorMethods: z.array(z.enum(["totp", "otp"])).optional(),
+});
+
 export const sessionResponseSchema = globalResponseSchema.extend({
 	user: z
 		.object({

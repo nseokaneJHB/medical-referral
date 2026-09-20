@@ -142,12 +142,12 @@ const FlagPatientAction = ({
 					</DialogDescription>
 				</DialogHeader>
 				<form
-				onSubmit={(event) => {
-					event.stopPropagation();
-					void handleSubmit(onSubmit)(event);
-				}}
-				className="space-y-4"
-			>
+					onSubmit={(event) => {
+						event.stopPropagation();
+						void handleSubmit(onSubmit)(event);
+					}}
+					className="space-y-4"
+				>
 					<TextArea
 						name="reason"
 						label={flagged ? "Note (optional)" : "Reason"}
@@ -249,12 +249,12 @@ const RequestTransferAction = ({
 					</DialogDescription>
 				</DialogHeader>
 				<form
-				onSubmit={(event) => {
-					event.stopPropagation();
-					void handleSubmit(onSubmit)(event);
-				}}
-				className="space-y-4"
-			>
+					onSubmit={(event) => {
+						event.stopPropagation();
+						void handleSubmit(onSubmit)(event);
+					}}
+					className="space-y-4"
+				>
 					<SelectInput
 						searchable
 						filterMode="server"

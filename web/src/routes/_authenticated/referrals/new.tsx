@@ -259,7 +259,11 @@ const NewReferralPage = () => {
 								}
 							/>
 
-							<Button type="submit" title="Create referral" disabled={isLoading}>
+							<Button
+								type="submit"
+								title="Create referral"
+								disabled={isLoading}
+							>
 								{isLoading ? (
 									<>
 										<Spinner /> <span>Creating...</span>

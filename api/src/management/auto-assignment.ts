@@ -4,7 +4,6 @@ import {
 	TIMELINE_TYPE,
 	TIMELINE_ACTION,
 	REFERRAL_STATUS,
-	TERMINAL_REFERRAL_STATUSES,
 } from "@referral-tracking/shared";
 
 import { generateUuid } from "../lib/util";

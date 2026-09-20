@@ -4,9 +4,10 @@ import { getRequest } from "@tanstack/react-start/server";
 import {
 	API_URLS,
 	API_PATHS,
-	type Role,
 	type SignUpBody,
 	type SignInBody,
+	type SignInResponse,
+	type GlobalResponse,
 	type SessionResponse,
 	type TwoFactorSendOtpBody,
 	type TwoFactorVerifyOtpBody,
@@ -20,73 +21,34 @@ import { env } from "@/lib/env";
 
 const baseUrl = API_URLS(env.VITE_API_VERSION).AUTH;
 
-/**
- * `/sign-up` and `/sign-in` forward Better Auth's own response body as-is
- * (see api/src/modules/authentication/service.ts's `forwardAuthResponse`)
- * — this is NOT the app's `SessionResponse` envelope, it's Better Auth's
- * native shape. `/session` is the one route with a hand-written handler
- * that actually returns `SessionResponse`.
- */
-export interface AuthUserResponse {
-	token: string;
-	redirect?: boolean;
-	user: {
-		id: string;
-		name: string;
-		email: string;
-		role: Role;
-		image: string | null;
-		emailVerified: boolean;
-		createdAt: string;
-		updatedAt: string;
-		facility_id: string | null;
-	};
-}
-
-/**
- * `/sign-in`'s alternate response when the account has 2FA enabled — no
- * session is issued yet, the caller must complete one of `twoFactorMethods`
- * (see the `/auth/two-factor/*` client functions below) before getting an
- * `AuthUserResponse`.
- */
-export interface TwoFactorRedirectResponse {
-	twoFactorRedirect: true;
-	twoFactorMethods: Array<"totp" | "otp">;
-}
-
 export type AuthUser = NonNullable<SessionResponse["user"]>;
 
 // Sign up (client side)
-export const signUp = async (
-	payload: SignUpBody,
-): Promise<AuthUserResponse> => {
+export const signUp = async (payload: SignUpBody): Promise<GlobalResponse> => {
 	const url = `${baseUrl}${API_PATHS.SIGN_UP}`;
 
-	const { data } = await api.post<AuthUserResponse>(url, payload);
+	const { data } = await api.post<GlobalResponse>(url, payload);
 
 	return data;
 };
 
 // Sign in (client side) — may come back asking for a second factor instead
-// of a session; see `TwoFactorRedirectResponse`.
+// of a session; see `SignInResponse.twoFactorRedirect`.
 export const signIn = async (
 	payload: SignInBody,
-): Promise<AuthUserResponse | TwoFactorRedirectResponse> => {
+): Promise<SignInResponse> => {
 	const url = `${baseUrl}${API_PATHS.SIGN_IN}`;
 
-	const { data } = await api.post<AuthUserResponse | TwoFactorRedirectResponse>(
-		url,
-		payload,
-	);
+	const { data } = await api.post<SignInResponse>(url, payload);
 
 	return data;
 };
 
 // Sign out (client side)
-export const signOut = async (): Promise<{ success: boolean }> => {
+export const signOut = async (): Promise<GlobalResponse> => {
 	const url = `${baseUrl}${API_PATHS.SIGN_OUT}`;
 
-	const { data } = await api.post<{ success: boolean }>(url, null);
+	const { data } = await api.post<GlobalResponse>(url, null);
 
 	return data;
 };
@@ -117,10 +79,10 @@ export const sessionRequest = createServerFn({
  */
 export const twoFactorVerifyTotp = async (
 	payload: TwoFactorVerifyTotpBody,
-): Promise<AuthUserResponse> => {
+): Promise<GlobalResponse> => {
 	const url = `${baseUrl}${API_PATHS.TWO_FACTOR_VERIFY_TOTP}`;
 
-	const { data } = await api.post<AuthUserResponse>(url, payload);
+	const { data } = await api.post<GlobalResponse>(url, payload);
 
 	return data;
 };
@@ -128,10 +90,10 @@ export const twoFactorVerifyTotp = async (
 // Completes sign-in's second factor with a one-time backup code.
 export const twoFactorVerifyBackupCode = async (
 	payload: TwoFactorVerifyBackupCodeBody,
-): Promise<AuthUserResponse> => {
+): Promise<GlobalResponse> => {
 	const url = `${baseUrl}${API_PATHS.TWO_FACTOR_VERIFY_BACKUP_CODE}`;
 
-	const { data } = await api.post<AuthUserResponse>(url, payload);
+	const { data } = await api.post<GlobalResponse>(url, payload);
 
 	return data;
 };
@@ -139,10 +101,10 @@ export const twoFactorVerifyBackupCode = async (
 // Sends a fresh email OTP for the pending sign-in.
 export const twoFactorSendOtp = async (
 	payload: TwoFactorSendOtpBody,
-): Promise<{ status: boolean }> => {
+): Promise<GlobalResponse> => {
 	const url = `${baseUrl}${API_PATHS.TWO_FACTOR_SEND_OTP}`;
 
-	const { data } = await api.post<{ status: boolean }>(url, payload);
+	const { data } = await api.post<GlobalResponse>(url, payload);
 
 	return data;
 };
@@ -150,10 +112,10 @@ export const twoFactorSendOtp = async (
 // Completes sign-in's second factor with the emailed OTP code.
 export const twoFactorVerifyOtp = async (
 	payload: TwoFactorVerifyOtpBody,
-): Promise<AuthUserResponse> => {
+): Promise<GlobalResponse> => {
 	const url = `${baseUrl}${API_PATHS.TWO_FACTOR_VERIFY_OTP}`;
 
-	const { data } = await api.post<AuthUserResponse>(url, payload);
+	const { data } = await api.post<GlobalResponse>(url, payload);
 
 	return data;
 };

@@ -2,20 +2,23 @@ import type { FastifyRequest, FastifyReply } from "fastify";
 
 import { API_PATHS } from "@referral-tracking/shared";
 
-import { generateUuid } from "../lib/util";
-
 const correlationName = "X-Correlation-Id";
 
 /**
- * Captures the high-resolution engine start time when a request enters the server.
+ * Captures the high-resolution engine start time when a request enters the
+ * server, and reuses Fastify's own request id (set via `genReqId` in
+ * build.ts) as the correlation id — one id, not a second independently
+ * generated one. Sets the response header here (`onRequest`), since a header
+ * set in `onResponse` fires after the response is already sent and never
+ * reaches the client.
  */
 export const onRequestTimerHook = async (
 	request: FastifyRequest,
+	reply: FastifyReply,
 ): Promise<void> => {
-	const correlationId =
-		(request.headers[correlationName] as string) || generateUuid();
-	request.correlationId = correlationId;
+	request.correlationId = request.id;
 	request.startTime = process.hrtime.bigint();
+	reply.header(correlationName, request.correlationId);
 };
 
 /**
@@ -31,10 +34,10 @@ export const onResponseLoggingHook = async (
 	if (ignoredRoutes.includes(request.url)) {
 		return;
 	}
-	// 1. Extract correlation ID from request context or generate a new one
+	// 1. Extract correlation ID from request context
 	const correlationId = request.correlationId;
 
-	const { statusCode, header } = reply;
+	const { statusCode } = reply;
 
 	// 2. Calculate processing duration in milliseconds using nanosecond bigints
 	let durationMs = 0;
@@ -79,6 +82,4 @@ export const onResponseLoggingHook = async (
 		},
 		`HTTP ${request.method} ${matchedRoute} responded with status ${statusCode} in ${durationMs.toFixed(2)}ms`,
 	);
-
-	header(correlationName, correlationId);
 };

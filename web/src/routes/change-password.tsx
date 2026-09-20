@@ -13,7 +13,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { KeyRoundIcon } from "lucide-react";
 
 import {
-	HTTP_CODE,
 	FRONTEND_URLS,
 	changePasswordSchema,
 	type GlobalResponse,

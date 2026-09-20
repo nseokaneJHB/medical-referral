@@ -4,6 +4,7 @@ import {
 	SignUpSchema,
 	SignInSchema,
 	sessionResponseSchema,
+	signInResponseSchema,
 	TwoFactorSendOtpSchema,
 	TwoFactorVerifyOtpSchema,
 	TwoFactorVerifyTotpSchema,
@@ -13,6 +14,7 @@ import {
 export type SignUpBody = z.infer<typeof SignUpSchema>;
 export type SignInBody = z.infer<typeof SignInSchema>;
 export type SessionResponse = z.infer<typeof sessionResponseSchema>;
+export type SignInResponse = z.infer<typeof signInResponseSchema>;
 export type TwoFactorVerifyTotpBody = z.infer<typeof TwoFactorVerifyTotpSchema>;
 export type TwoFactorVerifyBackupCodeBody = z.infer<
 	typeof TwoFactorVerifyBackupCodeSchema

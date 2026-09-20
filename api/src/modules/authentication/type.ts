@@ -4,6 +4,7 @@ import type {
 	SignUpBody,
 	SignInBody,
 	GlobalResponse,
+	SignInResponse,
 	SessionResponse,
 	TwoFactorSendOtpBody,
 	TwoFactorVerifyOtpBody,
@@ -18,7 +19,7 @@ export interface SignUpRequest extends RouteGenericInterface {
 
 export interface SignInRequest extends RouteGenericInterface {
 	Body: SignInBody;
-	Reply: GlobalResponse;
+	Reply: SignInResponse;
 }
 
 export interface SignOutRequest extends RouteGenericInterface {

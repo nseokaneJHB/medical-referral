@@ -13,7 +13,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 
 import {
 	ROLES,
-	HTTP_CODE,
 	SignUpSchema,
 	FRONTEND_URLS,
 	signUpRoleSchema,
@@ -36,7 +35,7 @@ import { useToastMutation } from "@/hooks/use-toast-mutation";
 import { useFacilitySearch } from "@/hooks/use-facility-search";
 
 import { QUERY_KEYS } from "@/api/constant";
-import { signUp, type AuthUserResponse } from "@/api/auth";
+import { signUp } from "@/api/auth";
 
 const signUpFormSchema = SignUpSchema.extend({
 	confirmPassword: z.string().min(1, "Please confirm your password"),
@@ -110,29 +109,22 @@ const SignUpPage = () => {
 		control,
 	});
 
-	const signUpMutation = useMutation<AuthUserResponse, Error, SignUpBody>({
+	const signUpMutation = useMutation<GlobalResponse, Error, SignUpBody>({
 		mutationFn: signUp,
 	});
 
 	const onSubmit = async (payload: SignUpFormValues) =>
 		useToastMutation({
 			loading: "Creating your account...",
-			promise: signUpMutation
-				.mutateAsync({
-					name: payload.name,
-					email: payload.email,
-					password: payload.password,
-					role: payload.role,
-					facility_id: payload.facility_id,
-					new_facility_name: payload.new_facility_name,
-					new_facility_address: payload.new_facility_address,
-				})
-				.then(
-					(): GlobalResponse => ({
-						code: HTTP_CODE.CREATED,
-						message: "Account created.",
-					}),
-				),
+			promise: signUpMutation.mutateAsync({
+				name: payload.name,
+				email: payload.email,
+				password: payload.password,
+				role: payload.role,
+				facility_id: payload.facility_id,
+				new_facility_name: payload.new_facility_name,
+				new_facility_address: payload.new_facility_address,
+			}),
 			onSuccess: async () => {
 				queryClient.removeQueries({ queryKey: QUERY_KEYS.ME });
 				await router.invalidate();

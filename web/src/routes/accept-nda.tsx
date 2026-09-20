@@ -90,11 +90,10 @@ const AcceptNdaPage = () => {
 							<div className="text-muted-foreground max-h-64 overflow-y-auto rounded-md border p-3 text-sm">
 								<p>
 									By continuing, you agree not to disclose, copy, or use any
-									patient or referral information you access through this
-									system — including anything surfaced by the chatbot — for
-									any purpose outside your official duties. Unauthorized
-									disclosure may result in account suspension and further
-									action.
+									patient or referral information you access through this system
+									— including anything surfaced by the chatbot — for any purpose
+									outside your official duties. Unauthorized disclosure may
+									result in account suspension and further action.
 								</p>
 							</div>
 

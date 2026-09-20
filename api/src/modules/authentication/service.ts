@@ -26,26 +26,6 @@ import type {
 } from "./type";
 
 /**
- * Forwards a better-auth `Response` (returned via `asResponse: true`) onto
- * a Fastify reply — status, headers (including the session `Set-Cookie`),
- * and JSON body all carry over as-is.
- */
-const forwardAuthResponse = async (
-	reply: FastifyReply,
-	response: Response,
-): Promise<void> => {
-	response.headers.forEach((value, key) => {
-		if (key.toLowerCase() === "content-length") return;
-		reply.header(key, value);
-	});
-
-	const body = await response.json().catch(() => null);
-
-	reply.status(response.status);
-	reply.send(body);
-};
-
-/**
  * A facility only ever comes into being `PENDING`, paired with its
  * founding Manager's own (also-`PENDING`) application — approved together
  * by an Administrator, or both stay hidden/rejected. Joining an *existing*
@@ -120,7 +100,27 @@ export const signUp = async (
 		body: { name, email, password, role, facility_id: resolvedFacilityId },
 	});
 
-	return forwardAuthResponse(reply, response);
+	const cookies = response.headers.getSetCookie();
+	if (cookies.length > 0) reply.header("set-cookie", cookies);
+
+	if (response.ok) {
+		return reply
+			.status(response.status)
+			.send({ code: HTTP_RESPONSE_CODE.OK.code, message: "Account created." });
+	}
+
+	const failure = (await response.json().catch(() => null)) as {
+		message?: string;
+	} | null;
+
+	const matched = Object.values(HTTP_RESPONSE_CODE).find(
+		(entry) => entry.status === response.status,
+	);
+
+	return reply.status(response.status).send({
+		code: matched?.code ?? HTTP_RESPONSE_CODE.BAD_REQUEST.code,
+		message: failure?.message ?? "Could not create account.",
+	});
 };
 
 /**
@@ -221,14 +221,13 @@ export const signIn = async (
 		body: { email, password },
 	});
 
-	if (existingUser) {
-		const body = (await response
-			.clone()
-			.json()
-			.catch(() => null)) as
-			| { message?: string; twoFactorRedirect?: boolean }
-			| null;
+	const body = (await response.json().catch(() => null)) as {
+		message?: string;
+		twoFactorRedirect?: boolean;
+		twoFactorMethods?: Array<"totp" | "otp">;
+	} | null;
 
+	if (existingUser) {
 		let status: (typeof LOGIN_STATUS)[keyof typeof LOGIN_STATUS];
 		let reason: string | null = null;
 
@@ -255,7 +254,32 @@ export const signIn = async (
 		});
 	}
 
-	return forwardAuthResponse(reply, response);
+	const cookies = response.headers.getSetCookie();
+	if (cookies.length > 0) reply.header("set-cookie", cookies);
+
+	if (body?.twoFactorRedirect) {
+		return reply.status(response.status).send({
+			code: HTTP_RESPONSE_CODE.OK.code,
+			message: "Enter your two-factor code to continue.",
+			twoFactorRedirect: true,
+			twoFactorMethods: body.twoFactorMethods ?? [],
+		});
+	}
+
+	if (response.ok) {
+		return reply
+			.status(response.status)
+			.send({ code: HTTP_RESPONSE_CODE.OK.code, message: "Signed in." });
+	}
+
+	const matched = Object.values(HTTP_RESPONSE_CODE).find(
+		(entry) => entry.status === response.status,
+	);
+
+	return reply.status(response.status).send({
+		code: matched?.code ?? HTTP_RESPONSE_CODE.BAD_REQUEST.code,
+		message: body?.message ?? "Invalid email or password.",
+	});
 };
 
 /**
@@ -297,7 +321,16 @@ export const signOut = async (
 		}
 	}
 
-	return forwardAuthResponse(reply, response);
+	const cookies = response.headers.getSetCookie();
+	if (cookies.length > 0) reply.header("set-cookie", cookies);
+
+	const { status, code } = response.ok
+		? HTTP_RESPONSE_CODE.OK
+		: HTTP_RESPONSE_CODE.BAD_REQUEST;
+
+	return reply
+		.status(status)
+		.send({ code, message: response.ok ? "Signed out." : "Sign out failed." });
 };
 
 export const session = async (
@@ -351,16 +384,32 @@ export const twoFactorVerifyTotp = async (
 		body: request.body,
 	});
 
-	const body = (await response
-		.clone()
-		.json()
-		.catch(() => null)) as { user?: { id: string } } | null;
+	const body = (await response.json().catch(() => null)) as {
+		user?: { id: string };
+		message?: string;
+	} | null;
 
 	if (response.ok && body?.user?.id) {
 		await resolvePendingLoginSuccess(request.server, body.user.id);
 	}
 
-	return forwardAuthResponse(reply, response);
+	const cookies = response.headers.getSetCookie();
+	if (cookies.length > 0) reply.header("set-cookie", cookies);
+
+	if (response.ok) {
+		return reply
+			.status(response.status)
+			.send({ code: HTTP_RESPONSE_CODE.OK.code, message: "Signed in." });
+	}
+
+	const matched = Object.values(HTTP_RESPONSE_CODE).find(
+		(entry) => entry.status === response.status,
+	);
+
+	return reply.status(response.status).send({
+		code: matched?.code ?? HTTP_RESPONSE_CODE.BAD_REQUEST.code,
+		message: body?.message ?? "Invalid code.",
+	});
 };
 
 export const twoFactorVerifyBackupCode = async (
@@ -373,16 +422,32 @@ export const twoFactorVerifyBackupCode = async (
 		body: request.body,
 	});
 
-	const body = (await response
-		.clone()
-		.json()
-		.catch(() => null)) as { user?: { id: string } } | null;
+	const body = (await response.json().catch(() => null)) as {
+		user?: { id: string };
+		message?: string;
+	} | null;
 
 	if (response.ok && body?.user?.id) {
 		await resolvePendingLoginSuccess(request.server, body.user.id);
 	}
 
-	return forwardAuthResponse(reply, response);
+	const cookies = response.headers.getSetCookie();
+	if (cookies.length > 0) reply.header("set-cookie", cookies);
+
+	if (response.ok) {
+		return reply
+			.status(response.status)
+			.send({ code: HTTP_RESPONSE_CODE.OK.code, message: "Signed in." });
+	}
+
+	const matched = Object.values(HTTP_RESPONSE_CODE).find(
+		(entry) => entry.status === response.status,
+	);
+
+	return reply.status(response.status).send({
+		code: matched?.code ?? HTTP_RESPONSE_CODE.BAD_REQUEST.code,
+		message: body?.message ?? "Invalid backup code.",
+	});
 };
 
 export const twoFactorSendOtp = async (
@@ -395,7 +460,25 @@ export const twoFactorSendOtp = async (
 		body: request.body,
 	});
 
-	return forwardAuthResponse(reply, response);
+	if (response.ok) {
+		return reply.status(response.status).send({
+			code: HTTP_RESPONSE_CODE.OK.code,
+			message: "Code sent to your email.",
+		});
+	}
+
+	const body = (await response.json().catch(() => null)) as {
+		message?: string;
+	} | null;
+
+	const matched = Object.values(HTTP_RESPONSE_CODE).find(
+		(entry) => entry.status === response.status,
+	);
+
+	return reply.status(response.status).send({
+		code: matched?.code ?? HTTP_RESPONSE_CODE.BAD_REQUEST.code,
+		message: body?.message ?? "Could not send code.",
+	});
 };
 
 export const twoFactorVerifyOtp = async (
@@ -408,14 +491,30 @@ export const twoFactorVerifyOtp = async (
 		body: request.body,
 	});
 
-	const body = (await response
-		.clone()
-		.json()
-		.catch(() => null)) as { user?: { id: string } } | null;
+	const body = (await response.json().catch(() => null)) as {
+		user?: { id: string };
+		message?: string;
+	} | null;
 
 	if (response.ok && body?.user?.id) {
 		await resolvePendingLoginSuccess(request.server, body.user.id);
 	}
 
-	return forwardAuthResponse(reply, response);
+	const cookies = response.headers.getSetCookie();
+	if (cookies.length > 0) reply.header("set-cookie", cookies);
+
+	if (response.ok) {
+		return reply
+			.status(response.status)
+			.send({ code: HTTP_RESPONSE_CODE.OK.code, message: "Signed in." });
+	}
+
+	const matched = Object.values(HTTP_RESPONSE_CODE).find(
+		(entry) => entry.status === response.status,
+	);
+
+	return reply.status(response.status).send({
+		code: matched?.code ?? HTTP_RESPONSE_CODE.BAD_REQUEST.code,
+		message: body?.message ?? "Invalid code.",
+	});
 };

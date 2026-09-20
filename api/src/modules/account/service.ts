@@ -28,27 +28,6 @@ import type {
 } from "./type";
 
 /**
- * Forwards a better-auth `Response` (returned via `asResponse: true`) onto
- * a Fastify reply — status, headers (including the session `Set-Cookie`),
- * and JSON body all carry over as-is. Same helper as
- * `modules/authentication/service.ts`'s.
- */
-const forwardAuthResponse = async (
-	reply: FastifyReply,
-	response: Response,
-): Promise<void> => {
-	response.headers.forEach((value, key) => {
-		if (key.toLowerCase() === "content-length") return;
-		reply.header(key, value);
-	});
-
-	const body = await response.json().catch(() => null);
-
-	reply.status(response.status);
-	reply.send(body);
-};
-
-/**
  * Latest timeline row for an entity, whatever action it was — used as
  * "the reason you're currently in this state," regardless of which
  * specific action put you there.
@@ -267,13 +246,12 @@ export const twoFactorEnable = async (
 	request: FastifyRequest<TwoFactorEnableRequest>,
 	reply: FastifyReply<TwoFactorEnableRequest>,
 ): Promise<void> => {
-	const response = await auth.api.enableTwoFactor({
-		asResponse: true,
+	const result = await auth.api.enableTwoFactor({
 		headers: fromNodeHeaders(request.headers),
 		body: request.body,
 	});
 
-	return forwardAuthResponse(reply, response);
+	return reply.status(200).send(result);
 };
 
 /**
@@ -294,7 +272,20 @@ export const twoFactorDisable = async (
 		body: request.body,
 	});
 
-	if (!response.ok) return forwardAuthResponse(reply, response);
+	if (!response.ok) {
+		const body = (await response.json().catch(() => null)) as {
+			message?: string;
+		} | null;
+
+		const matched = Object.values(HTTP_RESPONSE_CODE).find(
+			(entry) => entry.status === response.status,
+		);
+
+		return reply.status(response.status).send({
+			code: matched?.code ?? HTTP_RESPONSE_CODE.BAD_REQUEST.code,
+			message: body?.message ?? "Could not disable two-factor authentication.",
+		});
+	}
 
 	const freshCookies = response.headers.getSetCookie();
 	if (freshCookies.length > 0) reply.header("set-cookie", freshCookies);
@@ -309,24 +300,22 @@ export const twoFactorGetTotpUri = async (
 	request: FastifyRequest<TwoFactorGetTotpUriRequest>,
 	reply: FastifyReply<TwoFactorGetTotpUriRequest>,
 ): Promise<void> => {
-	const response = await auth.api.getTOTPURI({
-		asResponse: true,
+	const result = await auth.api.getTOTPURI({
 		headers: fromNodeHeaders(request.headers),
 		body: request.body,
 	});
 
-	return forwardAuthResponse(reply, response);
+	return reply.status(200).send(result);
 };
 
 export const twoFactorGenerateBackupCodes = async (
 	request: FastifyRequest<TwoFactorGenerateBackupCodesRequest>,
 	reply: FastifyReply<TwoFactorGenerateBackupCodesRequest>,
 ): Promise<void> => {
-	const response = await auth.api.generateBackupCodes({
-		asResponse: true,
+	const result = await auth.api.generateBackupCodes({
 		headers: fromNodeHeaders(request.headers),
 		body: request.body,
 	});
 
-	return forwardAuthResponse(reply, response);
+	return reply.status(200).send(result);
 };

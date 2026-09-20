@@ -8,549 +8,549 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from './routes/__root'
-import { Route as ChangePasswordRouteImport } from './routes/change-password'
-import { Route as AccountStatusRouteImport } from './routes/account-status'
-import { Route as AcceptNdaRouteImport } from './routes/accept-nda'
-import { Route as PublicRouteImport } from './routes/_public'
-import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
-import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
-import { Route as PublicSignUpRouteImport } from './routes/_public/sign-up'
-import { Route as PublicSignInRouteImport } from './routes/_public/sign-in'
-import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
-import { Route as AuthenticatedUsersIndexRouteImport } from './routes/_authenticated/users/index'
-import { Route as AuthenticatedTransfersIndexRouteImport } from './routes/_authenticated/transfers/index'
-import { Route as AuthenticatedSpecialtiesIndexRouteImport } from './routes/_authenticated/specialties/index'
-import { Route as AuthenticatedReferralsIndexRouteImport } from './routes/_authenticated/referrals/index'
-import { Route as AuthenticatedPatientsIndexRouteImport } from './routes/_authenticated/patients/index'
-import { Route as AuthenticatedFacilitiesIndexRouteImport } from './routes/_authenticated/facilities/index'
-import { Route as AuthenticatedAuditIndexRouteImport } from './routes/_authenticated/audit/index'
-import { Route as AuthenticatedAppealsIndexRouteImport } from './routes/_authenticated/appeals/index'
-import { Route as AuthenticatedUsersUserIdRouteImport } from './routes/_authenticated/users/$userId'
-import { Route as AuthenticatedReferralsNewRouteImport } from './routes/_authenticated/referrals/new'
-import { Route as AuthenticatedReferralsReferralIdRouteImport } from './routes/_authenticated/referrals/$referralId'
-import { Route as AuthenticatedPatientsNewRouteImport } from './routes/_authenticated/patients/new'
-import { Route as AuthenticatedPatientsPatientIdRouteImport } from './routes/_authenticated/patients/$patientId'
-import { Route as AuthenticatedFacilitiesFacilityIdRouteImport } from './routes/_authenticated/facilities/$facilityId'
+import { Route as rootRouteImport } from "./routes/__root";
+import { Route as ChangePasswordRouteImport } from "./routes/change-password";
+import { Route as AccountStatusRouteImport } from "./routes/account-status";
+import { Route as AcceptNdaRouteImport } from "./routes/accept-nda";
+import { Route as PublicRouteImport } from "./routes/_public";
+import { Route as AuthenticatedRouteImport } from "./routes/_authenticated";
+import { Route as AuthenticatedIndexRouteImport } from "./routes/_authenticated/index";
+import { Route as PublicSignUpRouteImport } from "./routes/_public/sign-up";
+import { Route as PublicSignInRouteImport } from "./routes/_public/sign-in";
+import { Route as AuthenticatedSettingsRouteImport } from "./routes/_authenticated/settings";
+import { Route as AuthenticatedUsersIndexRouteImport } from "./routes/_authenticated/users/index";
+import { Route as AuthenticatedTransfersIndexRouteImport } from "./routes/_authenticated/transfers/index";
+import { Route as AuthenticatedSpecialtiesIndexRouteImport } from "./routes/_authenticated/specialties/index";
+import { Route as AuthenticatedReferralsIndexRouteImport } from "./routes/_authenticated/referrals/index";
+import { Route as AuthenticatedPatientsIndexRouteImport } from "./routes/_authenticated/patients/index";
+import { Route as AuthenticatedFacilitiesIndexRouteImport } from "./routes/_authenticated/facilities/index";
+import { Route as AuthenticatedAuditIndexRouteImport } from "./routes/_authenticated/audit/index";
+import { Route as AuthenticatedAppealsIndexRouteImport } from "./routes/_authenticated/appeals/index";
+import { Route as AuthenticatedUsersUserIdRouteImport } from "./routes/_authenticated/users/$userId";
+import { Route as AuthenticatedReferralsNewRouteImport } from "./routes/_authenticated/referrals/new";
+import { Route as AuthenticatedReferralsReferralIdRouteImport } from "./routes/_authenticated/referrals/$referralId";
+import { Route as AuthenticatedPatientsNewRouteImport } from "./routes/_authenticated/patients/new";
+import { Route as AuthenticatedPatientsPatientIdRouteImport } from "./routes/_authenticated/patients/$patientId";
+import { Route as AuthenticatedFacilitiesFacilityIdRouteImport } from "./routes/_authenticated/facilities/$facilityId";
 
 const ChangePasswordRoute = ChangePasswordRouteImport.update({
-  id: '/change-password',
-  path: '/change-password',
-  getParentRoute: () => rootRouteImport,
-} as any)
+	id: "/change-password",
+	path: "/change-password",
+	getParentRoute: () => rootRouteImport,
+} as any);
 const AccountStatusRoute = AccountStatusRouteImport.update({
-  id: '/account-status',
-  path: '/account-status',
-  getParentRoute: () => rootRouteImport,
-} as any)
+	id: "/account-status",
+	path: "/account-status",
+	getParentRoute: () => rootRouteImport,
+} as any);
 const AcceptNdaRoute = AcceptNdaRouteImport.update({
-  id: '/accept-nda',
-  path: '/accept-nda',
-  getParentRoute: () => rootRouteImport,
-} as any)
+	id: "/accept-nda",
+	path: "/accept-nda",
+	getParentRoute: () => rootRouteImport,
+} as any);
 const PublicRoute = PublicRouteImport.update({
-  id: '/_public',
-  getParentRoute: () => rootRouteImport,
-} as any)
+	id: "/_public",
+	getParentRoute: () => rootRouteImport,
+} as any);
 const AuthenticatedRoute = AuthenticatedRouteImport.update({
-  id: '/_authenticated',
-  getParentRoute: () => rootRouteImport,
-} as any)
+	id: "/_authenticated",
+	getParentRoute: () => rootRouteImport,
+} as any);
 const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
+	id: "/",
+	path: "/",
+	getParentRoute: () => AuthenticatedRoute,
+} as any);
 const PublicSignUpRoute = PublicSignUpRouteImport.update({
-  id: '/sign-up',
-  path: '/sign-up',
-  getParentRoute: () => PublicRoute,
-} as any)
+	id: "/sign-up",
+	path: "/sign-up",
+	getParentRoute: () => PublicRoute,
+} as any);
 const PublicSignInRoute = PublicSignInRouteImport.update({
-  id: '/sign-in',
-  path: '/sign-in',
-  getParentRoute: () => PublicRoute,
-} as any)
+	id: "/sign-in",
+	path: "/sign-in",
+	getParentRoute: () => PublicRoute,
+} as any);
 const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
+	id: "/settings",
+	path: "/settings",
+	getParentRoute: () => AuthenticatedRoute,
+} as any);
 const AuthenticatedUsersIndexRoute = AuthenticatedUsersIndexRouteImport.update({
-  id: '/users/',
-  path: '/users/',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
+	id: "/users/",
+	path: "/users/",
+	getParentRoute: () => AuthenticatedRoute,
+} as any);
 const AuthenticatedTransfersIndexRoute =
-  AuthenticatedTransfersIndexRouteImport.update({
-    id: '/transfers/',
-    path: '/transfers/',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
+	AuthenticatedTransfersIndexRouteImport.update({
+		id: "/transfers/",
+		path: "/transfers/",
+		getParentRoute: () => AuthenticatedRoute,
+	} as any);
 const AuthenticatedSpecialtiesIndexRoute =
-  AuthenticatedSpecialtiesIndexRouteImport.update({
-    id: '/specialties/',
-    path: '/specialties/',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
+	AuthenticatedSpecialtiesIndexRouteImport.update({
+		id: "/specialties/",
+		path: "/specialties/",
+		getParentRoute: () => AuthenticatedRoute,
+	} as any);
 const AuthenticatedReferralsIndexRoute =
-  AuthenticatedReferralsIndexRouteImport.update({
-    id: '/referrals/',
-    path: '/referrals/',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
+	AuthenticatedReferralsIndexRouteImport.update({
+		id: "/referrals/",
+		path: "/referrals/",
+		getParentRoute: () => AuthenticatedRoute,
+	} as any);
 const AuthenticatedPatientsIndexRoute =
-  AuthenticatedPatientsIndexRouteImport.update({
-    id: '/patients/',
-    path: '/patients/',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
+	AuthenticatedPatientsIndexRouteImport.update({
+		id: "/patients/",
+		path: "/patients/",
+		getParentRoute: () => AuthenticatedRoute,
+	} as any);
 const AuthenticatedFacilitiesIndexRoute =
-  AuthenticatedFacilitiesIndexRouteImport.update({
-    id: '/facilities/',
-    path: '/facilities/',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
+	AuthenticatedFacilitiesIndexRouteImport.update({
+		id: "/facilities/",
+		path: "/facilities/",
+		getParentRoute: () => AuthenticatedRoute,
+	} as any);
 const AuthenticatedAuditIndexRoute = AuthenticatedAuditIndexRouteImport.update({
-  id: '/audit/',
-  path: '/audit/',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
+	id: "/audit/",
+	path: "/audit/",
+	getParentRoute: () => AuthenticatedRoute,
+} as any);
 const AuthenticatedAppealsIndexRoute =
-  AuthenticatedAppealsIndexRouteImport.update({
-    id: '/appeals/',
-    path: '/appeals/',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
+	AuthenticatedAppealsIndexRouteImport.update({
+		id: "/appeals/",
+		path: "/appeals/",
+		getParentRoute: () => AuthenticatedRoute,
+	} as any);
 const AuthenticatedUsersUserIdRoute =
-  AuthenticatedUsersUserIdRouteImport.update({
-    id: '/users/$userId',
-    path: '/users/$userId',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
+	AuthenticatedUsersUserIdRouteImport.update({
+		id: "/users/$userId",
+		path: "/users/$userId",
+		getParentRoute: () => AuthenticatedRoute,
+	} as any);
 const AuthenticatedReferralsNewRoute =
-  AuthenticatedReferralsNewRouteImport.update({
-    id: '/referrals/new',
-    path: '/referrals/new',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
+	AuthenticatedReferralsNewRouteImport.update({
+		id: "/referrals/new",
+		path: "/referrals/new",
+		getParentRoute: () => AuthenticatedRoute,
+	} as any);
 const AuthenticatedReferralsReferralIdRoute =
-  AuthenticatedReferralsReferralIdRouteImport.update({
-    id: '/referrals/$referralId',
-    path: '/referrals/$referralId',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
+	AuthenticatedReferralsReferralIdRouteImport.update({
+		id: "/referrals/$referralId",
+		path: "/referrals/$referralId",
+		getParentRoute: () => AuthenticatedRoute,
+	} as any);
 const AuthenticatedPatientsNewRoute =
-  AuthenticatedPatientsNewRouteImport.update({
-    id: '/patients/new',
-    path: '/patients/new',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
+	AuthenticatedPatientsNewRouteImport.update({
+		id: "/patients/new",
+		path: "/patients/new",
+		getParentRoute: () => AuthenticatedRoute,
+	} as any);
 const AuthenticatedPatientsPatientIdRoute =
-  AuthenticatedPatientsPatientIdRouteImport.update({
-    id: '/patients/$patientId',
-    path: '/patients/$patientId',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
+	AuthenticatedPatientsPatientIdRouteImport.update({
+		id: "/patients/$patientId",
+		path: "/patients/$patientId",
+		getParentRoute: () => AuthenticatedRoute,
+	} as any);
 const AuthenticatedFacilitiesFacilityIdRoute =
-  AuthenticatedFacilitiesFacilityIdRouteImport.update({
-    id: '/facilities/$facilityId',
-    path: '/facilities/$facilityId',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
+	AuthenticatedFacilitiesFacilityIdRouteImport.update({
+		id: "/facilities/$facilityId",
+		path: "/facilities/$facilityId",
+		getParentRoute: () => AuthenticatedRoute,
+	} as any);
 
 export interface FileRoutesByFullPath {
-  '/': typeof AuthenticatedIndexRoute
-  '/accept-nda': typeof AcceptNdaRoute
-  '/account-status': typeof AccountStatusRoute
-  '/change-password': typeof ChangePasswordRoute
-  '/settings': typeof AuthenticatedSettingsRoute
-  '/sign-in': typeof PublicSignInRoute
-  '/sign-up': typeof PublicSignUpRoute
-  '/facilities/$facilityId': typeof AuthenticatedFacilitiesFacilityIdRoute
-  '/patients/$patientId': typeof AuthenticatedPatientsPatientIdRoute
-  '/patients/new': typeof AuthenticatedPatientsNewRoute
-  '/referrals/$referralId': typeof AuthenticatedReferralsReferralIdRoute
-  '/referrals/new': typeof AuthenticatedReferralsNewRoute
-  '/users/$userId': typeof AuthenticatedUsersUserIdRoute
-  '/appeals/': typeof AuthenticatedAppealsIndexRoute
-  '/audit/': typeof AuthenticatedAuditIndexRoute
-  '/facilities/': typeof AuthenticatedFacilitiesIndexRoute
-  '/patients/': typeof AuthenticatedPatientsIndexRoute
-  '/referrals/': typeof AuthenticatedReferralsIndexRoute
-  '/specialties/': typeof AuthenticatedSpecialtiesIndexRoute
-  '/transfers/': typeof AuthenticatedTransfersIndexRoute
-  '/users/': typeof AuthenticatedUsersIndexRoute
+	"/": typeof AuthenticatedIndexRoute;
+	"/accept-nda": typeof AcceptNdaRoute;
+	"/account-status": typeof AccountStatusRoute;
+	"/change-password": typeof ChangePasswordRoute;
+	"/settings": typeof AuthenticatedSettingsRoute;
+	"/sign-in": typeof PublicSignInRoute;
+	"/sign-up": typeof PublicSignUpRoute;
+	"/facilities/$facilityId": typeof AuthenticatedFacilitiesFacilityIdRoute;
+	"/patients/$patientId": typeof AuthenticatedPatientsPatientIdRoute;
+	"/patients/new": typeof AuthenticatedPatientsNewRoute;
+	"/referrals/$referralId": typeof AuthenticatedReferralsReferralIdRoute;
+	"/referrals/new": typeof AuthenticatedReferralsNewRoute;
+	"/users/$userId": typeof AuthenticatedUsersUserIdRoute;
+	"/appeals/": typeof AuthenticatedAppealsIndexRoute;
+	"/audit/": typeof AuthenticatedAuditIndexRoute;
+	"/facilities/": typeof AuthenticatedFacilitiesIndexRoute;
+	"/patients/": typeof AuthenticatedPatientsIndexRoute;
+	"/referrals/": typeof AuthenticatedReferralsIndexRoute;
+	"/specialties/": typeof AuthenticatedSpecialtiesIndexRoute;
+	"/transfers/": typeof AuthenticatedTransfersIndexRoute;
+	"/users/": typeof AuthenticatedUsersIndexRoute;
 }
 export interface FileRoutesByTo {
-  '/': typeof AuthenticatedIndexRoute
-  '/accept-nda': typeof AcceptNdaRoute
-  '/account-status': typeof AccountStatusRoute
-  '/change-password': typeof ChangePasswordRoute
-  '/settings': typeof AuthenticatedSettingsRoute
-  '/sign-in': typeof PublicSignInRoute
-  '/sign-up': typeof PublicSignUpRoute
-  '/facilities/$facilityId': typeof AuthenticatedFacilitiesFacilityIdRoute
-  '/patients/$patientId': typeof AuthenticatedPatientsPatientIdRoute
-  '/patients/new': typeof AuthenticatedPatientsNewRoute
-  '/referrals/$referralId': typeof AuthenticatedReferralsReferralIdRoute
-  '/referrals/new': typeof AuthenticatedReferralsNewRoute
-  '/users/$userId': typeof AuthenticatedUsersUserIdRoute
-  '/appeals': typeof AuthenticatedAppealsIndexRoute
-  '/audit': typeof AuthenticatedAuditIndexRoute
-  '/facilities': typeof AuthenticatedFacilitiesIndexRoute
-  '/patients': typeof AuthenticatedPatientsIndexRoute
-  '/referrals': typeof AuthenticatedReferralsIndexRoute
-  '/specialties': typeof AuthenticatedSpecialtiesIndexRoute
-  '/transfers': typeof AuthenticatedTransfersIndexRoute
-  '/users': typeof AuthenticatedUsersIndexRoute
+	"/": typeof AuthenticatedIndexRoute;
+	"/accept-nda": typeof AcceptNdaRoute;
+	"/account-status": typeof AccountStatusRoute;
+	"/change-password": typeof ChangePasswordRoute;
+	"/settings": typeof AuthenticatedSettingsRoute;
+	"/sign-in": typeof PublicSignInRoute;
+	"/sign-up": typeof PublicSignUpRoute;
+	"/facilities/$facilityId": typeof AuthenticatedFacilitiesFacilityIdRoute;
+	"/patients/$patientId": typeof AuthenticatedPatientsPatientIdRoute;
+	"/patients/new": typeof AuthenticatedPatientsNewRoute;
+	"/referrals/$referralId": typeof AuthenticatedReferralsReferralIdRoute;
+	"/referrals/new": typeof AuthenticatedReferralsNewRoute;
+	"/users/$userId": typeof AuthenticatedUsersUserIdRoute;
+	"/appeals": typeof AuthenticatedAppealsIndexRoute;
+	"/audit": typeof AuthenticatedAuditIndexRoute;
+	"/facilities": typeof AuthenticatedFacilitiesIndexRoute;
+	"/patients": typeof AuthenticatedPatientsIndexRoute;
+	"/referrals": typeof AuthenticatedReferralsIndexRoute;
+	"/specialties": typeof AuthenticatedSpecialtiesIndexRoute;
+	"/transfers": typeof AuthenticatedTransfersIndexRoute;
+	"/users": typeof AuthenticatedUsersIndexRoute;
 }
 export interface FileRoutesById {
-  __root__: typeof rootRouteImport
-  '/_authenticated': typeof AuthenticatedRouteWithChildren
-  '/_public': typeof PublicRouteWithChildren
-  '/accept-nda': typeof AcceptNdaRoute
-  '/account-status': typeof AccountStatusRoute
-  '/change-password': typeof ChangePasswordRoute
-  '/_authenticated/settings': typeof AuthenticatedSettingsRoute
-  '/_public/sign-in': typeof PublicSignInRoute
-  '/_public/sign-up': typeof PublicSignUpRoute
-  '/_authenticated/': typeof AuthenticatedIndexRoute
-  '/_authenticated/facilities/$facilityId': typeof AuthenticatedFacilitiesFacilityIdRoute
-  '/_authenticated/patients/$patientId': typeof AuthenticatedPatientsPatientIdRoute
-  '/_authenticated/patients/new': typeof AuthenticatedPatientsNewRoute
-  '/_authenticated/referrals/$referralId': typeof AuthenticatedReferralsReferralIdRoute
-  '/_authenticated/referrals/new': typeof AuthenticatedReferralsNewRoute
-  '/_authenticated/users/$userId': typeof AuthenticatedUsersUserIdRoute
-  '/_authenticated/appeals/': typeof AuthenticatedAppealsIndexRoute
-  '/_authenticated/audit/': typeof AuthenticatedAuditIndexRoute
-  '/_authenticated/facilities/': typeof AuthenticatedFacilitiesIndexRoute
-  '/_authenticated/patients/': typeof AuthenticatedPatientsIndexRoute
-  '/_authenticated/referrals/': typeof AuthenticatedReferralsIndexRoute
-  '/_authenticated/specialties/': typeof AuthenticatedSpecialtiesIndexRoute
-  '/_authenticated/transfers/': typeof AuthenticatedTransfersIndexRoute
-  '/_authenticated/users/': typeof AuthenticatedUsersIndexRoute
+	__root__: typeof rootRouteImport;
+	"/_authenticated": typeof AuthenticatedRouteWithChildren;
+	"/_public": typeof PublicRouteWithChildren;
+	"/accept-nda": typeof AcceptNdaRoute;
+	"/account-status": typeof AccountStatusRoute;
+	"/change-password": typeof ChangePasswordRoute;
+	"/_authenticated/settings": typeof AuthenticatedSettingsRoute;
+	"/_public/sign-in": typeof PublicSignInRoute;
+	"/_public/sign-up": typeof PublicSignUpRoute;
+	"/_authenticated/": typeof AuthenticatedIndexRoute;
+	"/_authenticated/facilities/$facilityId": typeof AuthenticatedFacilitiesFacilityIdRoute;
+	"/_authenticated/patients/$patientId": typeof AuthenticatedPatientsPatientIdRoute;
+	"/_authenticated/patients/new": typeof AuthenticatedPatientsNewRoute;
+	"/_authenticated/referrals/$referralId": typeof AuthenticatedReferralsReferralIdRoute;
+	"/_authenticated/referrals/new": typeof AuthenticatedReferralsNewRoute;
+	"/_authenticated/users/$userId": typeof AuthenticatedUsersUserIdRoute;
+	"/_authenticated/appeals/": typeof AuthenticatedAppealsIndexRoute;
+	"/_authenticated/audit/": typeof AuthenticatedAuditIndexRoute;
+	"/_authenticated/facilities/": typeof AuthenticatedFacilitiesIndexRoute;
+	"/_authenticated/patients/": typeof AuthenticatedPatientsIndexRoute;
+	"/_authenticated/referrals/": typeof AuthenticatedReferralsIndexRoute;
+	"/_authenticated/specialties/": typeof AuthenticatedSpecialtiesIndexRoute;
+	"/_authenticated/transfers/": typeof AuthenticatedTransfersIndexRoute;
+	"/_authenticated/users/": typeof AuthenticatedUsersIndexRoute;
 }
 export interface FileRouteTypes {
-  fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths:
-    | '/'
-    | '/accept-nda'
-    | '/account-status'
-    | '/change-password'
-    | '/settings'
-    | '/sign-in'
-    | '/sign-up'
-    | '/facilities/$facilityId'
-    | '/patients/$patientId'
-    | '/patients/new'
-    | '/referrals/$referralId'
-    | '/referrals/new'
-    | '/users/$userId'
-    | '/appeals/'
-    | '/audit/'
-    | '/facilities/'
-    | '/patients/'
-    | '/referrals/'
-    | '/specialties/'
-    | '/transfers/'
-    | '/users/'
-  fileRoutesByTo: FileRoutesByTo
-  to:
-    | '/'
-    | '/accept-nda'
-    | '/account-status'
-    | '/change-password'
-    | '/settings'
-    | '/sign-in'
-    | '/sign-up'
-    | '/facilities/$facilityId'
-    | '/patients/$patientId'
-    | '/patients/new'
-    | '/referrals/$referralId'
-    | '/referrals/new'
-    | '/users/$userId'
-    | '/appeals'
-    | '/audit'
-    | '/facilities'
-    | '/patients'
-    | '/referrals'
-    | '/specialties'
-    | '/transfers'
-    | '/users'
-  id:
-    | '__root__'
-    | '/_authenticated'
-    | '/_public'
-    | '/accept-nda'
-    | '/account-status'
-    | '/change-password'
-    | '/_authenticated/settings'
-    | '/_public/sign-in'
-    | '/_public/sign-up'
-    | '/_authenticated/'
-    | '/_authenticated/facilities/$facilityId'
-    | '/_authenticated/patients/$patientId'
-    | '/_authenticated/patients/new'
-    | '/_authenticated/referrals/$referralId'
-    | '/_authenticated/referrals/new'
-    | '/_authenticated/users/$userId'
-    | '/_authenticated/appeals/'
-    | '/_authenticated/audit/'
-    | '/_authenticated/facilities/'
-    | '/_authenticated/patients/'
-    | '/_authenticated/referrals/'
-    | '/_authenticated/specialties/'
-    | '/_authenticated/transfers/'
-    | '/_authenticated/users/'
-  fileRoutesById: FileRoutesById
+	fileRoutesByFullPath: FileRoutesByFullPath;
+	fullPaths:
+		| "/"
+		| "/accept-nda"
+		| "/account-status"
+		| "/change-password"
+		| "/settings"
+		| "/sign-in"
+		| "/sign-up"
+		| "/facilities/$facilityId"
+		| "/patients/$patientId"
+		| "/patients/new"
+		| "/referrals/$referralId"
+		| "/referrals/new"
+		| "/users/$userId"
+		| "/appeals/"
+		| "/audit/"
+		| "/facilities/"
+		| "/patients/"
+		| "/referrals/"
+		| "/specialties/"
+		| "/transfers/"
+		| "/users/";
+	fileRoutesByTo: FileRoutesByTo;
+	to:
+		| "/"
+		| "/accept-nda"
+		| "/account-status"
+		| "/change-password"
+		| "/settings"
+		| "/sign-in"
+		| "/sign-up"
+		| "/facilities/$facilityId"
+		| "/patients/$patientId"
+		| "/patients/new"
+		| "/referrals/$referralId"
+		| "/referrals/new"
+		| "/users/$userId"
+		| "/appeals"
+		| "/audit"
+		| "/facilities"
+		| "/patients"
+		| "/referrals"
+		| "/specialties"
+		| "/transfers"
+		| "/users";
+	id:
+		| "__root__"
+		| "/_authenticated"
+		| "/_public"
+		| "/accept-nda"
+		| "/account-status"
+		| "/change-password"
+		| "/_authenticated/settings"
+		| "/_public/sign-in"
+		| "/_public/sign-up"
+		| "/_authenticated/"
+		| "/_authenticated/facilities/$facilityId"
+		| "/_authenticated/patients/$patientId"
+		| "/_authenticated/patients/new"
+		| "/_authenticated/referrals/$referralId"
+		| "/_authenticated/referrals/new"
+		| "/_authenticated/users/$userId"
+		| "/_authenticated/appeals/"
+		| "/_authenticated/audit/"
+		| "/_authenticated/facilities/"
+		| "/_authenticated/patients/"
+		| "/_authenticated/referrals/"
+		| "/_authenticated/specialties/"
+		| "/_authenticated/transfers/"
+		| "/_authenticated/users/";
+	fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
-  AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
-  PublicRoute: typeof PublicRouteWithChildren
-  AcceptNdaRoute: typeof AcceptNdaRoute
-  AccountStatusRoute: typeof AccountStatusRoute
-  ChangePasswordRoute: typeof ChangePasswordRoute
+	AuthenticatedRoute: typeof AuthenticatedRouteWithChildren;
+	PublicRoute: typeof PublicRouteWithChildren;
+	AcceptNdaRoute: typeof AcceptNdaRoute;
+	AccountStatusRoute: typeof AccountStatusRoute;
+	ChangePasswordRoute: typeof ChangePasswordRoute;
 }
 
-declare module '@tanstack/react-router' {
-  interface FileRoutesByPath {
-    '/change-password': {
-      id: '/change-password'
-      path: '/change-password'
-      fullPath: '/change-password'
-      preLoaderRoute: typeof ChangePasswordRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/account-status': {
-      id: '/account-status'
-      path: '/account-status'
-      fullPath: '/account-status'
-      preLoaderRoute: typeof AccountStatusRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/accept-nda': {
-      id: '/accept-nda'
-      path: '/accept-nda'
-      fullPath: '/accept-nda'
-      preLoaderRoute: typeof AcceptNdaRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_public': {
-      id: '/_public'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof PublicRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_authenticated': {
-      id: '/_authenticated'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof AuthenticatedRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_authenticated/': {
-      id: '/_authenticated/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof AuthenticatedIndexRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_public/sign-up': {
-      id: '/_public/sign-up'
-      path: '/sign-up'
-      fullPath: '/sign-up'
-      preLoaderRoute: typeof PublicSignUpRouteImport
-      parentRoute: typeof PublicRoute
-    }
-    '/_public/sign-in': {
-      id: '/_public/sign-in'
-      path: '/sign-in'
-      fullPath: '/sign-in'
-      preLoaderRoute: typeof PublicSignInRouteImport
-      parentRoute: typeof PublicRoute
-    }
-    '/_authenticated/settings': {
-      id: '/_authenticated/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/users/': {
-      id: '/_authenticated/users/'
-      path: '/users'
-      fullPath: '/users/'
-      preLoaderRoute: typeof AuthenticatedUsersIndexRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/transfers/': {
-      id: '/_authenticated/transfers/'
-      path: '/transfers'
-      fullPath: '/transfers/'
-      preLoaderRoute: typeof AuthenticatedTransfersIndexRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/specialties/': {
-      id: '/_authenticated/specialties/'
-      path: '/specialties'
-      fullPath: '/specialties/'
-      preLoaderRoute: typeof AuthenticatedSpecialtiesIndexRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/referrals/': {
-      id: '/_authenticated/referrals/'
-      path: '/referrals'
-      fullPath: '/referrals/'
-      preLoaderRoute: typeof AuthenticatedReferralsIndexRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/patients/': {
-      id: '/_authenticated/patients/'
-      path: '/patients'
-      fullPath: '/patients/'
-      preLoaderRoute: typeof AuthenticatedPatientsIndexRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/facilities/': {
-      id: '/_authenticated/facilities/'
-      path: '/facilities'
-      fullPath: '/facilities/'
-      preLoaderRoute: typeof AuthenticatedFacilitiesIndexRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/audit/': {
-      id: '/_authenticated/audit/'
-      path: '/audit'
-      fullPath: '/audit/'
-      preLoaderRoute: typeof AuthenticatedAuditIndexRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/appeals/': {
-      id: '/_authenticated/appeals/'
-      path: '/appeals'
-      fullPath: '/appeals/'
-      preLoaderRoute: typeof AuthenticatedAppealsIndexRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/users/$userId': {
-      id: '/_authenticated/users/$userId'
-      path: '/users/$userId'
-      fullPath: '/users/$userId'
-      preLoaderRoute: typeof AuthenticatedUsersUserIdRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/referrals/new': {
-      id: '/_authenticated/referrals/new'
-      path: '/referrals/new'
-      fullPath: '/referrals/new'
-      preLoaderRoute: typeof AuthenticatedReferralsNewRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/referrals/$referralId': {
-      id: '/_authenticated/referrals/$referralId'
-      path: '/referrals/$referralId'
-      fullPath: '/referrals/$referralId'
-      preLoaderRoute: typeof AuthenticatedReferralsReferralIdRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/patients/new': {
-      id: '/_authenticated/patients/new'
-      path: '/patients/new'
-      fullPath: '/patients/new'
-      preLoaderRoute: typeof AuthenticatedPatientsNewRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/patients/$patientId': {
-      id: '/_authenticated/patients/$patientId'
-      path: '/patients/$patientId'
-      fullPath: '/patients/$patientId'
-      preLoaderRoute: typeof AuthenticatedPatientsPatientIdRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/facilities/$facilityId': {
-      id: '/_authenticated/facilities/$facilityId'
-      path: '/facilities/$facilityId'
-      fullPath: '/facilities/$facilityId'
-      preLoaderRoute: typeof AuthenticatedFacilitiesFacilityIdRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-  }
+declare module "@tanstack/react-router" {
+	interface FileRoutesByPath {
+		"/change-password": {
+			id: "/change-password";
+			path: "/change-password";
+			fullPath: "/change-password";
+			preLoaderRoute: typeof ChangePasswordRouteImport;
+			parentRoute: typeof rootRouteImport;
+		};
+		"/account-status": {
+			id: "/account-status";
+			path: "/account-status";
+			fullPath: "/account-status";
+			preLoaderRoute: typeof AccountStatusRouteImport;
+			parentRoute: typeof rootRouteImport;
+		};
+		"/accept-nda": {
+			id: "/accept-nda";
+			path: "/accept-nda";
+			fullPath: "/accept-nda";
+			preLoaderRoute: typeof AcceptNdaRouteImport;
+			parentRoute: typeof rootRouteImport;
+		};
+		"/_public": {
+			id: "/_public";
+			path: "";
+			fullPath: "/";
+			preLoaderRoute: typeof PublicRouteImport;
+			parentRoute: typeof rootRouteImport;
+		};
+		"/_authenticated": {
+			id: "/_authenticated";
+			path: "";
+			fullPath: "/";
+			preLoaderRoute: typeof AuthenticatedRouteImport;
+			parentRoute: typeof rootRouteImport;
+		};
+		"/_authenticated/": {
+			id: "/_authenticated/";
+			path: "/";
+			fullPath: "/";
+			preLoaderRoute: typeof AuthenticatedIndexRouteImport;
+			parentRoute: typeof AuthenticatedRoute;
+		};
+		"/_public/sign-up": {
+			id: "/_public/sign-up";
+			path: "/sign-up";
+			fullPath: "/sign-up";
+			preLoaderRoute: typeof PublicSignUpRouteImport;
+			parentRoute: typeof PublicRoute;
+		};
+		"/_public/sign-in": {
+			id: "/_public/sign-in";
+			path: "/sign-in";
+			fullPath: "/sign-in";
+			preLoaderRoute: typeof PublicSignInRouteImport;
+			parentRoute: typeof PublicRoute;
+		};
+		"/_authenticated/settings": {
+			id: "/_authenticated/settings";
+			path: "/settings";
+			fullPath: "/settings";
+			preLoaderRoute: typeof AuthenticatedSettingsRouteImport;
+			parentRoute: typeof AuthenticatedRoute;
+		};
+		"/_authenticated/users/": {
+			id: "/_authenticated/users/";
+			path: "/users";
+			fullPath: "/users/";
+			preLoaderRoute: typeof AuthenticatedUsersIndexRouteImport;
+			parentRoute: typeof AuthenticatedRoute;
+		};
+		"/_authenticated/transfers/": {
+			id: "/_authenticated/transfers/";
+			path: "/transfers";
+			fullPath: "/transfers/";
+			preLoaderRoute: typeof AuthenticatedTransfersIndexRouteImport;
+			parentRoute: typeof AuthenticatedRoute;
+		};
+		"/_authenticated/specialties/": {
+			id: "/_authenticated/specialties/";
+			path: "/specialties";
+			fullPath: "/specialties/";
+			preLoaderRoute: typeof AuthenticatedSpecialtiesIndexRouteImport;
+			parentRoute: typeof AuthenticatedRoute;
+		};
+		"/_authenticated/referrals/": {
+			id: "/_authenticated/referrals/";
+			path: "/referrals";
+			fullPath: "/referrals/";
+			preLoaderRoute: typeof AuthenticatedReferralsIndexRouteImport;
+			parentRoute: typeof AuthenticatedRoute;
+		};
+		"/_authenticated/patients/": {
+			id: "/_authenticated/patients/";
+			path: "/patients";
+			fullPath: "/patients/";
+			preLoaderRoute: typeof AuthenticatedPatientsIndexRouteImport;
+			parentRoute: typeof AuthenticatedRoute;
+		};
+		"/_authenticated/facilities/": {
+			id: "/_authenticated/facilities/";
+			path: "/facilities";
+			fullPath: "/facilities/";
+			preLoaderRoute: typeof AuthenticatedFacilitiesIndexRouteImport;
+			parentRoute: typeof AuthenticatedRoute;
+		};
+		"/_authenticated/audit/": {
+			id: "/_authenticated/audit/";
+			path: "/audit";
+			fullPath: "/audit/";
+			preLoaderRoute: typeof AuthenticatedAuditIndexRouteImport;
+			parentRoute: typeof AuthenticatedRoute;
+		};
+		"/_authenticated/appeals/": {
+			id: "/_authenticated/appeals/";
+			path: "/appeals";
+			fullPath: "/appeals/";
+			preLoaderRoute: typeof AuthenticatedAppealsIndexRouteImport;
+			parentRoute: typeof AuthenticatedRoute;
+		};
+		"/_authenticated/users/$userId": {
+			id: "/_authenticated/users/$userId";
+			path: "/users/$userId";
+			fullPath: "/users/$userId";
+			preLoaderRoute: typeof AuthenticatedUsersUserIdRouteImport;
+			parentRoute: typeof AuthenticatedRoute;
+		};
+		"/_authenticated/referrals/new": {
+			id: "/_authenticated/referrals/new";
+			path: "/referrals/new";
+			fullPath: "/referrals/new";
+			preLoaderRoute: typeof AuthenticatedReferralsNewRouteImport;
+			parentRoute: typeof AuthenticatedRoute;
+		};
+		"/_authenticated/referrals/$referralId": {
+			id: "/_authenticated/referrals/$referralId";
+			path: "/referrals/$referralId";
+			fullPath: "/referrals/$referralId";
+			preLoaderRoute: typeof AuthenticatedReferralsReferralIdRouteImport;
+			parentRoute: typeof AuthenticatedRoute;
+		};
+		"/_authenticated/patients/new": {
+			id: "/_authenticated/patients/new";
+			path: "/patients/new";
+			fullPath: "/patients/new";
+			preLoaderRoute: typeof AuthenticatedPatientsNewRouteImport;
+			parentRoute: typeof AuthenticatedRoute;
+		};
+		"/_authenticated/patients/$patientId": {
+			id: "/_authenticated/patients/$patientId";
+			path: "/patients/$patientId";
+			fullPath: "/patients/$patientId";
+			preLoaderRoute: typeof AuthenticatedPatientsPatientIdRouteImport;
+			parentRoute: typeof AuthenticatedRoute;
+		};
+		"/_authenticated/facilities/$facilityId": {
+			id: "/_authenticated/facilities/$facilityId";
+			path: "/facilities/$facilityId";
+			fullPath: "/facilities/$facilityId";
+			preLoaderRoute: typeof AuthenticatedFacilitiesFacilityIdRouteImport;
+			parentRoute: typeof AuthenticatedRoute;
+		};
+	}
 }
 
 interface AuthenticatedRouteChildren {
-  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
-  AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
-  AuthenticatedFacilitiesFacilityIdRoute: typeof AuthenticatedFacilitiesFacilityIdRoute
-  AuthenticatedPatientsPatientIdRoute: typeof AuthenticatedPatientsPatientIdRoute
-  AuthenticatedPatientsNewRoute: typeof AuthenticatedPatientsNewRoute
-  AuthenticatedReferralsReferralIdRoute: typeof AuthenticatedReferralsReferralIdRoute
-  AuthenticatedReferralsNewRoute: typeof AuthenticatedReferralsNewRoute
-  AuthenticatedUsersUserIdRoute: typeof AuthenticatedUsersUserIdRoute
-  AuthenticatedAppealsIndexRoute: typeof AuthenticatedAppealsIndexRoute
-  AuthenticatedAuditIndexRoute: typeof AuthenticatedAuditIndexRoute
-  AuthenticatedFacilitiesIndexRoute: typeof AuthenticatedFacilitiesIndexRoute
-  AuthenticatedPatientsIndexRoute: typeof AuthenticatedPatientsIndexRoute
-  AuthenticatedReferralsIndexRoute: typeof AuthenticatedReferralsIndexRoute
-  AuthenticatedSpecialtiesIndexRoute: typeof AuthenticatedSpecialtiesIndexRoute
-  AuthenticatedTransfersIndexRoute: typeof AuthenticatedTransfersIndexRoute
-  AuthenticatedUsersIndexRoute: typeof AuthenticatedUsersIndexRoute
+	AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute;
+	AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute;
+	AuthenticatedFacilitiesFacilityIdRoute: typeof AuthenticatedFacilitiesFacilityIdRoute;
+	AuthenticatedPatientsPatientIdRoute: typeof AuthenticatedPatientsPatientIdRoute;
+	AuthenticatedPatientsNewRoute: typeof AuthenticatedPatientsNewRoute;
+	AuthenticatedReferralsReferralIdRoute: typeof AuthenticatedReferralsReferralIdRoute;
+	AuthenticatedReferralsNewRoute: typeof AuthenticatedReferralsNewRoute;
+	AuthenticatedUsersUserIdRoute: typeof AuthenticatedUsersUserIdRoute;
+	AuthenticatedAppealsIndexRoute: typeof AuthenticatedAppealsIndexRoute;
+	AuthenticatedAuditIndexRoute: typeof AuthenticatedAuditIndexRoute;
+	AuthenticatedFacilitiesIndexRoute: typeof AuthenticatedFacilitiesIndexRoute;
+	AuthenticatedPatientsIndexRoute: typeof AuthenticatedPatientsIndexRoute;
+	AuthenticatedReferralsIndexRoute: typeof AuthenticatedReferralsIndexRoute;
+	AuthenticatedSpecialtiesIndexRoute: typeof AuthenticatedSpecialtiesIndexRoute;
+	AuthenticatedTransfersIndexRoute: typeof AuthenticatedTransfersIndexRoute;
+	AuthenticatedUsersIndexRoute: typeof AuthenticatedUsersIndexRoute;
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
-  AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
-  AuthenticatedIndexRoute: AuthenticatedIndexRoute,
-  AuthenticatedFacilitiesFacilityIdRoute:
-    AuthenticatedFacilitiesFacilityIdRoute,
-  AuthenticatedPatientsPatientIdRoute: AuthenticatedPatientsPatientIdRoute,
-  AuthenticatedPatientsNewRoute: AuthenticatedPatientsNewRoute,
-  AuthenticatedReferralsReferralIdRoute: AuthenticatedReferralsReferralIdRoute,
-  AuthenticatedReferralsNewRoute: AuthenticatedReferralsNewRoute,
-  AuthenticatedUsersUserIdRoute: AuthenticatedUsersUserIdRoute,
-  AuthenticatedAppealsIndexRoute: AuthenticatedAppealsIndexRoute,
-  AuthenticatedAuditIndexRoute: AuthenticatedAuditIndexRoute,
-  AuthenticatedFacilitiesIndexRoute: AuthenticatedFacilitiesIndexRoute,
-  AuthenticatedPatientsIndexRoute: AuthenticatedPatientsIndexRoute,
-  AuthenticatedReferralsIndexRoute: AuthenticatedReferralsIndexRoute,
-  AuthenticatedSpecialtiesIndexRoute: AuthenticatedSpecialtiesIndexRoute,
-  AuthenticatedTransfersIndexRoute: AuthenticatedTransfersIndexRoute,
-  AuthenticatedUsersIndexRoute: AuthenticatedUsersIndexRoute,
-}
+	AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
+	AuthenticatedIndexRoute: AuthenticatedIndexRoute,
+	AuthenticatedFacilitiesFacilityIdRoute:
+		AuthenticatedFacilitiesFacilityIdRoute,
+	AuthenticatedPatientsPatientIdRoute: AuthenticatedPatientsPatientIdRoute,
+	AuthenticatedPatientsNewRoute: AuthenticatedPatientsNewRoute,
+	AuthenticatedReferralsReferralIdRoute: AuthenticatedReferralsReferralIdRoute,
+	AuthenticatedReferralsNewRoute: AuthenticatedReferralsNewRoute,
+	AuthenticatedUsersUserIdRoute: AuthenticatedUsersUserIdRoute,
+	AuthenticatedAppealsIndexRoute: AuthenticatedAppealsIndexRoute,
+	AuthenticatedAuditIndexRoute: AuthenticatedAuditIndexRoute,
+	AuthenticatedFacilitiesIndexRoute: AuthenticatedFacilitiesIndexRoute,
+	AuthenticatedPatientsIndexRoute: AuthenticatedPatientsIndexRoute,
+	AuthenticatedReferralsIndexRoute: AuthenticatedReferralsIndexRoute,
+	AuthenticatedSpecialtiesIndexRoute: AuthenticatedSpecialtiesIndexRoute,
+	AuthenticatedTransfersIndexRoute: AuthenticatedTransfersIndexRoute,
+	AuthenticatedUsersIndexRoute: AuthenticatedUsersIndexRoute,
+};
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
-  AuthenticatedRouteChildren,
-)
+	AuthenticatedRouteChildren,
+);
 
 interface PublicRouteChildren {
-  PublicSignInRoute: typeof PublicSignInRoute
-  PublicSignUpRoute: typeof PublicSignUpRoute
+	PublicSignInRoute: typeof PublicSignInRoute;
+	PublicSignUpRoute: typeof PublicSignUpRoute;
 }
 
 const PublicRouteChildren: PublicRouteChildren = {
-  PublicSignInRoute: PublicSignInRoute,
-  PublicSignUpRoute: PublicSignUpRoute,
-}
+	PublicSignInRoute: PublicSignInRoute,
+	PublicSignUpRoute: PublicSignUpRoute,
+};
 
 const PublicRouteWithChildren =
-  PublicRoute._addFileChildren(PublicRouteChildren)
+	PublicRoute._addFileChildren(PublicRouteChildren);
 
 const rootRouteChildren: RootRouteChildren = {
-  AuthenticatedRoute: AuthenticatedRouteWithChildren,
-  PublicRoute: PublicRouteWithChildren,
-  AcceptNdaRoute: AcceptNdaRoute,
-  AccountStatusRoute: AccountStatusRoute,
-  ChangePasswordRoute: ChangePasswordRoute,
-}
+	AuthenticatedRoute: AuthenticatedRouteWithChildren,
+	PublicRoute: PublicRouteWithChildren,
+	AcceptNdaRoute: AcceptNdaRoute,
+	AccountStatusRoute: AccountStatusRoute,
+	ChangePasswordRoute: ChangePasswordRoute,
+};
 export const routeTree = rootRouteImport
-  ._addFileChildren(rootRouteChildren)
-  ._addFileTypes<FileRouteTypes>()
+	._addFileChildren(rootRouteChildren)
+	._addFileTypes<FileRouteTypes>();
 
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
+import type { getRouter } from "./router.tsx";
+import type { createStart } from "@tanstack/react-start";
+declare module "@tanstack/react-start" {
+	interface Register {
+		ssr: true;
+		router: Awaited<ReturnType<typeof getRouter>>;
+	}
 }

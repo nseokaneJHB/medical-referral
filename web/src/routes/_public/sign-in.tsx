@@ -12,11 +12,11 @@ import { useForm, useController } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import {
-	HTTP_CODE,
 	SignInSchema,
 	FRONTEND_URLS,
 	type SignInBody,
 	type GlobalResponse,
+	type SignInResponse,
 } from "@referral-tracking/shared";
 
 import { Button } from "@/components/ui/button";
@@ -37,8 +37,6 @@ import {
 	twoFactorVerifyOtp,
 	twoFactorVerifyTotp,
 	twoFactorVerifyBackupCode,
-	type AuthUserResponse,
-	type TwoFactorRedirectResponse,
 } from "@/api/auth";
 
 const twoFactorCodeSchema = z.object({
@@ -48,20 +46,15 @@ const twoFactorCodeSchema = z.object({
 
 type TwoFactorCodeValues = z.infer<typeof twoFactorCodeSchema>;
 
-const isTwoFactorRedirect = (
-	response: AuthUserResponse | TwoFactorRedirectResponse,
-): response is TwoFactorRedirectResponse =>
-	"twoFactorRedirect" in response && response.twoFactorRedirect === true;
-
 const SignInPage = () => {
 	const router = useRouter();
 	const navigate = useNavigate();
 
 	const { queryClient } = Route.useRouteContext();
 
-	const [pendingMethods, setPendingMethods] = useState<
-		Array<"totp" | "otp"> | null
-	>(null);
+	const [pendingMethods, setPendingMethods] = useState<Array<
+		"totp" | "otp"
+	> | null>(null);
 	const [activeMethod, setActiveMethod] = useState<"totp" | "otp">("totp");
 	const [useBackupCode, setUseBackupCode] = useState(false);
 	const [otpSent, setOtpSent] = useState(false);
@@ -98,33 +91,19 @@ const SignInPage = () => {
 		navigate({ to: FRONTEND_URLS.HOME });
 	};
 
-	const signInMutation = useMutation<
-		AuthUserResponse | TwoFactorRedirectResponse,
-		Error,
-		SignInBody
-	>({ mutationFn: signIn });
+	const signInMutation = useMutation<SignInResponse, Error, SignInBody>({
+		mutationFn: signIn,
+	});
 
 	const onSubmit = async (payload: SignInBody) =>
 		useToastMutation({
 			loading: "Signing in...",
-			promise: signInMutation.mutateAsync(payload).then(
-				(
-					response,
-				): GlobalResponse & { twoFactor?: TwoFactorRedirectResponse } => {
-					if (isTwoFactorRedirect(response)) {
-						return {
-							code: HTTP_CODE.OK,
-							message: "Enter your two-factor code to continue.",
-							twoFactor: response,
-						};
-					}
-					return { code: HTTP_CODE.OK, message: "Signed in." };
-				},
-			),
+			promise: signInMutation.mutateAsync(payload),
 			onSuccess: async (data) => {
-				if (data.twoFactor) {
-					setPendingMethods(data.twoFactor.twoFactorMethods);
-					setActiveMethod(data.twoFactor.twoFactorMethods[0] ?? "totp");
+				if (data.twoFactorRedirect) {
+					const methods = data.twoFactorMethods ?? [];
+					setPendingMethods(methods);
+					setActiveMethod(methods[0] ?? "totp");
 					return;
 				}
 				await onSignedIn();
@@ -140,24 +119,19 @@ const SignInPage = () => {
 			},
 		});
 
-	const sendOtpMutation = useMutation<{ status: boolean }, Error, boolean>({
+	const sendOtpMutation = useMutation<GlobalResponse, Error, boolean>({
 		mutationFn: (trust) => twoFactorSendOtp({ trustDevice: trust }),
 	});
 
 	const onSendOtp = async () =>
 		useToastMutation({
 			loading: "Sending code...",
-			promise: sendOtpMutation.mutateAsync(trustDeviceField.value).then(
-				(): GlobalResponse => ({
-					code: HTTP_CODE.OK,
-					message: "Code sent to your email.",
-				}),
-			),
+			promise: sendOtpMutation.mutateAsync(trustDeviceField.value),
 			onSuccess: async () => setOtpSent(true),
 		});
 
 	const verifyMutation = useMutation<
-		AuthUserResponse,
+		GlobalResponse,
 		Error,
 		TwoFactorCodeValues
 	>({
@@ -171,9 +145,7 @@ const SignInPage = () => {
 	const onVerify = async (payload: TwoFactorCodeValues) =>
 		useToastMutation({
 			loading: "Verifying...",
-			promise: verifyMutation.mutateAsync(payload).then(
-				(): GlobalResponse => ({ code: HTTP_CODE.OK, message: "Signed in." }),
-			),
+			promise: verifyMutation.mutateAsync(payload),
 			onSuccess: onSignedIn,
 			onError: async (error) => {
 				setTwoFactorError("code", { message: error.message });
@@ -213,9 +185,7 @@ const SignInPage = () => {
 			>
 				<Card>
 					<CardHeader>
-						<CardTitle className="text-xl">
-							Two-factor authentication
-						</CardTitle>
+						<CardTitle className="text-xl">Two-factor authentication</CardTitle>
 					</CardHeader>
 					<CardContent className="space-y-4">
 						{!useBackupCode && hasBothMethods && (

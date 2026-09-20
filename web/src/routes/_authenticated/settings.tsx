@@ -48,7 +48,7 @@ import { useFormField } from "@/hooks/use-form-field";
 import { useToastMutation } from "@/hooks/use-toast-mutation";
 
 import { QUERY_KEYS } from "@/api/constant";
-import { twoFactorVerifyTotp, type AuthUserResponse } from "@/api/auth";
+import { twoFactorVerifyTotp } from "@/api/auth";
 import {
 	twoFactorEnable,
 	twoFactorDisable,
@@ -193,7 +193,7 @@ const EnableTwoFactorDialog = ({
 		mutationFn: (pwd) => twoFactorEnable({ password: pwd }),
 	});
 
-	const confirmMutation = useMutation<AuthUserResponse, Error, string>({
+	const confirmMutation = useMutation<GlobalResponse, Error, string>({
 		mutationFn: (totpCode) => twoFactorVerifyTotp({ code: totpCode }),
 	});
 
@@ -206,15 +206,13 @@ const EnableTwoFactorDialog = ({
 	const onSubmitPassword = async (values: { password: string }) =>
 		useToastMutation({
 			loading: "Starting enrollment...",
-			promise: enableMutation.mutateAsync(values.password).then(
-				(
-					data,
-				): GlobalResponse & { data: TwoFactorEnableResponse } => ({
+			promise: enableMutation
+				.mutateAsync(values.password)
+				.then((data): GlobalResponse & { data: TwoFactorEnableResponse } => ({
 					code: HTTP_CODE.OK,
 					message: "Scan the QR code below.",
 					data,
-				}),
-			),
+				})),
 			onSuccess: async (result) => setEnrollment(result.data),
 			onError: async (error) => {
 				passwordForm.setError("password", { message: error.message });
@@ -224,12 +222,7 @@ const EnableTwoFactorDialog = ({
 	const onSubmitCode = async (values: { code: string }) =>
 		useToastMutation({
 			loading: "Confirming...",
-			promise: confirmMutation.mutateAsync(values.code).then(
-				(): GlobalResponse => ({
-					code: HTTP_CODE.OK,
-					message: "Two-factor authentication enabled.",
-				}),
-			),
+			promise: confirmMutation.mutateAsync(values.code),
 			onSuccess: async () => {
 				reset();
 				onOpenChange(false);
@@ -302,8 +295,8 @@ const EnableTwoFactorDialog = ({
 						</div>
 
 						<p className="text-muted-foreground text-sm">
-							Save these backup codes somewhere safe — each can be used once
-							if you lose access to your authenticator app.
+							Save these backup codes somewhere safe — each can be used once if
+							you lose access to your authenticator app.
 						</p>
 						<BackupCodesList codes={enrollment.backupCodes} />
 
@@ -365,15 +358,15 @@ const ViewQrCodeDialog = ({
 	const onSubmit = async (values: { password: string }) =>
 		useToastMutation({
 			loading: "Loading QR code...",
-			promise: mutation.mutateAsync(values.password).then(
-				(
-					data,
-				): GlobalResponse & { data: TwoFactorGetTotpUriResponse } => ({
-					code: HTTP_CODE.OK,
-					message: "QR code ready.",
-					data,
-				}),
-			),
+			promise: mutation
+				.mutateAsync(values.password)
+				.then(
+					(data): GlobalResponse & { data: TwoFactorGetTotpUriResponse } => ({
+						code: HTTP_CODE.OK,
+						message: "QR code ready.",
+						data,
+					}),
+				),
 			onSuccess: async (result) => setTotpURI(result.data.totpURI),
 			onError: async (error) => {
 				setError("password", { message: error.message });

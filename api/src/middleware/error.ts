@@ -6,7 +6,7 @@ import { GlobalResponse, HTTP_RESPONSE_CODE } from "@referral-tracking/shared";
 
 export const error = async (
 	error: FastifyError,
-	_request: FastifyRequest,
+	request: FastifyRequest,
 	reply: FastifyReply,
 ): Promise<void> => {
 	// Validation errors
@@ -88,17 +88,23 @@ export const error = async (
 		return reply.status(status).send(response);
 	}
 
-	// Generic errors — log so I can mitigate later
-	console.log(
-		"\n================================= UNHANDLED ERRORS ===========================\n",
-	);
-	console.log("ERROR:", error);
-	console.log("ERROR INSTANCE:", typeof error);
-	console.log("ERROR NAME:", error.name);
-	console.log("ERROR CODE:", error.code);
-	console.log("ERROR MESSAGE:", error.message);
-	console.log("ERROR VALIDATION:", error.validation);
-	console.log("ERROR VALIDATION CONTEXT:", error.validationContext);
+	if (
+		typeof error.statusCode === "number" &&
+		error.statusCode >= 400 &&
+		error.statusCode < 500
+	) {
+		const matched = Object.values(HTTP_RESPONSE_CODE).find(
+			(entry) => entry.status === error.statusCode,
+		);
+		const response: GlobalResponse = {
+			code: matched?.code ?? HTTP_RESPONSE_CODE.BAD_REQUEST.code,
+			message: error.message,
+		};
+
+		return reply.status(error.statusCode).send(response);
+	}
+
+	request.log.error({ err: error }, "Unhandled error");
 
 	const { status, code } = HTTP_RESPONSE_CODE.INTERNAL_SERVER_ERROR;
 	const response: GlobalResponse = {

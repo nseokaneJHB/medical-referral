@@ -1,6 +1,10 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 
-import { NDA_VERSION, USER_STATUS, FRONTEND_URLS } from "@referral-tracking/shared";
+import {
+	NDA_VERSION,
+	USER_STATUS,
+	FRONTEND_URLS,
+} from "@referral-tracking/shared";
 
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 
