@@ -4,14 +4,7 @@ import { API_PATHS } from "@referral-tracking/shared";
 
 const correlationName = "X-Correlation-Id";
 
-/**
- * Captures the high-resolution engine start time when a request enters the
- * server, and reuses Fastify's own request id (set via `genReqId` in
- * build.ts) as the correlation id — one id, not a second independently
- * generated one. Sets the response header here (`onRequest`), since a header
- * set in `onResponse` fires after the response is already sent and never
- * reaches the client.
- */
+/** Header must be set here, not in onResponse — that hook fires after the response is already sent. */
 export const onRequestTimerHook = async (
 	request: FastifyRequest,
 	reply: FastifyReply,
