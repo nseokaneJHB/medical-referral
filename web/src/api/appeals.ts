@@ -44,8 +44,9 @@ const baseUrl = (namespace: AppealNamespace): string =>
 export const appealsRequest = createServerFn({ method: "GET" })
 	.inputValidator((data: { namespace: AppealNamespace }) => data)
 	.handler(async ({ data }): Promise<AppealListResponse> => {
+		const url = `${baseUrl(data.namespace)}${PATHS[data.namespace].LIST}`;
 		const { data: response } = await api.get<AppealListResponse>(
-			`${baseUrl(data.namespace)}${PATHS[data.namespace].LIST}`,
+			url,
 			forwardedRequestOptions(),
 		);
 		return response;
@@ -58,10 +59,8 @@ export const approveAppeal = async (
 	id: string,
 	payload: AppealDecisionBody,
 ): Promise<TimelineResponse> => {
-	const { data } = await api.patch<TimelineResponse>(
-		`${baseUrl(namespace)}${buildUrlWithParams(PATHS[namespace].APPROVE, { id })}`,
-		payload,
-	);
+	const url = `${baseUrl(namespace)}${buildUrlWithParams(PATHS[namespace].APPROVE, { id })}`;
+	const { data } = await api.patch<TimelineResponse>(url, payload);
 	return data;
 };
 
@@ -70,9 +69,7 @@ export const denyAppeal = async (
 	id: string,
 	payload: AppealDecisionBody,
 ): Promise<TimelineResponse> => {
-	const { data } = await api.patch<TimelineResponse>(
-		`${baseUrl(namespace)}${buildUrlWithParams(PATHS[namespace].DENY, { id })}`,
-		payload,
-	);
+	const url = `${baseUrl(namespace)}${buildUrlWithParams(PATHS[namespace].DENY, { id })}`;
+	const { data } = await api.patch<TimelineResponse>(url, payload);
 	return data;
 };

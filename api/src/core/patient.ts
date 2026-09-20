@@ -17,6 +17,7 @@ import {
 	type FindAllOptions,
 	type FindUniqueOptions,
 	type WithCount,
+	type WithRelations,
 } from "./helpers";
 
 /**
@@ -27,7 +28,7 @@ import {
 interface PatientRelations {
 	creator: schema.UserModelSelect;
 	facility: schema.FacilityModelSelect;
-	referrals: schema.ReferralModelSelect;
+	referrals: schema.ReferralModelSelect[];
 }
 
 /**
@@ -111,7 +112,13 @@ export class Patient {
 	>(
 		options: TOptions,
 	): Promise<
-		Pagination<WithCount<Pick<schema.PatientModelSelect, TSelect>, TOptions>>
+		Pagination<
+			WithRelations<
+				WithCount<Pick<schema.PatientModelSelect, TSelect>, TOptions>,
+				TOptions,
+				PatientRelations
+			>
+		>
 	> => {
 		return (await manyRecords(
 			this.executor,
@@ -120,7 +127,11 @@ export class Patient {
 			this.relationConfigs,
 			this.countConfigs,
 		)) as unknown as Pagination<
-			WithCount<Pick<schema.PatientModelSelect, TSelect>, TOptions>
+			WithRelations<
+				WithCount<Pick<schema.PatientModelSelect, TSelect>, TOptions>,
+				TOptions,
+				PatientRelations
+			>
 		>;
 	};
 
@@ -140,9 +151,10 @@ export class Patient {
 		>,
 	>(
 		options: TOptions,
-	): Promise<WithCount<
-		Pick<schema.PatientModelSelect, TSelect>,
-		TOptions
+	): Promise<WithRelations<
+		WithCount<Pick<schema.PatientModelSelect, TSelect>, TOptions>,
+		TOptions,
+		PatientRelations
 	> | null> => {
 		const result = await oneRecord(
 			this.executor,
@@ -152,9 +164,10 @@ export class Patient {
 			this.countConfigs,
 		);
 
-		return result as WithCount<
-			Pick<schema.PatientModelSelect, TSelect>,
-			TOptions
+		return result as WithRelations<
+			WithCount<Pick<schema.PatientModelSelect, TSelect>, TOptions>,
+			TOptions,
+			PatientRelations
 		> | null;
 	};
 

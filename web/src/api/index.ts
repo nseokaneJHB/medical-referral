@@ -8,11 +8,15 @@ import { GlobalResponse } from "@referral-tracking/shared";
 
 import { env } from "@/lib/env";
 
-/** Forwards the incoming request's session cookie onto a server-side `api` call — needed since axios on the server has no browser cookie jar of its own. */
-export const forwardedRequestOptions = () => {
+/** Forwards the incoming request's session cookie (plus any caller-supplied headers) onto a server-side `api` call — needed since axios on the server has no browser cookie jar of its own. */
+export const forwardedRequestOptions = (
+	extraHeaders?: Record<string, string>,
+) => {
 	const request = getRequest();
 	const cookie = request.headers.get("cookie");
-	return cookie ? { headers: { cookie } } : {};
+	const headers = { ...(cookie ? { cookie } : {}), ...extraHeaders };
+
+	return Object.keys(headers).length > 0 ? { headers } : {};
 };
 
 export const CLIENT_ERROR = {

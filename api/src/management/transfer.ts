@@ -40,6 +40,8 @@ const TRANSFER_ROW_FIELDS = {
 	changed_at: true,
 } as const;
 
+type ResolvedTransferRequest = { request: TransferRow; latest: TransferRow };
+
 /**
  * Query/resolution logic for the two-sided patient facility-transfer
  * workflow (`docs/roles-permissions.md`, Row 1) — request, origin-approve,
@@ -229,7 +231,7 @@ export class TransferManager {
 	 */
 	resolveRequest = async (
 		requestId: string,
-	): Promise<{ request: TransferRow; latest: TransferRow } | null> => {
+	): Promise<ResolvedTransferRequest | null> => {
 		const request = await this.core.timeline.one({
 			where: {
 				id: requestId,

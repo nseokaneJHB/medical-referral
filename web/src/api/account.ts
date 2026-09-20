@@ -23,8 +23,9 @@ const baseUrl = API_URLS(env.VITE_API_VERSION).ACCOUNT;
 
 export const accountStatusRequest = createServerFn({ method: "GET" }).handler(
 	async (): Promise<AccountStatusResponse> => {
+		const url = `${baseUrl}${API_PATHS.ACCOUNT_STATUS}`;
 		const { data } = await api.get<AccountStatusResponse>(
-			`${baseUrl}${API_PATHS.ACCOUNT_STATUS}`,
+			url,
 			forwardedRequestOptions(),
 		);
 		return data;
@@ -34,30 +35,24 @@ export const accountStatusRequest = createServerFn({ method: "GET" }).handler(
 export const submitAppeal = async (
 	payload: AppealBody,
 ): Promise<TimelineResponse> => {
-	const { data } = await api.post<TimelineResponse>(
-		`${baseUrl}${API_PATHS.ACCOUNT_APPEAL}`,
-		payload,
-	);
+	const url = `${baseUrl}${API_PATHS.ACCOUNT_APPEAL}`;
+	const { data } = await api.post<TimelineResponse>(url, payload);
 	return data;
 };
 
 export const changePassword = async (
 	payload: ChangePasswordBody,
 ): Promise<GlobalResponse> => {
-	const { data } = await api.patch<GlobalResponse>(
-		`${baseUrl}${API_PATHS.ACCOUNT_CHANGE_PASSWORD}`,
-		payload,
-	);
+	const url = `${baseUrl}${API_PATHS.ACCOUNT_CHANGE_PASSWORD}`;
+	const { data } = await api.patch<GlobalResponse>(url, payload);
 	return data;
 };
 
 export const acceptNda = async (
 	payload: AcceptNdaBody,
 ): Promise<GlobalResponse> => {
-	const { data } = await api.patch<GlobalResponse>(
-		`${baseUrl}${API_PATHS.ACCOUNT_ACCEPT_NDA}`,
-		payload,
-	);
+	const url = `${baseUrl}${API_PATHS.ACCOUNT_ACCEPT_NDA}`;
+	const { data } = await api.patch<GlobalResponse>(url, payload);
 	return data;
 };
 
@@ -65,20 +60,16 @@ export const acceptNda = async (
 export const twoFactorEnable = async (
 	payload: TwoFactorPasswordConfirmBody,
 ): Promise<TwoFactorEnableResponse> => {
-	const { data } = await api.post<TwoFactorEnableResponse>(
-		`${baseUrl}${API_PATHS.ACCOUNT_TWO_FACTOR_ENABLE}`,
-		payload,
-	);
+	const url = `${baseUrl}${API_PATHS.ACCOUNT_TWO_FACTOR_ENABLE}`;
+	const { data } = await api.post<TwoFactorEnableResponse>(url, payload);
 	return data;
 };
 
 export const twoFactorDisable = async (
 	payload: TwoFactorPasswordConfirmBody,
 ): Promise<GlobalResponse> => {
-	const { data } = await api.post<GlobalResponse>(
-		`${baseUrl}${API_PATHS.ACCOUNT_TWO_FACTOR_DISABLE}`,
-		payload,
-	);
+	const url = `${baseUrl}${API_PATHS.ACCOUNT_TWO_FACTOR_DISABLE}`;
+	const { data } = await api.post<GlobalResponse>(url, payload);
 	return data;
 };
 
@@ -86,10 +77,8 @@ export const twoFactorDisable = async (
 export const twoFactorGetTotpUri = async (
 	payload: TwoFactorPasswordConfirmBody,
 ): Promise<TwoFactorGetTotpUriResponse> => {
-	const { data } = await api.post<TwoFactorGetTotpUriResponse>(
-		`${baseUrl}${API_PATHS.ACCOUNT_TWO_FACTOR_GET_TOTP_URI}`,
-		payload,
-	);
+	const url = `${baseUrl}${API_PATHS.ACCOUNT_TWO_FACTOR_GET_TOTP_URI}`;
+	const { data } = await api.post<TwoFactorGetTotpUriResponse>(url, payload);
 	return data;
 };
 
@@ -97,8 +86,9 @@ export const twoFactorGetTotpUri = async (
 export const twoFactorGenerateBackupCodes = async (
 	payload: TwoFactorPasswordConfirmBody,
 ): Promise<TwoFactorGenerateBackupCodesResponse> => {
+	const url = `${baseUrl}${API_PATHS.ACCOUNT_TWO_FACTOR_GENERATE_BACKUP_CODES}`;
 	const { data } = await api.post<TwoFactorGenerateBackupCodesResponse>(
-		`${baseUrl}${API_PATHS.ACCOUNT_TWO_FACTOR_GENERATE_BACKUP_CODES}`,
+		url,
 		payload,
 	);
 	return data;

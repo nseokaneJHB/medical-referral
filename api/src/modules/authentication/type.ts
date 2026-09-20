@@ -7,9 +7,7 @@ import type {
 	SignInResponse,
 	SessionResponse,
 	TwoFactorSendOtpBody,
-	TwoFactorVerifyOtpBody,
-	TwoFactorVerifyTotpBody,
-	TwoFactorVerifyBackupCodeBody,
+	TwoFactorVerifyCodeBody,
 } from "@referral-tracking/shared";
 
 export interface SignUpRequest extends RouteGenericInterface {
@@ -31,13 +29,12 @@ export interface SessionRequest extends RouteGenericInterface {
 }
 
 export interface TwoFactorVerifyTotpRequest extends RouteGenericInterface {
-	Body: TwoFactorVerifyTotpBody;
+	Body: TwoFactorVerifyCodeBody;
 	Reply: GlobalResponse;
 }
 
-export interface TwoFactorVerifyBackupCodeRequest
-	extends RouteGenericInterface {
-	Body: TwoFactorVerifyBackupCodeBody;
+export interface TwoFactorVerifyBackupCodeRequest extends RouteGenericInterface {
+	Body: TwoFactorVerifyCodeBody;
 	Reply: GlobalResponse;
 }
 
@@ -47,6 +44,6 @@ export interface TwoFactorSendOtpRequest extends RouteGenericInterface {
 }
 
 export interface TwoFactorVerifyOtpRequest extends RouteGenericInterface {
-	Body: TwoFactorVerifyOtpBody;
+	Body: TwoFactorVerifyCodeBody;
 	Reply: GlobalResponse;
 }

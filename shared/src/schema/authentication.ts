@@ -45,7 +45,7 @@ export const signUpRoleSchema = z.enum([
  * new one (`new_facility_name`), both starting `PENDING` — see
  * `authentication/service.ts`'s `signUp`.
  */
-export const SignUpSchema = z
+export const signUpSchema = z
 	.object({
 		name: nameSchema,
 		email: emailSchema,
@@ -90,7 +90,7 @@ export const SignUpSchema = z
 		}
 	});
 
-export const SignInSchema = z.object({
+export const signInSchema = z.object({
 	email: emailSchema,
 	password: stringSchema.min(1, "Password is required"),
 });
@@ -116,23 +116,12 @@ export const sessionResponseSchema = globalResponseSchema.extend({
 		.nullable(),
 });
 
-/** Also confirms enrollment right after POST /account/two-factor/enable, not just sign-in's second factor. */
-export const TwoFactorVerifyTotpSchema = z.object({
+/** Shared by every "verify a second-factor code" endpoint — TOTP, backup code, and email OTP all take the same `{ code, trustDevice }` shape. Also confirms enrollment right after POST /account/two-factor/enable, not just sign-in's second factor. */
+export const twoFactorVerifyCodeSchema = z.object({
 	code: stringSchema.min(1, "Code is required"),
 	trustDevice: booleanSchema.optional(),
 });
 
-/** Same dual context as TwoFactorVerifyTotpSchema, using a one-time backup code instead. */
-export const TwoFactorVerifyBackupCodeSchema = z.object({
-	code: stringSchema.min(1, "Backup code is required"),
-	trustDevice: booleanSchema.optional(),
-});
-
-export const TwoFactorSendOtpSchema = z.object({
-	trustDevice: booleanSchema.optional(),
-});
-
-export const TwoFactorVerifyOtpSchema = z.object({
-	code: stringSchema.min(1, "Code is required"),
+export const twoFactorSendOtpSchema = z.object({
 	trustDevice: booleanSchema.optional(),
 });

@@ -9,6 +9,8 @@ import {
 	type CreateOptions,
 	type UpdateOptions,
 	type FindAllOptions,
+	type WithCount,
+	type WithRelations,
 } from "./helpers";
 
 interface LoginsRelations {
@@ -56,14 +58,28 @@ export class Logins {
 		TOptions extends FindAllOptions<schema.LoginsModelSelect, LoginsRelations>,
 	>(
 		options: TOptions,
-	): Promise<Pagination<Pick<schema.LoginsModelSelect, TSelect>>> => {
+	): Promise<
+		Pagination<
+			WithRelations<
+				WithCount<Pick<schema.LoginsModelSelect, TSelect>, TOptions>,
+				TOptions,
+				LoginsRelations
+			>
+		>
+	> => {
 		return (await manyRecords(
 			this.executor,
 			schema.LoginsModel,
 			options,
 			this.relationConfigs,
 			this.countConfigs,
-		)) as unknown as Pagination<Pick<schema.LoginsModelSelect, TSelect>>;
+		)) as unknown as Pagination<
+			WithRelations<
+				WithCount<Pick<schema.LoginsModelSelect, TSelect>, TOptions>,
+				TOptions,
+				LoginsRelations
+			>
+		>;
 	};
 
 	/**

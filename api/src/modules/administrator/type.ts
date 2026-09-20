@@ -1,6 +1,7 @@
 import type { RouteGenericInterface } from "fastify";
 
 import type {
+	PaginationQuery,
 	UserParams,
 	AppealParams,
 	UserResponse,
@@ -112,6 +113,6 @@ export interface AppealDenyRequest extends RouteGenericInterface {
 }
 
 export interface AppealsRequest extends RouteGenericInterface {
-	Querystring: { page?: string; limit?: string };
+	Querystring: PaginationQuery;
 	Reply: AppealListResponse | GlobalResponse;
 }

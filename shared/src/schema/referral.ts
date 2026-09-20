@@ -23,8 +23,8 @@ import { PRIORITY, REFERRAL_STATUS } from "../constant";
  * Base fields shared by create/update. `priority` has no default here —
  * `.default()` resolves before `.partial()`'s `.optional()` ever sees a
  * missing key, so an update schema built by partializing a defaulted
- * `CreateReferralSchema` would silently reset `priority` to MEDIUM on every
- * partial `PATCH` that omits it. `CreateReferralSchema` below layers the
+ * `createReferralSchema` would silently reset `priority` to MEDIUM on every
+ * partial `PATCH` that omits it. `createReferralSchema` below layers the
  * default on top for creation only.
  *
  * `origin_facility_id` is deliberately absent here — it's never client-
@@ -46,7 +46,7 @@ const ReferralBaseSchema = z.object({
 	doctor: uuidSchema.optional().describe("Assigned doctor's user id"),
 });
 
-export const CreateReferralSchema = ReferralBaseSchema.extend({
+export const createReferralSchema = ReferralBaseSchema.extend({
 	priority: prioritySchema.default(PRIORITY.MEDIUM),
 	specialty_ids: z
 		.array(uuidSchema)
@@ -56,7 +56,7 @@ export const CreateReferralSchema = ReferralBaseSchema.extend({
 		),
 });
 
-export const UpdateReferralSchema = ReferralBaseSchema.partial();
+export const updateReferralSchema = ReferralBaseSchema.partial();
 
 /**
  * A reason isn't required moving into `accepted`/`in_progress` (accepting
@@ -66,7 +66,7 @@ export const UpdateReferralSchema = ReferralBaseSchema.partial();
 const REASON_NOT_REQUIRED_TARGETS: (typeof REFERRAL_STATUS)[keyof typeof REFERRAL_STATUS][] =
 	[REFERRAL_STATUS.ACCEPTED, REFERRAL_STATUS.IN_PROGRESS];
 
-export const UpdateReferralStatusSchema = z
+export const updateReferralStatusSchema = z
 	.object({
 		next: referralStatusSchema,
 		notes: stringSchema.optional(),
@@ -110,7 +110,7 @@ export const referralsQuerySchema =
  * column — Fastify's JSON serialization converts them to ISO strings on the
  * wire the same way `JSON.stringify` always has for `Date` values.
  */
-export const ReferralSchema = z.object({
+export const referralSchema = z.object({
 	id: uuidSchema,
 	patient: patientRefSchema,
 	origin_facility: facilityRefSchema,
@@ -126,11 +126,11 @@ export const ReferralSchema = z.object({
 });
 
 export const referralResponseSchema = globalResponseSchema.extend({
-	data: ReferralSchema,
+	data: referralSchema,
 });
 
 export const referralListResponseSchema = paginatedGlobalResponseSchema.extend({
-	data: z.array(ReferralSchema),
+	data: z.array(referralSchema),
 	status_counts: z.record(referralStatusSchema, integerSchema),
 });
 
@@ -176,12 +176,12 @@ const referralPriorityCountsSchema = z.object({
 	urgent: integerSchema,
 });
 
-export const ReferralsReportSchema = z.object({
+export const referralsReportSchema = z.object({
 	total: integerSchema,
 	by_status: referralStatusCountsSchema,
 	by_priority: referralPriorityCountsSchema,
 });
 
 export const referralsReportResponseSchema = globalResponseSchema.extend({
-	data: ReferralsReportSchema,
+	data: referralsReportSchema,
 });

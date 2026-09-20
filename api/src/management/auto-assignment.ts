@@ -4,6 +4,7 @@ import {
 	TIMELINE_TYPE,
 	TIMELINE_ACTION,
 	REFERRAL_STATUS,
+	TERMINAL_REFERRAL_STATUSES,
 } from "@referral-tracking/shared";
 
 import { generateUuid } from "../lib/util";
@@ -15,14 +16,21 @@ type AutoAssignmentCore = Pick<
 	"user" | "referral" | "specialty" | "timeline"
 >;
 
-/** Kept local rather than derived from TERMINAL_REFERRAL_STATUSES at runtime, same hardcoded-list style as that constant. */
-const NON_TERMINAL_REFERRAL_STATUSES: (typeof REFERRAL_STATUS)[keyof typeof REFERRAL_STATUS][] =
-	[
-		REFERRAL_STATUS.PENDING,
-		REFERRAL_STATUS.ACCEPTED,
-		REFERRAL_STATUS.IN_PROGRESS,
-		REFERRAL_STATUS.ON_HOLD,
-	];
+type AttemptPayload = {
+	referralId: string;
+	facilityId: string;
+	specialtyIds: string[];
+	currentStatus: string;
+};
+
+type AssignedDoctor = {
+	doctorId: string;
+	doctorName: string | null;
+};
+
+const NON_TERMINAL_REFERRAL_STATUSES = Object.values(REFERRAL_STATUS).filter(
+	(status) => !(TERMINAL_REFERRAL_STATUSES as string[]).includes(status),
+);
 
 /** Full design in docs/auto-assignment.md; every caller treats this as best-effort, not something whose failure should roll back the triggering action. */
 export class AutoAssignmentManager {
@@ -80,15 +88,10 @@ export class AutoAssignmentManager {
 	};
 
 	/** Auto-accepts (mirrors every other doctor-assignment path) when currentStatus is PENDING; never throws for "no match", only for a genuine DB error. */
-	attempt = async (options: {
-		referralId: string;
-		facilityId: string;
-		specialtyIds: string[];
-		currentStatus: string;
-	}): Promise<{ doctorId: string; doctorName: string | null } | null> => {
+	attempt = async (payload: AttemptPayload): Promise<AssignedDoctor | null> => {
 		const doctorId = await this.pickDoctor(
-			options.facilityId,
-			options.specialtyIds,
+			payload.facilityId,
+			payload.specialtyIds,
 		);
 		if (!doctorId) return null;
 
@@ -98,10 +101,10 @@ export class AutoAssignmentManager {
 		});
 		if (!doctor) return null;
 
-		const autoAccept = options.currentStatus === REFERRAL_STATUS.PENDING;
+		const autoAccept = payload.currentStatus === REFERRAL_STATUS.PENDING;
 
 		await this.core.referral.update({
-			where: { id: options.referralId },
+			where: { id: payload.referralId },
 			data: autoAccept
 				? { doctor: doctor.id, status: REFERRAL_STATUS.ACCEPTED }
 				: { doctor: doctor.id },
@@ -113,10 +116,10 @@ export class AutoAssignmentManager {
 			data: {
 				id: generateUuid(),
 				type: TIMELINE_TYPE.REFERRAL,
-				entity: options.referralId,
+				entity: payload.referralId,
 				action: TIMELINE_ACTION.DOCTOR_ASSIGNED,
-				previous: options.currentStatus,
-				next: autoAccept ? REFERRAL_STATUS.ACCEPTED : options.currentStatus,
+				previous: payload.currentStatus,
+				next: autoAccept ? REFERRAL_STATUS.ACCEPTED : payload.currentStatus,
 				changer_id: doctor.id,
 				notes: `Auto-assigned to ${doctor.name ?? "Unknown"} based on availability.`,
 			},

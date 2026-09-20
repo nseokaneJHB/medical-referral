@@ -17,6 +17,7 @@ import {
 	type FindAllOptions,
 	type FindUniqueOptions,
 	type WithCount,
+	type WithRelations,
 } from "./helpers";
 
 /**
@@ -30,7 +31,7 @@ interface ReferralRelations {
 	assignedDoctor: schema.UserModelSelect;
 	origin_facility: schema.FacilityModelSelect;
 	destination_facility: schema.FacilityModelSelect;
-	timeline: schema.TimelineModelSelect;
+	timeline: schema.TimelineModelSelect[];
 }
 
 /**
@@ -153,7 +154,13 @@ export class Referral {
 	>(
 		options: TOptions,
 	): Promise<
-		Pagination<WithCount<Pick<schema.ReferralModelSelect, TSelect>, TOptions>>
+		Pagination<
+			WithRelations<
+				WithCount<Pick<schema.ReferralModelSelect, TSelect>, TOptions>,
+				TOptions,
+				ReferralRelations
+			>
+		>
 	> => {
 		return (await manyRecords(
 			this.executor,
@@ -162,7 +169,11 @@ export class Referral {
 			this.relationConfigs,
 			this.countConfigs,
 		)) as unknown as Pagination<
-			WithCount<Pick<schema.ReferralModelSelect, TSelect>, TOptions>
+			WithRelations<
+				WithCount<Pick<schema.ReferralModelSelect, TSelect>, TOptions>,
+				TOptions,
+				ReferralRelations
+			>
 		>;
 	};
 
@@ -182,9 +193,10 @@ export class Referral {
 		>,
 	>(
 		options: TOptions,
-	): Promise<WithCount<
-		Pick<schema.ReferralModelSelect, TSelect>,
-		TOptions
+	): Promise<WithRelations<
+		WithCount<Pick<schema.ReferralModelSelect, TSelect>, TOptions>,
+		TOptions,
+		ReferralRelations
 	> | null> => {
 		const result = await oneRecord(
 			this.executor,
@@ -194,9 +206,10 @@ export class Referral {
 			this.countConfigs,
 		);
 
-		return result as WithCount<
-			Pick<schema.ReferralModelSelect, TSelect>,
-			TOptions
+		return result as WithRelations<
+			WithCount<Pick<schema.ReferralModelSelect, TSelect>, TOptions>,
+			TOptions,
+			ReferralRelations
 		> | null;
 	};
 

@@ -98,10 +98,8 @@ export const updateSpecialty = async (
 	id: string,
 	payload: UpdateSpecialtyBody,
 ): Promise<SpecialtyResponse> => {
-	const { data } = await api.patch<SpecialtyResponse>(
-		`${specialtiesBaseUrl}${buildUrlWithParams(API_PATHS.SPECIALTY_BY_ID, { id })}`,
-		payload,
-	);
+	const url = `${specialtiesBaseUrl}${buildUrlWithParams(API_PATHS.SPECIALTY_BY_ID, { id })}`;
+	const { data } = await api.patch<SpecialtyResponse>(url, payload);
 	return data;
 };
 
@@ -109,10 +107,8 @@ export const assignFacilitySpecialty = async (
 	facilityId: string,
 	payload: AssignFacilitySpecialtyBody,
 ): Promise<FacilitySpecialtyLinkResponse> => {
-	const { data } = await api.post<FacilitySpecialtyLinkResponse>(
-		`${facilitiesBaseUrl}${buildUrlWithParams(API_PATHS.FACILITY_SPECIALTY_ASSIGN, { id: facilityId })}`,
-		payload,
-	);
+	const url = `${facilitiesBaseUrl}${buildUrlWithParams(API_PATHS.FACILITY_SPECIALTY_ASSIGN, { id: facilityId })}`;
+	const { data } = await api.post<FacilitySpecialtyLinkResponse>(url, payload);
 	return data;
 };
 
@@ -120,9 +116,8 @@ export const unassignFacilitySpecialty = async (
 	facilityId: string,
 	specialtyId: string,
 ): Promise<GlobalResponse> => {
-	const { data } = await api.delete<GlobalResponse>(
-		`${facilitiesBaseUrl}${buildUrlWithParams(API_PATHS.FACILITY_SPECIALTY_UNASSIGN, { id: facilityId, specialtyId })}`,
-	);
+	const url = `${facilitiesBaseUrl}${buildUrlWithParams(API_PATHS.FACILITY_SPECIALTY_UNASSIGN, { id: facilityId, specialtyId })}`;
+	const { data } = await api.delete<GlobalResponse>(url);
 	return data;
 };
 
@@ -130,10 +125,8 @@ export const assignUserSpecialty = async (
 	userId: string,
 	payload: AssignUserSpecialtyBody,
 ): Promise<UserSpecialtyLinkResponse> => {
-	const { data } = await api.post<UserSpecialtyLinkResponse>(
-		`${usersBaseUrl}${buildUrlWithParams(API_PATHS.USER_SPECIALTY_ASSIGN, { id: userId })}`,
-		payload,
-	);
+	const url = `${usersBaseUrl}${buildUrlWithParams(API_PATHS.USER_SPECIALTY_ASSIGN, { id: userId })}`;
+	const { data } = await api.post<UserSpecialtyLinkResponse>(url, payload);
 	return data;
 };
 
@@ -141,9 +134,8 @@ export const unassignUserSpecialty = async (
 	userId: string,
 	specialtyId: string,
 ): Promise<GlobalResponse> => {
-	const { data } = await api.delete<GlobalResponse>(
-		`${usersBaseUrl}${buildUrlWithParams(API_PATHS.USER_SPECIALTY_UNASSIGN, { id: userId, specialtyId })}`,
-	);
+	const url = `${usersBaseUrl}${buildUrlWithParams(API_PATHS.USER_SPECIALTY_UNASSIGN, { id: userId, specialtyId })}`;
+	const { data } = await api.delete<GlobalResponse>(url);
 	return data;
 };
 
@@ -151,10 +143,8 @@ export const assignReferralSpecialty = async (
 	referralId: string,
 	payload: AssignReferralSpecialtyBody,
 ): Promise<ReferralSpecialtyLinkResponse> => {
-	const { data } = await api.post<ReferralSpecialtyLinkResponse>(
-		`${referralsBaseUrl}${buildUrlWithParams(API_PATHS.REFERRAL_SPECIALTY_ASSIGN, { id: referralId })}`,
-		payload,
-	);
+	const url = `${referralsBaseUrl}${buildUrlWithParams(API_PATHS.REFERRAL_SPECIALTY_ASSIGN, { id: referralId })}`;
+	const { data } = await api.post<ReferralSpecialtyLinkResponse>(url, payload);
 	return data;
 };
 
@@ -162,8 +152,7 @@ export const unassignReferralSpecialty = async (
 	referralId: string,
 	specialtyId: string,
 ): Promise<GlobalResponse> => {
-	const { data } = await api.delete<GlobalResponse>(
-		`${referralsBaseUrl}${buildUrlWithParams(API_PATHS.REFERRAL_SPECIALTY_UNASSIGN, { id: referralId, specialtyId })}`,
-	);
+	const url = `${referralsBaseUrl}${buildUrlWithParams(API_PATHS.REFERRAL_SPECIALTY_UNASSIGN, { id: referralId, specialtyId })}`;
+	const { data } = await api.delete<GlobalResponse>(url);
 	return data;
 };

@@ -14,6 +14,7 @@ import {
 	type FindAllOptions,
 	type FindUniqueOptions,
 	type WithCount,
+	type WithRelations,
 } from "./helpers";
 
 /**
@@ -105,9 +106,10 @@ export class Session {
 		>,
 	>(
 		options: TOptions,
-	): Promise<WithCount<
-		Pick<schema.SessionModelSelect, TSelect>,
-		TOptions
+	): Promise<WithRelations<
+		WithCount<Pick<schema.SessionModelSelect, TSelect>, TOptions>,
+		TOptions,
+		SessionRelations
 	> | null> => {
 		const result = await oneRecord(
 			this.executor,
@@ -117,9 +119,10 @@ export class Session {
 			this.countConfigs,
 		);
 
-		return result as WithCount<
-			Pick<schema.SessionModelSelect, TSelect>,
-			TOptions
+		return result as WithRelations<
+			WithCount<Pick<schema.SessionModelSelect, TSelect>, TOptions>,
+			TOptions,
+			SessionRelations
 		> | null;
 	};
 

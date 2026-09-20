@@ -3,6 +3,8 @@ import { randomBytes } from "node:crypto";
 
 import { v7 as uuidv7 } from "uuid";
 
+import { HTTP_RESPONSE_CODE } from "@referral-tracking/shared";
+
 /**
  * Generate a unique ID using UUID v7.
  *
@@ -144,3 +146,10 @@ export const localMonthStartToUtc = (tzOffsetMinutes?: string): Date => {
 			offset * 60000,
 	);
 };
+
+/** Maps any HTTP status back to this app's HTTP_RESPONSE_CODE, falling back to BAD_REQUEST for anything unmapped. */
+export const httpCodeForStatus = (
+	status: number,
+): (typeof HTTP_RESPONSE_CODE)[keyof typeof HTTP_RESPONSE_CODE]["code"] =>
+	Object.values(HTTP_RESPONSE_CODE).find((entry) => entry.status === status)
+		?.code ?? HTTP_RESPONSE_CODE.BAD_REQUEST.code;

@@ -8,13 +8,11 @@ import {
 	DEFAULT_PAGE_LIMIT,
 	DEFAULT_PAGE_NUMBER,
 	HTTP_RESPONSE_CODE,
-	CreateFacilitySchema,
-	orderDirectionSchema,
+	createFacilitySchema,
 	facilityStatusSchema,
 	TERMINAL_REFERRAL_STATUSES,
 	uuidSchema,
 	type Role,
-	type FacilitySpecialtyListResponse,
 	type FacilityDetailResponse,
 } from "@referral-tracking/shared";
 
@@ -23,17 +21,13 @@ import {
 	zeroFillCounts,
 	normalizeNullableFields,
 } from "../../lib/util";
-import {
-	parseEnumList,
-	parseSortList,
-	buildOrderClause,
-} from "../../lib/validator";
+import { parseEnumList } from "../../lib/validator";
 
 import type { CoreService } from "../../core";
 
 import { FacilityModel, type FacilityModelSelect } from "../../drizzle/schema";
 
-import type { WhereClause } from "../../core/helpers";
+import { buildOrderClause, type WhereClause } from "../../core/helpers";
 
 import type {
 	FacilitiesRequest,
@@ -180,9 +174,13 @@ export const facilities = async (
 	const where: WhereClause<FacilityModelSelect> =
 		clauses.length > 0 ? { AND: clauses } : {};
 
-	const sorts = parseSortList(query.sort, FacilityModel, "name");
-	const orders = parseEnumList(query.order, orderDirectionSchema) ?? ["asc"];
-	const order = buildOrderClause<FacilityModelSelect>(sorts, orders, "asc");
+	const order = buildOrderClause<FacilityModelSelect>(
+		query.sort,
+		query.order,
+		FacilityModel,
+		"name",
+		"asc",
+	);
 
 	const result = await server.core.facility.many({
 		page,
@@ -210,7 +208,7 @@ export const facility = async (
 	request: FastifyRequest<FacilityRequest>,
 	reply: FastifyReply<FacilityRequest>,
 ): Promise<void> => {
-	const role = request.user!.role as Role;
+	const role = request.user!.role;
 	if (
 		role === ROLES.MANAGER &&
 		request.params.id !== request.user!.facility_id
@@ -237,7 +235,7 @@ export const facility = async (
 	reply.status(status).send({
 		code,
 		message: "Facility retrieved.",
-		data: { ...facility, stats } as unknown as FacilityDetailResponse["data"],
+		data: { ...facility, stats },
 	});
 };
 
@@ -245,7 +243,7 @@ export const facilityHistory = async (
 	request: FastifyRequest<FacilityHistoryRequest>,
 	reply: FastifyReply<FacilityHistoryRequest>,
 ): Promise<void> => {
-	const role = request.user!.role as Role;
+	const role = request.user!.role;
 	if (
 		role === ROLES.MANAGER &&
 		request.params.id !== request.user!.facility_id
@@ -295,7 +293,7 @@ export const facilityUpdate = async (
 	request: FastifyRequest<FacilityUpdateRequest>,
 	reply: FastifyReply<FacilityUpdateRequest>,
 ): Promise<void> => {
-	const role = request.user!.role as Role;
+	const role = request.user!.role;
 	if (
 		role === ROLES.MANAGER &&
 		request.params.id !== request.user!.facility_id
@@ -316,7 +314,7 @@ export const facilityUpdate = async (
 		return reply.status(status).send({ code, message: "Facility not found." });
 	}
 
-	const body = normalizeNullableFields(request.body, CreateFacilitySchema);
+	const body = normalizeNullableFields(request.body, createFacilitySchema);
 
 	const changes = Object.entries(body)
 		.filter(([key, value]) => value !== existing[key as keyof typeof existing])
@@ -385,7 +383,7 @@ export const facilitySpecialties = async (
 	request: FastifyRequest<FacilitySpecialtiesRequest>,
 	reply: FastifyReply<FacilitySpecialtiesRequest>,
 ): Promise<void> => {
-	const role = request.user!.role as Role;
+	const role = request.user!.role;
 	if (
 		!canViewFacilitySpecialties(
 			role,
@@ -424,10 +422,7 @@ export const facilitySpecialties = async (
 	reply.status(status).send({
 		code,
 		message: "Facility specialties retrieved.",
-		// `include`-derived fields (`specialty`) aren't modeled by `linkMany`'s
-		// return type — present at runtime, just invisible to this type. See
-		// `core/helpers.ts`.
-		data: result.data as unknown as FacilitySpecialtyListResponse["data"],
+		data: result.data,
 	});
 };
 
@@ -435,7 +430,7 @@ export const facilitySpecialtyAssign = async (
 	request: FastifyRequest<FacilitySpecialtyAssignRequest>,
 	reply: FastifyReply<FacilitySpecialtyAssignRequest>,
 ): Promise<void> => {
-	const role = request.user!.role as Role;
+	const role = request.user!.role;
 	if (
 		!canAssignFacilitySpecialties(
 			role,
@@ -509,7 +504,7 @@ export const facilitySpecialtyUnassign = async (
 	request: FastifyRequest<FacilitySpecialtyUnassignRequest>,
 	reply: FastifyReply<FacilitySpecialtyUnassignRequest>,
 ): Promise<void> => {
-	const role = request.user!.role as Role;
+	const role = request.user!.role;
 	if (
 		!canAssignFacilitySpecialties(
 			role,

@@ -6,11 +6,8 @@ import {
 	TIMELINE_TYPE,
 	TIMELINE_ACTION,
 	HTTP_RESPONSE_CODE,
-	orderDirectionSchema,
-	CreatePatientSchema,
+	createPatientSchema,
 	TERMINAL_REFERRAL_STATUSES,
-	type Role,
-	type PatientResponse,
 	type PatientDetailResponse,
 } from "@referral-tracking/shared";
 
@@ -20,18 +17,18 @@ import {
 	localDateStartToUtc,
 	localMonthStartToUtc,
 } from "../../lib/util";
-import {
-	parseEnumList,
-	parseSortList,
-	buildOrderClause,
-} from "../../lib/validator";
+import { parseEnumList } from "../../lib/validator";
 import { canAccessPatient } from "../../lib/permission";
 
 import type { CoreService } from "../../core";
 
 import { PatientModel, type PatientModelSelect } from "../../drizzle/schema";
 
-import type { WhereClause, WhereOperator } from "../../core/helpers";
+import {
+	buildOrderClause,
+	type WhereClause,
+	type WhereOperator,
+} from "../../core/helpers";
 
 import type {
 	PatientRequest,
@@ -167,7 +164,7 @@ export const patientCreate = async (
 ): Promise<void> => {
 	const [created] = await request.server.core.patient.create({
 		data: {
-			...normalizeNullableFields(request.body, CreatePatientSchema),
+			...normalizeNullableFields(request.body, createPatientSchema),
 			id: generateUuid(),
 			creator_id: request.user!.id,
 			facility_id: request.user!.facility_id!,
@@ -191,9 +188,9 @@ export const patientCreate = async (
 		// row yet, so `UNFLAGGED_STATUS` is correct here without needing to
 		// call `getPatientFlagStatuses` (unlike `patient`/`patientUpdate`).
 		data: {
-			...patient,
+			...patient!,
 			...UNFLAGGED_STATUS,
-		} as unknown as PatientResponse["data"],
+		},
 	});
 };
 
@@ -247,9 +244,13 @@ export const patients = async (
 		created_at: { gte: startOfPeriod },
 	});
 
-	const sorts = parseSortList(query.sort, PatientModel, "created_at");
-	const orders = parseEnumList(query.order, orderDirectionSchema) ?? ["desc"];
-	const order = buildOrderClause<PatientModelSelect>(sorts, orders, "desc");
+	const order = buildOrderClause<PatientModelSelect>(
+		query.sort,
+		query.order,
+		PatientModel,
+		"created_at",
+		"desc",
+	);
 
 	const result = await server.core.patient.many({
 		page,
@@ -274,7 +275,7 @@ export const patients = async (
 		code,
 		message: "Patients retrieved.",
 		...result,
-		data: data as unknown as PatientResponse["data"][],
+		data,
 		registered_this_period: registeredThisPeriod,
 	});
 };
@@ -315,7 +316,7 @@ export const patient = async (
 			...patient,
 			...(flagStatus ?? UNFLAGGED_STATUS),
 			stats,
-		} as unknown as PatientDetailResponse["data"],
+		},
 	});
 };
 
@@ -329,7 +330,7 @@ export const patientUpdate = async (
 	request: FastifyRequest<PatientUpdateRequest>,
 	reply: FastifyReply<PatientUpdateRequest>,
 ): Promise<void> => {
-	const role = request.user!.role as Role;
+	const role = request.user!.role;
 
 	const existing = await request.server.core.patient.one({
 		where: { id: request.params.id },
@@ -357,7 +358,7 @@ export const patientUpdate = async (
 		return reply.status(status).send({ code, message: "Patient not found." });
 	}
 
-	const body = normalizeNullableFields(request.body, CreatePatientSchema);
+	const body = normalizeNullableFields(request.body, createPatientSchema);
 
 	if (role === ROLES.NURSE && "facility_id" in body) {
 		const { status, code } = HTTP_RESPONSE_CODE.FORBIDDEN;
@@ -415,9 +416,9 @@ export const patientUpdate = async (
 		code,
 		message: "Patient updated.",
 		data: {
-			...patient,
+			...patient!,
 			...(flagStatus ?? UNFLAGGED_STATUS),
-		} as unknown as PatientResponse["data"],
+		},
 	});
 };
 
@@ -484,10 +485,10 @@ export const patientFlag = async (
 		code,
 		message: "Patient flagged.",
 		data: {
-			...patient,
+			...patient!,
 			flagged: true,
 			flag_reason: request.body.reason,
-		} as unknown as PatientResponse["data"],
+		},
 	});
 };
 
@@ -549,8 +550,8 @@ export const patientUnflag = async (
 		code,
 		message: "Patient unflagged.",
 		data: {
-			...patient,
+			...patient!,
 			...UNFLAGGED_STATUS,
-		} as unknown as PatientResponse["data"],
+		},
 	});
 };

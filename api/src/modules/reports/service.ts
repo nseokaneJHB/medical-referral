@@ -5,7 +5,6 @@ import {
 	PRIORITY,
 	REFERRAL_STATUS,
 	HTTP_RESPONSE_CODE,
-	type Role,
 } from "@referral-tracking/shared";
 
 import { zeroFillCounts, localDateStartToUtc } from "../../lib/util";
@@ -27,7 +26,7 @@ export const referralsReport = async (
 	reply: FastifyReply<ReferralsReportRequest>,
 ): Promise<void> => {
 	const { core } = request.server;
-	const role = request.user!.role as Role;
+	const role = request.user!.role;
 
 	const where: WhereClause<ReferralModelSelect> = {};
 

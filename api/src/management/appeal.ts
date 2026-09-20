@@ -69,6 +69,33 @@ export interface AppealAuthority {
 	role: Role;
 }
 
+type ListPayload = {
+	where?: WhereClause<TimelineModelSelect>;
+	page: number;
+	limit: number;
+};
+
+type DecidePayload = {
+	type: TimelineType;
+	entity: string;
+	approve: boolean;
+	notes: string;
+	decidedBy: string;
+};
+
+type AppealRow = {
+	id: string;
+	type: TimelineType;
+	entity: string;
+};
+
+type AppealEntityRef = {
+	type: TimelineType;
+	entity: string;
+};
+
+type AppealCountByType = { user: number; facility: number };
+
 /**
  * Everything the appeals workflow needs beyond plain CRUD — composes
  * `core.timeline`/`core.user`/`core.facility` (no direct Drizzle access,
@@ -90,27 +117,18 @@ export class AppealManager {
 	 * entity: { in: staffIds } }`); Administrator passes nothing for the
 	 * system-wide queue.
 	 */
-	list = async (options: {
-		where?: WhereClause<TimelineModelSelect>;
-		page: number;
-		limit: number;
-	}): Promise<Pagination<Appeal>> => {
+	list = async (payload: ListPayload): Promise<Pagination<Appeal>> => {
 		const result = await this.core.timeline.many({
-			where: { ...options.where, action: TIMELINE_ACTION.APPEAL_SUBMITTED },
+			where: { ...payload.where, action: TIMELINE_ACTION.APPEAL_SUBMITTED },
 			supersededBy: APPEAL_ACTIONS,
 			order: { changed_at: "desc" },
-			page: options.page,
-			limit: options.limit,
+			page: payload.page,
+			limit: payload.limit,
 			select: TIMELINE_FIELDS,
 			include: TIMELINE_INCLUDE,
 		});
 
-		// `changer` (via `include: TIMELINE_INCLUDE`) isn't modeled by
-		// `Timeline.many()`'s return type — present at runtime, just
-		// invisible to this type. Same gap as `UserDetailResponse["data"]`
-		// in `users/service.ts`.
-		const rows = result.data as unknown as Timeline[];
-		const data = await this.hydrateSubjects(rows);
+		const data = await this.hydrateSubjects(result.data);
 
 		return {
 			data,
@@ -131,7 +149,7 @@ export class AppealManager {
 	 */
 	countByType = async (
 		where?: WhereClause<TimelineModelSelect>,
-	): Promise<{ user: number; facility: number }> => {
+	): Promise<AppealCountByType> => {
 		const [userResult, facilityResult] = await Promise.all([
 			this.core.timeline.many({
 				where: {
@@ -168,11 +186,7 @@ export class AppealManager {
 	 * since re-deciding by the original row's stable id would otherwise
 	 * silently succeed a second time.
 	 */
-	isOpen = async (row: {
-		id: string;
-		type: TimelineType;
-		entity: string;
-	}): Promise<boolean> => {
+	isOpen = async (row: AppealRow): Promise<boolean> => {
 		const result = await this.core.timeline.many({
 			where: {
 				id: row.id,
@@ -226,41 +240,37 @@ export class AppealManager {
 	 *
 	 * @throws If the entity no longer exists.
 	 */
-	decide = async (options: {
-		type: TimelineType;
-		entity: string;
-		approve: boolean;
-		notes: string;
-		decidedBy: string;
-	}): Promise<Pick<TimelineModelSelect, keyof typeof TIMELINE_FIELDS>> => {
-		const isUser = options.type === TIMELINE_TYPE.USER;
+	decide = async (
+		payload: DecidePayload,
+	): Promise<Pick<TimelineModelSelect, keyof typeof TIMELINE_FIELDS>> => {
+		const isUser = payload.type === TIMELINE_TYPE.USER;
 
 		const current = isUser
 			? await this.core.user.one({
-					where: { id: options.entity },
+					where: { id: payload.entity },
 					select: { status: true, role: true, facility_id: true },
 				})
 			: await this.core.facility.one({
-					where: { id: options.entity },
+					where: { id: payload.entity },
 					select: { status: true },
 				});
 
 		if (!current) {
-			throw new Error(`decide: ${options.type} ${options.entity} not found.`);
+			throw new Error(`decide: ${payload.type} ${payload.entity} not found.`);
 		}
 
 		const goodStatus = isUser ? USER_STATUS.ACTIVE : FACILITY_STATUS.APPROVED;
 
-		if (options.approve) {
+		if (payload.approve) {
 			if (isUser) {
 				await this.core.user.update({
-					where: { id: options.entity },
+					where: { id: payload.entity },
 					data: { status: USER_STATUS.ACTIVE },
 					select: { id: true },
 				});
 			} else {
 				await this.core.facility.update({
-					where: { id: options.entity },
+					where: { id: payload.entity },
 					data: { status: FACILITY_STATUS.APPROVED },
 					select: { id: true },
 				});
@@ -270,22 +280,22 @@ export class AppealManager {
 		const [entry] = await this.core.timeline.create({
 			data: {
 				id: generateUuid(),
-				type: options.type,
-				entity: options.entity,
-				action: options.approve
+				type: payload.type,
+				entity: payload.entity,
+				action: payload.approve
 					? TIMELINE_ACTION.APPEAL_APPROVED
 					: TIMELINE_ACTION.APPEAL_DENIED,
 				previous: current.status,
-				next: options.approve ? goodStatus : current.status,
-				changer_id: options.decidedBy,
-				notes: options.notes,
+				next: payload.approve ? goodStatus : current.status,
+				changer_id: payload.decidedBy,
+				notes: payload.notes,
 			},
 			select: TIMELINE_FIELDS,
 		});
 
 		/** Best-effort — reinstating a Doctor must succeed regardless of a bug in the matching logic underneath. */
 		if (
-			options.approve &&
+			payload.approve &&
 			isUser &&
 			"role" in current &&
 			current.role === ROLES.DOCTOR &&
@@ -297,7 +307,7 @@ export class AppealManager {
 				);
 			} catch (error) {
 				console.error(
-					`Auto-assignment recheck failed after reinstating user ${options.entity}:`,
+					`Auto-assignment recheck failed after reinstating user ${payload.entity}:`,
 					error,
 				);
 			}
@@ -311,7 +321,7 @@ export class AppealManager {
 	 * id or a facility id depending on `type` — not enough on its own to
 	 * render a usable appeals queue. Batch-fetches every distinct
 	 * user/facility name referenced by `rows` (one query per type, not one
-	 * per row) and attaches it as `subject`, matching `AppealSchema` in
+	 * per row) and attaches it as `subject`, matching `appealRowSchema` in
 	 * `shared/src/schema/timeline.ts`.
 	 */
 	hydrateSubjects = async (rows: Timeline[]): Promise<Appeal[]> => {
@@ -362,10 +372,9 @@ export class AppealManager {
 	 * happen for a real appeal, but callers must handle it rather than
 	 * assume).
 	 */
-	resolveAuthority = async (target: {
-		type: TimelineType;
-		entity: string;
-	}): Promise<AppealAuthority | null> => {
+	resolveAuthority = async (
+		target: AppealEntityRef,
+	): Promise<AppealAuthority | null> => {
 		const result = await this.core.timeline.many({
 			page: 1,
 			limit: 1,
@@ -388,6 +397,6 @@ export class AppealManager {
 
 		if (!actor) return null;
 
-		return { userId: actor.id, role: actor.role as Role };
+		return { userId: actor.id, role: actor.role };
 	};
 }

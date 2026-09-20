@@ -1,23 +1,17 @@
 import { z } from "zod";
 
 import {
-	SignUpSchema,
-	SignInSchema,
+	signUpSchema,
+	signInSchema,
 	sessionResponseSchema,
 	signInResponseSchema,
-	TwoFactorSendOtpSchema,
-	TwoFactorVerifyOtpSchema,
-	TwoFactorVerifyTotpSchema,
-	TwoFactorVerifyBackupCodeSchema,
+	twoFactorSendOtpSchema,
+	twoFactorVerifyCodeSchema,
 } from "../schema/authentication";
 
-export type SignUpBody = z.infer<typeof SignUpSchema>;
-export type SignInBody = z.infer<typeof SignInSchema>;
+export type SignUpBody = z.infer<typeof signUpSchema>;
+export type SignInBody = z.infer<typeof signInSchema>;
 export type SessionResponse = z.infer<typeof sessionResponseSchema>;
 export type SignInResponse = z.infer<typeof signInResponseSchema>;
-export type TwoFactorVerifyTotpBody = z.infer<typeof TwoFactorVerifyTotpSchema>;
-export type TwoFactorVerifyBackupCodeBody = z.infer<
-	typeof TwoFactorVerifyBackupCodeSchema
->;
-export type TwoFactorSendOtpBody = z.infer<typeof TwoFactorSendOtpSchema>;
-export type TwoFactorVerifyOtpBody = z.infer<typeof TwoFactorVerifyOtpSchema>;
+export type TwoFactorVerifyCodeBody = z.infer<typeof twoFactorVerifyCodeSchema>;
+export type TwoFactorSendOtpBody = z.infer<typeof twoFactorSendOtpSchema>;

@@ -9,7 +9,6 @@ import {
 	DEFAULT_PAGE_LIMIT,
 	DEFAULT_PAGE_NUMBER,
 	HTTP_RESPONSE_CODE,
-	type Role,
 	type TransferResponse,
 } from "@referral-tracking/shared";
 
@@ -40,7 +39,7 @@ const TRANSFER_ROW_FIELDS = {
 } as const;
 
 /**
- * Hydrates a transfer episode into the richer `TransferSchema` shape.
+ * Hydrates a transfer episode into the richer `transferSchema` shape.
  * `request` (the original `TRANSFER_REQUESTED` row) supplies the reason,
  * requester, and facility ids — stable for the episode's whole lifetime;
  * `latest` supplies the current stage (`action`/`changed_at`), which may be
@@ -80,7 +79,7 @@ const hydrateTransfer = async (
 		action: latest.action,
 		requested_by: requester!,
 		changed_at: latest.changed_at,
-	} as unknown as TransferResponse["data"];
+	};
 };
 
 /**
@@ -106,7 +105,7 @@ export const transferRequest = async (
 		return reply.status(status).send({ code, message: "Patient not found." });
 	}
 
-	const role = request.user!.role as Role;
+	const role = request.user!.role;
 	if (!canRequestTransfer(role, request.user!.facility_id, patient)) {
 		const { status, code } = HTTP_RESPONSE_CODE.FORBIDDEN;
 		return reply.status(status).send({
@@ -210,7 +209,7 @@ const decideTransferSide = async (
 	const facilityId =
 		side === "origin" ? requestRow.previous! : requestRow.next!;
 
-	const role = request.user!.role as Role;
+	const role = request.user!.role;
 	const isOrphaned =
 		role === ROLES.ADMINISTRATOR
 			? (await core.user.count({
@@ -312,7 +311,7 @@ export const transfers = async (
 	reply: FastifyReply<TransfersRequest>,
 ): Promise<void> => {
 	const { core } = request.server;
-	const role = request.user!.role as Role;
+	const role = request.user!.role;
 	const userFacilityId = request.user!.facility_id;
 
 	const page = request.query.page

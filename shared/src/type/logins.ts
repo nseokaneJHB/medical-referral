@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { LoginsSchema, loginsListResponseSchema } from "../schema/logins";
+import { loginsSchema, loginsListResponseSchema } from "../schema/logins";
 
-export type Logins = z.infer<typeof LoginsSchema>;
+export type Logins = z.infer<typeof loginsSchema>;
 export type LoginsListResponse = z.infer<typeof loginsListResponseSchema>;

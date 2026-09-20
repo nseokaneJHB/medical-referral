@@ -23,7 +23,7 @@ import { timelineActionSchema } from "./timeline";
  * `medical_history` — a patient's history is derived from their referrals
  * and timeline, not a separately stored/edited field.
  */
-export const CreatePatientSchema = z.object({
+export const createPatientSchema = z.object({
 	first_name: stringSchema.min(1).max(100),
 	last_name: stringSchema.min(1).max(100),
 	date_of_birth: z.iso.date(),
@@ -33,7 +33,7 @@ export const CreatePatientSchema = z.object({
 	facility_id: uuidSchema.optional(),
 });
 
-export const UpdatePatientSchema = CreatePatientSchema.partial();
+export const updatePatientSchema = createPatientSchema.partial();
 
 /**
  * `gender` is comma-separated (`parseEnumList`). `dob_from`/`dob_to` filter
@@ -59,7 +59,7 @@ export const patientsQuerySchema =
  * see `docs/roles-permissions.md`'s "flag is orthogonal to status" design.
  * Advisory-only: never gates any read/write elsewhere.
  */
-export const PatientSchema = z.object({
+export const patientSchema = z.object({
 	id: uuidSchema,
 	first_name: stringSchema,
 	last_name: stringSchema,
@@ -76,29 +76,29 @@ export const PatientSchema = z.object({
 });
 
 export const patientResponseSchema = globalResponseSchema.extend({
-	data: PatientSchema,
+	data: patientSchema,
 });
 
 export const patientListResponseSchema = paginatedGlobalResponseSchema.extend({
-	data: z.array(PatientSchema),
+	data: z.array(patientSchema),
 	registered_this_period: z.number(),
 });
 
 /**
  * `GET /patients/:id` only — referral counts for this specific patient,
- * same shape/reasoning as `UserDoctorStatsSchema` in `schema/user.ts`.
+ * same shape/reasoning as `userDoctorStatsSchema` in `schema/user.ts`.
  */
-export const PatientStatsSchema = z.object({
+export const patientStatsSchema = z.object({
 	total_referrals: z.number(),
 	active_referrals: z.number(),
 });
 
-export const PatientDetailSchema = PatientSchema.extend({
-	stats: PatientStatsSchema,
+export const patientDetailSchema = patientSchema.extend({
+	stats: patientStatsSchema,
 });
 
 export const patientDetailResponseSchema = globalResponseSchema.extend({
-	data: PatientDetailSchema,
+	data: patientDetailSchema,
 });
 
 export const patientParamsSchema = z.object({
@@ -124,7 +124,7 @@ export const transferParamsSchema = z.object({
 
 /**
  * A transfer request, hydrated for display — richer than the generic
- * `TimelineSchema` a raw row would give you (facility/patient names,
+ * `timelineSchema` a raw row would give you (facility/patient names,
  * not bare ids). `action` is the request's *current* stage
  * (`TRANSFER_REQUESTED` = awaiting origin, `TRANSFER_APPROVED_ORIGIN` =
  * awaiting destination, `TRANSFER_APPROVED_DESTINATION`/`TRANSFER_REJECTED`
@@ -132,7 +132,7 @@ export const transferParamsSchema = z.object({
  * of stage — decision-step reasons/notes live in the timeline history,
  * fetched separately if needed.
  */
-export const TransferSchema = z.object({
+export const transferSchema = z.object({
 	id: uuidSchema,
 	patient: patientRefSchema,
 	origin_facility: facilityRefSchema,
@@ -144,9 +144,9 @@ export const TransferSchema = z.object({
 });
 
 export const transferResponseSchema = globalResponseSchema.extend({
-	data: TransferSchema,
+	data: transferSchema,
 });
 
 export const transferListResponseSchema = paginatedGlobalResponseSchema.extend({
-	data: z.array(TransferSchema),
+	data: z.array(transferSchema),
 });

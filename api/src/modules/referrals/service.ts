@@ -15,11 +15,7 @@ import {
 	HTTP_RESPONSE_CODE,
 	prioritySchema,
 	referralStatusSchema,
-	orderDirectionSchema,
 	stringToTitleCase,
-	type Role,
-	type ReferralResponse,
-	type ReferralSpecialtyListResponse,
 } from "@referral-tracking/shared";
 
 import {
@@ -27,11 +23,7 @@ import {
 	generateUuid,
 	localDateStartToUtc,
 } from "../../lib/util";
-import {
-	parseEnumList,
-	parseSortList,
-	buildOrderClause,
-} from "../../lib/validator";
+import { parseEnumList } from "../../lib/validator";
 import {
 	canActOnReferral,
 	canViewReferral,
@@ -43,7 +35,11 @@ import { AutoAssignmentManager } from "../../management/auto-assignment";
 
 import { ReferralModel, type ReferralModelSelect } from "../../drizzle/schema";
 
-import type { WhereClause, WhereOperator } from "../../core/helpers";
+import {
+	buildOrderClause,
+	type WhereClause,
+	type WhereOperator,
+} from "../../core/helpers";
 
 import type {
 	ReferralRequest,
@@ -107,7 +103,7 @@ export const referralCreate = async (
 	request: FastifyRequest<ReferralCreateRequest>,
 	reply: FastifyReply<ReferralCreateRequest>,
 ): Promise<void> => {
-	const role = request.user!.role as Role;
+	const role = request.user!.role;
 
 	const patient = await request.server.core.patient.one({
 		where: { id: request.body.patient_id },
@@ -179,7 +175,7 @@ export const referralCreate = async (
 	reply.status(status).send({
 		code,
 		message: "Referral created.",
-		data: referral as unknown as ReferralResponse["data"],
+		data: referral!,
 	});
 };
 
@@ -197,7 +193,7 @@ export const referrals = async (
 	const page = Number(query.page);
 	const limit = Number(query.limit);
 
-	const role = request.user!.role as Role;
+	const role = request.user!.role;
 
 	const where: WhereClause<ReferralModelSelect> = {};
 	if (role === ROLES.DOCTOR) {
@@ -245,9 +241,13 @@ export const referrals = async (
 
 	if (query.patient_id) where.patient_id = query.patient_id;
 
-	const sorts = parseSortList(query.sort, ReferralModel, "created_at");
-	const orders = parseEnumList(query.order, orderDirectionSchema) ?? ["desc"];
-	const order = buildOrderClause<ReferralModelSelect>(sorts, orders, "desc");
+	const order = buildOrderClause<ReferralModelSelect>(
+		query.sort,
+		query.order,
+		ReferralModel,
+		"created_at",
+		"desc",
+	);
 
 	const result = await server.core.referral.many({
 		page,
@@ -282,7 +282,7 @@ export const referral = async (
 		include: REFERRAL_INCLUDE,
 	});
 
-	const role = request.user!.role as Role;
+	const role = request.user!.role;
 	if (
 		!referral ||
 		!canViewReferral(
@@ -300,27 +300,12 @@ export const referral = async (
 	reply.status(status).send({
 		code,
 		message: "Referral retrieved.",
-		data: referral as unknown as ReferralResponse["data"],
+		data: referral,
 	});
 };
 
 const isTerminal = (status: string): boolean =>
 	(TERMINAL_REFERRAL_STATUSES as string[]).includes(status);
-
-/** Sends the standard CONFLICT response and returns true when the referral is already terminal, so callers can `if (...) return;`. */
-const requireNonTerminal = (
-	reply: FastifyReply,
-	referralStatus: string,
-): boolean => {
-	if (!isTerminal(referralStatus)) return false;
-
-	const { status, code } = HTTP_RESPONSE_CODE.CONFLICT;
-	reply.status(status).send({
-		code,
-		message: `This referral has already reached a terminal status ("${stringToTitleCase(referralStatus)}").`,
-	});
-	return true;
-};
 
 export const referralUpdate = async (
 	request: FastifyRequest<ReferralUpdateRequest>,
@@ -342,9 +327,15 @@ export const referralUpdate = async (
 		return reply.status(status).send({ code, message: "Referral not found." });
 	}
 
-	if (requireNonTerminal(reply, existing.status)) return;
+	if (isTerminal(existing.status)) {
+		const { status, code } = HTTP_RESPONSE_CODE.CONFLICT;
+		return reply.status(status).send({
+			code,
+			message: `This referral has already reached a terminal status ("${stringToTitleCase(existing.status)}").`,
+		});
+	}
 
-	const role = request.user!.role as Role;
+	const role = request.user!.role;
 	if (role === ROLES.NURSE && existing.referrer_id !== request.user!.id) {
 		const { status, code } = HTTP_RESPONSE_CODE.FORBIDDEN;
 		return reply.status(status).send({
@@ -450,7 +441,7 @@ export const referralUpdate = async (
 	reply.status(status).send({
 		code,
 		message: "Referral updated.",
-		data: referral as unknown as ReferralResponse["data"],
+		data: referral!,
 	});
 };
 
@@ -481,7 +472,13 @@ export const referralAssign = async (
 		return reply.status(status).send({ code, message: "Referral not found." });
 	}
 
-	if (requireNonTerminal(reply, existing.status)) return;
+	if (isTerminal(existing.status)) {
+		const { status, code } = HTTP_RESPONSE_CODE.CONFLICT;
+		return reply.status(status).send({
+			code,
+			message: `This referral has already reached a terminal status ("${stringToTitleCase(existing.status)}").`,
+		});
+	}
 
 	if (existing.doctor) {
 		const { status, code } = HTTP_RESPONSE_CODE.CONFLICT;
@@ -542,7 +539,7 @@ export const referralAssign = async (
 	reply.status(status).send({
 		code,
 		message: "Referral assigned.",
-		data: referral as unknown as ReferralResponse["data"],
+		data: referral!,
 	});
 };
 
@@ -577,7 +574,7 @@ export const referralRedirect = async (
 		return reply.status(status).send({ code, message: "Referral not found." });
 	}
 
-	const role = request.user!.role as Role;
+	const role = request.user!.role;
 	if (
 		!canRedirectReferral(
 			role,
@@ -594,7 +591,13 @@ export const referralRedirect = async (
 		});
 	}
 
-	if (requireNonTerminal(reply, existing.status)) return;
+	if (isTerminal(existing.status)) {
+		const { status, code } = HTTP_RESPONSE_CODE.CONFLICT;
+		return reply.status(status).send({
+			code,
+			message: `This referral has already reached a terminal status ("${stringToTitleCase(existing.status)}").`,
+		});
+	}
 
 	const { destination_facility_id: newDestinationId, notes } = request.body;
 
@@ -676,7 +679,7 @@ export const referralRedirect = async (
 	reply.status(status).send({
 		code,
 		message: "Referral redirected.",
-		data: referral as unknown as ReferralResponse["data"],
+		data: referral!,
 	});
 };
 
@@ -703,7 +706,7 @@ export const referralSpecialties = async (
 		},
 	});
 
-	const role = request.user!.role as Role;
+	const role = request.user!.role;
 	if (
 		!existing ||
 		!canViewReferral(
@@ -731,10 +734,7 @@ export const referralSpecialties = async (
 	reply.status(status).send({
 		code,
 		message: "Referral specialties retrieved.",
-		// `include`-derived fields (`specialty`) aren't modeled by `linkMany`'s
-		// return type — present at runtime, just invisible to this type. See
-		// `core/helpers.ts`.
-		data: result.data as unknown as ReferralSpecialtyListResponse["data"],
+		data: result.data,
 	});
 };
 
@@ -760,7 +760,7 @@ export const referralSpecialtyAssign = async (
 		return reply.status(status).send({ code, message: "Referral not found." });
 	}
 
-	const role = request.user!.role as Role;
+	const role = request.user!.role;
 	if (
 		!canManageReferralSpecialties(
 			role,
@@ -777,7 +777,13 @@ export const referralSpecialtyAssign = async (
 		});
 	}
 
-	if (requireNonTerminal(reply, existing.status)) return;
+	if (isTerminal(existing.status)) {
+		const { status, code } = HTTP_RESPONSE_CODE.CONFLICT;
+		return reply.status(status).send({
+			code,
+			message: `This referral has already reached a terminal status ("${stringToTitleCase(existing.status)}").`,
+		});
+	}
 
 	const specialty = await core.specialty.one({
 		where: { id: request.body.specialty_id },
@@ -855,7 +861,7 @@ export const referralSpecialtyUnassign = async (
 		return reply.status(status).send({ code, message: "Referral not found." });
 	}
 
-	const role = request.user!.role as Role;
+	const role = request.user!.role;
 	if (
 		!canManageReferralSpecialties(
 			role,
@@ -872,7 +878,13 @@ export const referralSpecialtyUnassign = async (
 		});
 	}
 
-	if (requireNonTerminal(reply, existing.status)) return;
+	if (isTerminal(existing.status)) {
+		const { status, code } = HTTP_RESPONSE_CODE.CONFLICT;
+		return reply.status(status).send({
+			code,
+			message: `This referral has already reached a terminal status ("${stringToTitleCase(existing.status)}").`,
+		});
+	}
 
 	const deleted = await core.specialty.linkDelete("referral", {
 		where: {
@@ -931,7 +943,7 @@ export const referralStatusUpdate = async (
 		return reply.status(status).send({ code, message: "Referral not found." });
 	}
 
-	const role = request.user!.role as Role;
+	const role = request.user!.role;
 	if (!canActOnReferral(role, request.user!.id, existing)) {
 		const { status, code } = HTTP_RESPONSE_CODE.FORBIDDEN;
 		return reply.status(status).send({
@@ -1014,7 +1026,7 @@ export const referralStatusUpdate = async (
 	reply.status(status).send({
 		code,
 		message: "Referral status updated.",
-		data: referral as unknown as ReferralResponse["data"],
+		data: referral!,
 	});
 };
 
@@ -1033,7 +1045,7 @@ export const referralHistory = async (
 		},
 	});
 
-	const role = request.user!.role as Role;
+	const role = request.user!.role;
 	if (
 		!existing ||
 		!canViewReferral(

@@ -64,10 +64,8 @@ export const updateFacility = async (
 	id: string,
 	payload: UpdateFacilityBody,
 ): Promise<FacilityResponse> => {
-	const { data } = await api.patch<FacilityResponse>(
-		`${baseUrl}${buildUrlWithParams(API_PATHS.FACILITY_BY_ID, { id })}`,
-		payload,
-	);
+	const url = `${baseUrl}${buildUrlWithParams(API_PATHS.FACILITY_BY_ID, { id })}`;
+	const { data } = await api.patch<FacilityResponse>(url, payload);
 	return data;
 };
 
@@ -78,10 +76,8 @@ export const approveFacility = async (
 	id: string,
 	payload: ApproveActionBody,
 ): Promise<FacilityResponse> => {
-	const { data } = await api.patch<FacilityResponse>(
-		`${administratorBaseUrl()}${buildUrlWithParams(API_PATHS.ADMINISTRATOR_FACILITY_APPROVE, { id })}`,
-		payload,
-	);
+	const url = `${administratorBaseUrl()}${buildUrlWithParams(API_PATHS.ADMINISTRATOR_FACILITY_APPROVE, { id })}`;
+	const { data } = await api.patch<FacilityResponse>(url, payload);
 	return data;
 };
 
@@ -89,10 +85,8 @@ export const rejectFacility = async (
 	id: string,
 	payload: ModerationReasonBody,
 ): Promise<FacilityResponse> => {
-	const { data } = await api.patch<FacilityResponse>(
-		`${administratorBaseUrl()}${buildUrlWithParams(API_PATHS.ADMINISTRATOR_FACILITY_REJECT, { id })}`,
-		payload,
-	);
+	const url = `${administratorBaseUrl()}${buildUrlWithParams(API_PATHS.ADMINISTRATOR_FACILITY_REJECT, { id })}`;
+	const { data } = await api.patch<FacilityResponse>(url, payload);
 	return data;
 };
 
@@ -100,10 +94,8 @@ export const flagFacility = async (
 	id: string,
 	payload: ModerationReasonBody,
 ): Promise<FacilityResponse> => {
-	const { data } = await api.patch<FacilityResponse>(
-		`${administratorBaseUrl()}${buildUrlWithParams(API_PATHS.ADMINISTRATOR_FACILITY_FLAG, { id })}`,
-		payload,
-	);
+	const url = `${administratorBaseUrl()}${buildUrlWithParams(API_PATHS.ADMINISTRATOR_FACILITY_FLAG, { id })}`;
+	const { data } = await api.patch<FacilityResponse>(url, payload);
 	return data;
 };
 
@@ -111,10 +103,8 @@ export const suspendFacility = async (
 	id: string,
 	payload: ModerationReasonBody,
 ): Promise<FacilityResponse> => {
-	const { data } = await api.patch<FacilityResponse>(
-		`${administratorBaseUrl()}${buildUrlWithParams(API_PATHS.ADMINISTRATOR_FACILITY_SUSPEND, { id })}`,
-		payload,
-	);
+	const url = `${administratorBaseUrl()}${buildUrlWithParams(API_PATHS.ADMINISTRATOR_FACILITY_SUSPEND, { id })}`;
+	const { data } = await api.patch<FacilityResponse>(url, payload);
 	return data;
 };
 
@@ -124,9 +114,7 @@ const managerBaseUrl = () => API_URLS(env.VITE_API_VERSION).MANAGER;
 export const fileFacilityAppeal = async (
 	payload: AppealBody,
 ): Promise<TimelineResponse> => {
-	const { data } = await api.post<TimelineResponse>(
-		`${managerBaseUrl()}${API_PATHS.MANAGER_FACILITY_APPEAL}`,
-		payload,
-	);
+	const url = `${managerBaseUrl()}${API_PATHS.MANAGER_FACILITY_APPEAL}`;
+	const { data } = await api.post<TimelineResponse>(url, payload);
 	return data;
 };

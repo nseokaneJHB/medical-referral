@@ -10,7 +10,7 @@ import {
 
 import { globalResponseSchema } from "./global";
 
-import { UserSchema } from "./user";
+import { userSchema } from "./user";
 
 import { ROLES } from "../constant";
 
@@ -53,7 +53,7 @@ export const createUserByAdminSchema = z
 	});
 
 const userWithTemporaryPasswordSchema = z.object({
-	user: UserSchema,
+	user: userSchema,
 	temporary_password: stringSchema,
 });
 

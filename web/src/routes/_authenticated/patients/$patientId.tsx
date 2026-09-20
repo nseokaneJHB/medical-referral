@@ -20,7 +20,7 @@ import {
 	GENDER,
 	FRONTEND_URLS,
 	stringToTitleCase,
-	UpdatePatientSchema,
+	updatePatientSchema,
 	transferRequestSchema,
 	type TransferResponse,
 	type PatientResponse,
@@ -321,7 +321,7 @@ const PatientDetailPage = () => {
 
 	const { control, handleSubmit } = useForm<UpdatePatientBody>({
 		mode: "onChange",
-		resolver: zodResolver(UpdatePatientSchema),
+		resolver: zodResolver(updatePatientSchema),
 		defaultValues: {
 			first_name: patient.first_name,
 			last_name: patient.last_name,

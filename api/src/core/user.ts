@@ -17,6 +17,7 @@ import {
 	type FindAllOptions,
 	type FindUniqueOptions,
 	type WithCount,
+	type WithRelations,
 } from "./helpers";
 
 /**
@@ -25,8 +26,8 @@ import {
  * a user record.
  */
 interface UserRelations {
-	sessions: schema.SessionModelSelect;
-	accounts: schema.AccountModelSelect;
+	sessions: schema.SessionModelSelect[];
+	accounts: schema.AccountModelSelect[];
 	facility: schema.FacilityModelSelect;
 }
 
@@ -111,7 +112,13 @@ export class User {
 	>(
 		options: TOptions,
 	): Promise<
-		Pagination<WithCount<Pick<schema.UserModelSelect, TSelect>, TOptions>>
+		Pagination<
+			WithRelations<
+				WithCount<Pick<schema.UserModelSelect, TSelect>, TOptions>,
+				TOptions,
+				UserRelations
+			>
+		>
 	> => {
 		return (await manyRecords(
 			this.executor,
@@ -120,7 +127,11 @@ export class User {
 			this.relationConfigs,
 			this.countConfigs,
 		)) as unknown as Pagination<
-			WithCount<Pick<schema.UserModelSelect, TSelect>, TOptions>
+			WithRelations<
+				WithCount<Pick<schema.UserModelSelect, TSelect>, TOptions>,
+				TOptions,
+				UserRelations
+			>
 		>;
 	};
 
@@ -137,9 +148,10 @@ export class User {
 		TOptions extends FindUniqueOptions<schema.UserModelSelect, UserRelations>,
 	>(
 		options: TOptions,
-	): Promise<WithCount<
-		Pick<schema.UserModelSelect, TSelect>,
-		TOptions
+	): Promise<WithRelations<
+		WithCount<Pick<schema.UserModelSelect, TSelect>, TOptions>,
+		TOptions,
+		UserRelations
 	> | null> => {
 		const result = await oneRecord(
 			this.executor,
@@ -149,9 +161,10 @@ export class User {
 			this.countConfigs,
 		);
 
-		return result as WithCount<
-			Pick<schema.UserModelSelect, TSelect>,
-			TOptions
+		return result as WithRelations<
+			WithCount<Pick<schema.UserModelSelect, TSelect>, TOptions>,
+			TOptions,
+			UserRelations
 		> | null;
 	};
 

@@ -14,7 +14,7 @@ import {
 	REFERRAL_STATUS,
 	FRONTEND_URLS,
 	stringToTitleCase,
-	UpdateReferralSchema,
+	updateReferralSchema,
 	STATUS_TRANSITIONS,
 	NURSE_STATUS_TARGETS,
 	redirectReferralSchema,
@@ -124,8 +124,6 @@ const REASON_NOT_REQUIRED_TARGETS = new Set<ReferralStatus>([
 	REFERRAL_STATUS.ACCEPTED,
 	REFERRAL_STATUS.IN_PROGRESS,
 ]);
-
-type StatusNotesFormValues = { notes: string };
 
 /**
  * Doctor-only. Server enforces the destination must be `APPROVED` and a
@@ -357,7 +355,7 @@ const ReferralDetailPage = () => {
 
 	const { control, handleSubmit } = useForm<UpdateReferralBody>({
 		mode: "onChange",
-		resolver: zodResolver(UpdateReferralSchema),
+		resolver: zodResolver(updateReferralSchema),
 		defaultValues: {
 			destination_facility_id: referral.destination_facility.id,
 			visit_reason: referral.visit_reason,
@@ -382,10 +380,11 @@ const ReferralDetailPage = () => {
 	// requiredness (see REASON_NOT_REQUIRED_TARGETS) — so this uses
 	// useForm/useFormField without a zodResolver, and requiredness is
 	// enforced per-button below instead.
-	const { control: notesControl, reset: resetStatusNotes } =
-		useForm<StatusNotesFormValues>({
-			defaultValues: { notes: "" },
-		});
+	const { control: notesControl, reset: resetStatusNotes } = useForm<{
+		notes: string;
+	}>({
+		defaultValues: { notes: "" },
+	});
 	const statusNotes = useFormField({ name: "notes", control: notesControl });
 
 	const updateReferralMutation = useMutation<

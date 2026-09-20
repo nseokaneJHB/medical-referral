@@ -25,10 +25,8 @@ export const nurseSummaryRequest = createServerFn({ method: "GET" })
 			paramsSerializer: { indexes: null },
 		};
 
-		const { data } = await api.get<NurseSummaryResponse>(
-			`${baseUrl}${API_PATHS.DASHBOARD_NURSE_SUMMARY}`,
-			options,
-		);
+		const url = `${baseUrl}${API_PATHS.DASHBOARD_NURSE_SUMMARY}`;
+		const { data } = await api.get<NurseSummaryResponse>(url, options);
 		return data;
 	});
 
@@ -41,10 +39,8 @@ export const doctorSummaryRequest = createServerFn({ method: "GET" })
 			paramsSerializer: { indexes: null },
 		};
 
-		const { data } = await api.get<DoctorSummaryResponse>(
-			`${baseUrl}${API_PATHS.DASHBOARD_DOCTOR_SUMMARY}`,
-			options,
-		);
+		const url = `${baseUrl}${API_PATHS.DASHBOARD_DOCTOR_SUMMARY}`;
+		const { data } = await api.get<DoctorSummaryResponse>(url, options);
 		return data;
 	});
 
@@ -57,10 +53,8 @@ export const adminSummaryRequest = createServerFn({ method: "GET" })
 			paramsSerializer: { indexes: null },
 		};
 
-		const { data } = await api.get<AdminSummaryResponse>(
-			`${baseUrl}${API_PATHS.DASHBOARD_ADMIN_SUMMARY}`,
-			options,
-		);
+		const url = `${baseUrl}${API_PATHS.DASHBOARD_ADMIN_SUMMARY}`;
+		const { data } = await api.get<AdminSummaryResponse>(url, options);
 		return data;
 	});
 
@@ -73,9 +67,7 @@ export const managerSummaryRequest = createServerFn({ method: "GET" })
 			paramsSerializer: { indexes: null },
 		};
 
-		const { data } = await api.get<ManagerSummaryResponse>(
-			`${baseUrl}${API_PATHS.DASHBOARD_MANAGER_SUMMARY}`,
-			options,
-		);
+		const url = `${baseUrl}${API_PATHS.DASHBOARD_MANAGER_SUMMARY}`;
+		const { data } = await api.get<ManagerSummaryResponse>(url, options);
 		return data;
 	});

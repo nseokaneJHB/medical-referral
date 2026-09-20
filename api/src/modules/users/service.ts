@@ -10,18 +10,12 @@ import {
 	DEFAULT_PAGE_LIMIT,
 	DEFAULT_PAGE_NUMBER,
 	HTTP_RESPONSE_CODE,
-	orderDirectionSchema,
 	type Role,
 	type UserDetailResponse,
-	type UserSpecialtyListResponse,
 } from "@referral-tracking/shared";
 
 import { zeroFillCounts, generateUuid } from "../../lib/util";
-import {
-	parseEnumList,
-	parseSortList,
-	buildOrderClause,
-} from "../../lib/validator";
+import { parseEnumList } from "../../lib/validator";
 import { canViewUser, canManagerActOnStaff } from "../../lib/permission";
 
 import { AutoAssignmentManager } from "../../management/auto-assignment";
@@ -30,7 +24,7 @@ import { UserModel, type UserModelSelect } from "../../drizzle/schema";
 
 import type { CoreService } from "../../core";
 
-import type { WhereClause } from "../../core/helpers";
+import { buildOrderClause, type WhereClause } from "../../core/helpers";
 
 import type {
 	UsersRequest,
@@ -80,7 +74,7 @@ export const users = async (
 	const page = Number(query.page);
 	const limit = Number(query.limit);
 
-	const role = request.user!.role as Role;
+	const role = request.user!.role;
 
 	const where: WhereClause<UserModelSelect> = {};
 	if (role === ROLES.MANAGER) where.facility_id = request.user!.facility_id!;
@@ -102,9 +96,13 @@ export const users = async (
 		];
 	}
 
-	const sorts = parseSortList(query.sort, UserModel, "created_at");
-	const orders = parseEnumList(query.order, orderDirectionSchema) ?? ["desc"];
-	const order = buildOrderClause<UserModelSelect>(sorts, orders, "desc");
+	const order = buildOrderClause<UserModelSelect>(
+		query.sort,
+		query.order,
+		UserModel,
+		"created_at",
+		"desc",
+	);
 
 	const result = await server.core.user.many({
 		page,
@@ -160,7 +158,7 @@ export const user = async (
 	request: FastifyRequest<UserRequest>,
 	reply: FastifyReply<UserRequest>,
 ): Promise<void> => {
-	const role = request.user!.role as Role;
+	const role = request.user!.role;
 
 	const user = await request.server.core.user.one({
 		where: { id: request.params.id },
@@ -187,13 +185,11 @@ export const user = async (
 	reply.status(status).send({
 		code,
 		message: "User retrieved.",
-		// `include`-derived fields (`facility`) aren't modeled by `WithCount` —
-		// present at runtime, just invisible to this type. See `core/helpers.ts`.
 		data: {
 			...user,
 			stats,
 			password_set_at: account?.updated_at ?? null,
-		} as unknown as UserDetailResponse["data"],
+		},
 	});
 };
 
@@ -201,7 +197,7 @@ export const userHistory = async (
 	request: FastifyRequest<UserHistoryRequest>,
 	reply: FastifyReply<UserHistoryRequest>,
 ): Promise<void> => {
-	const role = request.user!.role as Role;
+	const role = request.user!.role;
 
 	const user = await request.server.core.user.one({
 		where: { id: request.params.id },
@@ -259,7 +255,7 @@ export const userSpecialties = async (
 	request: FastifyRequest<UserSpecialtiesRequest>,
 	reply: FastifyReply<UserSpecialtiesRequest>,
 ): Promise<void> => {
-	const role = request.user!.role as Role;
+	const role = request.user!.role;
 
 	const target = await request.server.core.user.one({
 		where: { id: request.params.id },
@@ -285,10 +281,7 @@ export const userSpecialties = async (
 	reply.status(status).send({
 		code,
 		message: "User specialties retrieved.",
-		// `include`-derived fields (`specialty`) aren't modeled by `linkMany`'s
-		// return type — present at runtime, just invisible to this type. See
-		// `core/helpers.ts`.
-		data: result.data as unknown as UserSpecialtyListResponse["data"],
+		data: result.data,
 	});
 };
 
@@ -296,7 +289,7 @@ export const userSpecialtyAssign = async (
 	request: FastifyRequest<UserSpecialtyAssignRequest>,
 	reply: FastifyReply<UserSpecialtyAssignRequest>,
 ): Promise<void> => {
-	const role = request.user!.role as Role;
+	const role = request.user!.role;
 
 	const target = await request.server.core.user.one({
 		where: { id: request.params.id },
@@ -385,7 +378,7 @@ export const userSpecialtyUnassign = async (
 	request: FastifyRequest<UserSpecialtyUnassignRequest>,
 	reply: FastifyReply<UserSpecialtyUnassignRequest>,
 ): Promise<void> => {
-	const role = request.user!.role as Role;
+	const role = request.user!.role;
 
 	const target = await request.server.core.user.one({
 		where: { id: request.params.id },

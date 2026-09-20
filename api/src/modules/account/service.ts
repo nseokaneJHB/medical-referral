@@ -13,9 +13,8 @@ import {
 } from "@referral-tracking/shared";
 
 import { auth } from "../../lib/auth";
-import { generateUuid } from "../../lib/util";
 import { canFileAppeal } from "../../lib/permission";
-import { httpCodeForStatus } from "../../lib/http-response";
+import { generateUuid, httpCodeForStatus } from "../../lib/util";
 import { hashPassword, verifyPassword } from "../../lib/password";
 
 import { AppealManager } from "../../management/appeal";
@@ -30,6 +29,9 @@ import type {
 	TwoFactorGetTotpUriRequest,
 	TwoFactorGenerateBackupCodesRequest,
 } from "./type";
+
+/** Shape of better-auth's own error response body, read once per failed call. */
+type AuthErrorBody = { message?: string };
 
 /**
  * Latest timeline row for an entity, whatever action it was — used as
@@ -252,7 +254,7 @@ export const twoFactorEnable = async (
 	const cookies = response.headers.getSetCookie();
 	if (cookies.length > 0) reply.header("set-cookie", cookies);
 
-	const body = await response.json().catch(() => null);
+	const body = (await response.json()) as AuthErrorBody;
 
 	if (response.ok) {
 		return reply.status(response.status).send({
@@ -264,9 +266,7 @@ export const twoFactorEnable = async (
 
 	return reply.status(response.status).send({
 		code: httpCodeForStatus(response.status),
-		message:
-			(body as { message?: string } | null)?.message ??
-			"Could not enable two-factor authentication.",
+		message: body?.message ?? "Could not enable two-factor authentication.",
 	});
 };
 
@@ -282,9 +282,7 @@ export const twoFactorDisable = async (
 	});
 
 	if (!response.ok) {
-		const body = (await response.json().catch(() => null)) as {
-			message?: string;
-		} | null;
+		const body = (await response.json()) as AuthErrorBody;
 
 		return reply.status(response.status).send({
 			code: httpCodeForStatus(response.status),
@@ -314,7 +312,7 @@ export const twoFactorGetTotpUri = async (
 	const cookies = response.headers.getSetCookie();
 	if (cookies.length > 0) reply.header("set-cookie", cookies);
 
-	const body = await response.json().catch(() => null);
+	const body = (await response.json()) as AuthErrorBody;
 
 	if (response.ok) {
 		return reply.status(response.status).send({
@@ -326,9 +324,7 @@ export const twoFactorGetTotpUri = async (
 
 	return reply.status(response.status).send({
 		code: httpCodeForStatus(response.status),
-		message:
-			(body as { message?: string } | null)?.message ??
-			"Could not fetch TOTP URI.",
+		message: body?.message ?? "Could not fetch TOTP URI.",
 	});
 };
 
@@ -345,7 +341,7 @@ export const twoFactorGenerateBackupCodes = async (
 	const cookies = response.headers.getSetCookie();
 	if (cookies.length > 0) reply.header("set-cookie", cookies);
 
-	const body = await response.json().catch(() => null);
+	const body = (await response.json()) as AuthErrorBody;
 
 	if (response.ok) {
 		return reply.status(response.status).send({
@@ -357,8 +353,6 @@ export const twoFactorGenerateBackupCodes = async (
 
 	return reply.status(response.status).send({
 		code: httpCodeForStatus(response.status),
-		message:
-			(body as { message?: string } | null)?.message ??
-			"Could not generate backup codes.",
+		message: body?.message ?? "Could not generate backup codes.",
 	});
 };

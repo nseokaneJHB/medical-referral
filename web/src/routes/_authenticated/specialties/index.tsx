@@ -18,7 +18,7 @@ import {
 	FRONTEND_URLS,
 	DEFAULT_PAGE_LIMIT,
 	DEFAULT_PAGE_NUMBER,
-	CreateSpecialtySchema,
+	createSpecialtySchema,
 	paginationSortAndSearchQuerySchema,
 	type Specialty,
 	type SpecialtyResponse,
@@ -82,7 +82,7 @@ const SpecialtyDialog = ({
 
 	const { control, handleSubmit, reset } = useForm<CreateSpecialtyBody>({
 		mode: "onChange",
-		resolver: zodResolver(CreateSpecialtySchema),
+		resolver: zodResolver(createSpecialtySchema),
 		values: {
 			name: specialty?.name ?? "",
 			description: specialty?.description ?? "",

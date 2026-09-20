@@ -5,6 +5,8 @@ import {
 	USER_STATUS,
 	TIMELINE_TYPE,
 	TIMELINE_ACTION,
+	DEFAULT_PAGE_LIMIT,
+	DEFAULT_PAGE_NUMBER,
 	HTTP_RESPONSE_CODE,
 } from "@referral-tracking/shared";
 
@@ -13,7 +15,6 @@ import {
 	canFileFacilityAppeal,
 	canManagerActOnStaff,
 } from "../../lib/permission";
-import { parsePagination } from "../../lib/validator";
 import { AppealManager } from "../../management/appeal";
 import { ModerationManager } from "../../management/moderation";
 
@@ -51,6 +52,8 @@ const TIMELINE_FIELDS = {
 	changed_at: true,
 } as const;
 
+type StaffTarget = { id: string; role: string; status: string };
+
 /**
  * Shared staff-target lookup + the two guards every staff action needs:
  * the target must actually be this Manager's own staff (`canManagerActOnStaff`,
@@ -60,10 +63,10 @@ const TIMELINE_FIELDS = {
  * `lib/permission.ts`'s `isAccountUsable` docstring for why this lives
  * here instead of the general middleware gate).
  */
-const resolveStaffTarget = async <TRoute extends { Params: { id: string } }>(
-	request: FastifyRequest<TRoute>,
+const resolveStaffTarget = async (
+	request: FastifyRequest<{ Params: { id: string } }>,
 	reply: FastifyReply,
-): Promise<{ id: string; role: string; status: string } | null> => {
+): Promise<StaffTarget | null> => {
 	if (request.user!.status === USER_STATUS.FLAGGED) {
 		const { status, code } = HTTP_RESPONSE_CODE.FORBIDDEN;
 		reply.status(status).send({
@@ -74,10 +77,8 @@ const resolveStaffTarget = async <TRoute extends { Params: { id: string } }>(
 		return null;
 	}
 
-	const params = request.params as { id: string };
-
 	const target = await request.server.core.user.one({
-		where: { id: params.id },
+		where: { id: request.params.id },
 		select: { id: true, role: true, status: true, facility_id: true },
 	});
 
@@ -369,7 +370,12 @@ export const appeals = async (
 	reply: FastifyReply<AppealsRequest>,
 ): Promise<void> => {
 	const manager = request.user!;
-	const { page, limit } = parsePagination(request.query);
+	const page = request.query.page
+		? Number(request.query.page)
+		: DEFAULT_PAGE_NUMBER;
+	const limit = request.query.limit
+		? Number(request.query.limit)
+		: DEFAULT_PAGE_LIMIT;
 
 	if (!manager.facility_id) {
 		const { status, code } = HTTP_RESPONSE_CODE.OK;
@@ -441,7 +447,12 @@ export const auditList = async (
 	reply: FastifyReply<AuditListRequest>,
 ): Promise<void> => {
 	const manager = request.user!;
-	const { page, limit } = parsePagination(request.query);
+	const page = request.query.page
+		? Number(request.query.page)
+		: DEFAULT_PAGE_NUMBER;
+	const limit = request.query.limit
+		? Number(request.query.limit)
+		: DEFAULT_PAGE_LIMIT;
 
 	if (!manager.facility_id) {
 		const { status, code } = HTTP_RESPONSE_CODE.OK;

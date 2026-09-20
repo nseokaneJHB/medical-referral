@@ -13,7 +13,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 
 import {
 	ROLES,
-	SignUpSchema,
+	signUpSchema,
 	FRONTEND_URLS,
 	signUpRoleSchema,
 	stringToTitleCase,
@@ -37,12 +37,14 @@ import { useFacilitySearch } from "@/hooks/use-facility-search";
 import { QUERY_KEYS } from "@/api/constant";
 import { signUp } from "@/api/auth";
 
-const signUpFormSchema = SignUpSchema.extend({
-	confirmPassword: z.string().min(1, "Please confirm your password"),
-}).refine((data) => data.password === data.confirmPassword, {
-	path: ["confirmPassword"],
-	message: "Passwords do not match",
-});
+const signUpFormSchema = signUpSchema
+	.extend({
+		confirmPassword: z.string().min(1, "Please confirm your password"),
+	})
+	.refine((data) => data.password === data.confirmPassword, {
+		path: ["confirmPassword"],
+		message: "Passwords do not match",
+	});
 
 type SignUpFormValues = z.infer<typeof signUpFormSchema>;
 

@@ -5,7 +5,7 @@
 	"name": "@referral-tracking/web",
 	"scripts": {
 		"lint": "eslint .",
-		"dev": "vite dev",
+		"dev": "vite dev --force",
 		"typecheck": "tsc --noEmit",
 		"ui:add": "pnpm dlx shadcn@latest add",
 		"clean": "rm -rf node_modules dist"

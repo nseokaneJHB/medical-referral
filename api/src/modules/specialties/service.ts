@@ -1,23 +1,15 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 
-import {
-	HTTP_RESPONSE_CODE,
-	orderDirectionSchema,
-} from "@referral-tracking/shared";
+import { HTTP_RESPONSE_CODE } from "@referral-tracking/shared";
 
 import { generateUuid } from "../../lib/util";
-import {
-	parseSortList,
-	parseEnumList,
-	buildOrderClause,
-} from "../../lib/validator";
 
 import {
 	SpecialtyModel,
 	type SpecialtyModelSelect,
 } from "../../drizzle/schema";
 
-import type { WhereClause } from "../../core/helpers";
+import { buildOrderClause, type WhereClause } from "../../core/helpers";
 
 import type {
 	SpecialtiesRequest,
@@ -48,9 +40,13 @@ export const specialties = async (
 		where.name = { contains: query.search, mode: "insensitive" };
 	}
 
-	const sorts = parseSortList(query.sort, SpecialtyModel, "name");
-	const orders = parseEnumList(query.order, orderDirectionSchema) ?? ["asc"];
-	const order = buildOrderClause<SpecialtyModelSelect>(sorts, orders, "asc");
+	const order = buildOrderClause<SpecialtyModelSelect>(
+		query.sort,
+		query.order,
+		SpecialtyModel,
+		"name",
+		"asc",
+	);
 
 	const result = await server.core.specialty.many({
 		page,

@@ -13,7 +13,7 @@ import {
 	PRIORITY,
 	FRONTEND_URLS,
 	stringToTitleCase,
-	CreateReferralSchema,
+	createReferralSchema,
 	TERMINAL_REFERRAL_STATUSES,
 	type SpecialtyRef,
 	type ReferralResponse,
@@ -48,7 +48,7 @@ const PRIORITY_ITEMS = Object.values(PRIORITY).map((value) => ({
 // form-values type (the pre-parse shape, matching `z.input`) makes it
 // optional — even though `CreateReferralBody` (the post-parse `z.infer`
 // output) requires it. `useForm` must be typed against the input shape.
-type ReferralFormValues = z.input<typeof CreateReferralSchema>;
+type ReferralFormValues = z.input<typeof createReferralSchema>;
 
 const NewReferralPage = () => {
 	const navigate = useNavigate();
@@ -103,7 +103,7 @@ const NewReferralPage = () => {
 
 	const { control, handleSubmit } = useForm<ReferralFormValues>({
 		mode: "onChange",
-		resolver: zodResolver(CreateReferralSchema),
+		resolver: zodResolver(createReferralSchema),
 		defaultValues: {
 			patient_id: "",
 			destination_facility_id: "",

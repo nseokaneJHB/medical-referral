@@ -1,20 +1,20 @@
 import { z } from "zod";
 
 import {
-	NurseSummarySchema,
-	DoctorSummarySchema,
-	AdminSummarySchema,
-	ManagerSummarySchema,
+	nurseSummarySchema,
+	doctorSummarySchema,
+	adminSummarySchema,
+	managerSummarySchema,
 	nurseSummaryResponseSchema,
 	doctorSummaryResponseSchema,
 	adminSummaryResponseSchema,
 	managerSummaryResponseSchema,
 } from "../schema/dashboard";
 
-export type NurseSummary = z.infer<typeof NurseSummarySchema>;
-export type DoctorSummary = z.infer<typeof DoctorSummarySchema>;
-export type AdminSummary = z.infer<typeof AdminSummarySchema>;
-export type ManagerSummary = z.infer<typeof ManagerSummarySchema>;
+export type NurseSummary = z.infer<typeof nurseSummarySchema>;
+export type DoctorSummary = z.infer<typeof doctorSummarySchema>;
+export type AdminSummary = z.infer<typeof adminSummarySchema>;
+export type ManagerSummary = z.infer<typeof managerSummarySchema>;
 
 export type NurseSummaryResponse = z.infer<typeof nurseSummaryResponseSchema>;
 export type DoctorSummaryResponse = z.infer<typeof doctorSummaryResponseSchema>;

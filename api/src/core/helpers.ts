@@ -32,7 +32,10 @@ import type { MySql2Database } from "drizzle-orm/mysql2";
 import {
 	DEFAULT_PAGE_LIMIT,
 	DEFAULT_PAGE_NUMBER,
+	orderDirectionSchema,
 } from "@referral-tracking/shared";
+
+import { parseEnumList, parseSortList } from "../lib/validator";
 
 /* ═══════════════════════════════════════════════════════════════
    EXECUTOR - db connection OR an open transaction, interchangeably
@@ -146,6 +149,26 @@ export type WithCount<TRecord, TOptions> = TOptions extends {
 		}
 	: TRecord;
 
+/**
+ * Adds the relations requested through an `include` clause to a record's
+ * type — same "shape depends on the options passed" idiom as `WithCount`.
+ * `TRelations[K]` already encodes cardinality per relation (each repo's own
+ * `XRelations` interface types a "many" relation as an array, a "one" as a
+ * bare object), so this doesn't need the runtime relation-type info
+ * `buildRelations` uses — it just looks it up.
+ */
+export type WithRelations<TRecord, TOptions, TRelations> = TOptions extends {
+	include: infer TInclude;
+}
+	? TRecord & {
+			[K in keyof TInclude as TInclude[K] extends false | undefined
+				? never
+				: K extends keyof TRelations
+					? K
+					: never]: K extends keyof TRelations ? TRelations[K] : never;
+		}
+	: TRecord;
+
 export type Pagination<T> = {
 	data: T[];
 	page: number;
@@ -203,6 +226,35 @@ export type DeleteOptions<TModel> = {
 export type AggregateOptions<TModel> = {
 	by: keyof TModel;
 	where?: WhereClause<TModel>;
+};
+
+/* ═══════════════════════════════════════════════════════════════
+   QUERY PARAM PARSING - turns a request's raw sort/order strings
+   into the OrderClause<TModel> repositories accept
+   ═══════════════════════════════════════════════════════════════ */
+
+/** Resolves `?sort=&order=` into an `OrderClause<TModel>`, pairing each sort column with its positional direction and repeating the first/fallback direction once `order` runs out. */
+export const buildOrderClause = <
+	TModel,
+	TTable extends MySqlTable = MySqlTable,
+>(
+	sortValue: string | undefined,
+	orderValue: string | undefined,
+	model: TTable,
+	fallbackColumn: string,
+	fallbackDirection: OrderDirection,
+): OrderClause<TModel> => {
+	const sorts = parseSortList(sortValue, model, fallbackColumn);
+	const orders = parseEnumList(orderValue, orderDirectionSchema) ?? [
+		fallbackDirection,
+	];
+
+	return Object.fromEntries(
+		sorts.map((sorting, index) => [
+			sorting,
+			orders[index] || orders[0] || fallbackDirection,
+		]),
+	) as OrderClause<TModel>;
 };
 
 /* ═══════════════════════════════════════════════════════════════

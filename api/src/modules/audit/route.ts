@@ -4,6 +4,7 @@ import {
 	ROLES,
 	API_PATHS,
 	globalResponseSchema,
+	paginationQuerySchema,
 	loginsListResponseSchema,
 } from "@referral-tracking/shared";
 
@@ -24,6 +25,7 @@ export const route: FastifyPluginAsync = async (
 			app.authorize([ROLES.ADMINISTRATOR]),
 		],
 		schema: {
+			querystring: paginationQuerySchema,
 			response: {
 				200: loginsListResponseSchema,
 				401: globalResponseSchema,

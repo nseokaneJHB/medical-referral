@@ -18,9 +18,7 @@ export const referralsReportRequest = createServerFn({ method: "GET" })
 	.handler(async ({ data: query }): Promise<ReferralsReportResponse> => {
 		const options = { ...forwardedRequestOptions(), params: query };
 
-		const { data } = await api.get<ReferralsReportResponse>(
-			`${baseUrl}${API_PATHS.REPORTS_REFERRALS}`,
-			options,
-		);
+		const url = `${baseUrl}${API_PATHS.REPORTS_REFERRALS}`;
+		const { data } = await api.get<ReferralsReportResponse>(url, options);
 		return data;
 	});

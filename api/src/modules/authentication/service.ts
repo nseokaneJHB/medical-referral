@@ -13,8 +13,7 @@ import {
 
 import { env } from "../../lib/env";
 import { auth } from "../../lib/auth";
-import { generateUuid } from "../../lib/util";
-import { httpCodeForStatus } from "../../lib/http-response";
+import { generateUuid, httpCodeForStatus } from "../../lib/util";
 
 import type {
 	SignUpRequest,
@@ -26,6 +25,17 @@ import type {
 	TwoFactorVerifyTotpRequest,
 	TwoFactorVerifyBackupCodeRequest,
 } from "./type";
+
+/** Shape of better-auth's own error response body, read once per failed call. */
+type AuthErrorBody = { message?: string };
+
+/** Shape of a two-factor verify endpoint's response body — carries the signed-in user's id on success, a message on failure. */
+type TwoFactorVerifyBody = { user?: { id: string }; message?: string };
+
+type SignInBody = AuthErrorBody & {
+	twoFactorRedirect?: boolean;
+	twoFactorMethods?: TwoFactorMethod[];
+};
 
 /**
  * A facility only ever comes into being `PENDING`, paired with its
@@ -111,9 +121,7 @@ export const signUp = async (
 			.send({ code: HTTP_RESPONSE_CODE.OK.code, message: "Account created." });
 	}
 
-	const failure = (await response.json().catch(() => null)) as {
-		message?: string;
-	} | null;
+	const failure = (await response.json()) as AuthErrorBody;
 
 	return reply.status(response.status).send({
 		code: httpCodeForStatus(response.status),
@@ -198,11 +206,7 @@ export const signIn = async (
 		body: { email, password },
 	});
 
-	const body = (await response.json().catch(() => null)) as {
-		message?: string;
-		twoFactorRedirect?: boolean;
-		twoFactorMethods?: TwoFactorMethod[];
-	} | null;
+	const body = (await response.json()) as SignInBody;
 
 	if (existingUser) {
 		let status: (typeof LOGIN_STATUS)[keyof typeof LOGIN_STATUS];
@@ -316,30 +320,24 @@ export const session = async (
 
 	const { status, code } = HTTP_RESPONSE_CODE.OK;
 
+	const user = userSession
+		? request.server.management.session.mapUser(userSession.user)
+		: null;
+
 	const response: SessionResponse = {
 		code,
 		message: userSession ? "Session active." : "No active session.",
-		user: userSession
+		user: user
 			? {
-					id: userSession.user.id,
-					name: userSession.user.name ?? "",
-					email: userSession.user.email,
-					// eslint-disable-next-line @typescript-eslint/no-explicit-any
-					role: (userSession.user as any).role,
-					// eslint-disable-next-line @typescript-eslint/no-explicit-any
-					status: (userSession.user as any).status,
-					facility_id:
-						// eslint-disable-next-line @typescript-eslint/no-explicit-any
-						(userSession.user as any).facility_id ?? null,
-					must_change_password:
-						// eslint-disable-next-line @typescript-eslint/no-explicit-any
-						(userSession.user as any).must_change_password ?? false,
-					nda_accepted_version:
-						// eslint-disable-next-line @typescript-eslint/no-explicit-any
-						(userSession.user as any).nda_accepted_version ?? null,
-					two_factor_enabled:
-						// eslint-disable-next-line @typescript-eslint/no-explicit-any
-						(userSession.user as any).twoFactorEnabled ?? false,
+					id: user.id,
+					name: user.name ?? "",
+					email: user.email,
+					role: user.role,
+					status: user.status,
+					facility_id: user.facility_id,
+					must_change_password: user.must_change_password,
+					nda_accepted_version: user.nda_accepted_version,
+					two_factor_enabled: user.two_factor_enabled,
 				}
 			: null,
 	};
@@ -357,10 +355,7 @@ export const twoFactorVerifyTotp = async (
 		body: request.body,
 	});
 
-	const body = (await response.json().catch(() => null)) as {
-		user?: { id: string };
-		message?: string;
-	} | null;
+	const body = (await response.json()) as TwoFactorVerifyBody;
 
 	if (response.ok && body?.user?.id) {
 		await resolvePendingLoginSuccess(request.server, body.user.id);
@@ -391,10 +386,7 @@ export const twoFactorVerifyBackupCode = async (
 		body: request.body,
 	});
 
-	const body = (await response.json().catch(() => null)) as {
-		user?: { id: string };
-		message?: string;
-	} | null;
+	const body = (await response.json()) as TwoFactorVerifyBody;
 
 	if (response.ok && body?.user?.id) {
 		await resolvePendingLoginSuccess(request.server, body.user.id);
@@ -432,9 +424,7 @@ export const twoFactorSendOtp = async (
 		});
 	}
 
-	const body = (await response.json().catch(() => null)) as {
-		message?: string;
-	} | null;
+	const body = (await response.json()) as AuthErrorBody;
 
 	return reply.status(response.status).send({
 		code: httpCodeForStatus(response.status),
@@ -452,10 +442,7 @@ export const twoFactorVerifyOtp = async (
 		body: request.body,
 	});
 
-	const body = (await response.json().catch(() => null)) as {
-		user?: { id: string };
-		message?: string;
-	} | null;
+	const body = (await response.json()) as TwoFactorVerifyBody;
 
 	if (response.ok && body?.user?.id) {
 		await resolvePendingLoginSuccess(request.server, body.user.id);

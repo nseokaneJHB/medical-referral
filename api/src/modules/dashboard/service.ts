@@ -10,7 +10,7 @@ import {
 import { zeroFillCounts, localDateStartToUtc } from "../../lib/util";
 import { TransferManager } from "../../management/transfer";
 
-import type { WhereClause } from "../../core/helpers";
+import type { WhereClause, WhereOperator } from "../../core/helpers";
 import type { ReferralModelSelect } from "../../drizzle/schema";
 
 import type {
@@ -20,17 +20,15 @@ import type {
 	ManagerSummaryRequest,
 } from "./type";
 
-type DateRangeFilter = { gte?: Date; lt?: Date };
-
 /** `to` is inclusive of that whole day, so the upper bound is midnight of the day after. */
 const buildDateRangeFilter = (
 	from?: string,
 	to?: string,
 	tzOffset?: string,
-): DateRangeFilter | undefined => {
+): WhereOperator<Date> | undefined => {
 	if (!from && !to) return undefined;
 
-	const filter: DateRangeFilter = {};
+	const filter: WhereOperator<Date> = {};
 	if (from) filter.gte = localDateStartToUtc(from, tzOffset);
 	if (to) {
 		const end = localDateStartToUtc(to, tzOffset);
@@ -53,7 +51,7 @@ export const nurseSummary = async (
 ): Promise<void> => {
 	const { core } = request.server;
 
-	const where: { referrer_id: string; created_at?: DateRangeFilter } = {
+	const where: { referrer_id: string; created_at?: WhereOperator<Date> } = {
 		referrer_id: request.user!.id,
 	};
 

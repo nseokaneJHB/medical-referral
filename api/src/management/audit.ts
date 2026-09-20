@@ -39,6 +39,12 @@ const TIMELINE_INCLUDE = {
  */
 const RELATED_ID_LIMIT = 1000;
 
+type ListForFacilityPayload = {
+	facilityId: string;
+	page: number;
+	limit: number;
+};
+
 /**
  * Assembles a Manager's facility-wide activity feed: every `timeline` row
  * about their staff, their patients, referrals touching their facility
@@ -57,22 +63,20 @@ export class AuditManager {
 		this.core = core;
 	}
 
-	listForFacility = async (options: {
-		facilityId: string;
-		page: number;
-		limit: number;
-	}): Promise<Pagination<ManagerAudit>> => {
+	listForFacility = async (
+		payload: ListForFacilityPayload,
+	): Promise<Pagination<ManagerAudit>> => {
 		const [staff, patients, referrals] = await Promise.all([
 			this.core.user.many({
 				page: 1,
 				limit: RELATED_ID_LIMIT,
-				where: { facility_id: options.facilityId },
+				where: { facility_id: payload.facilityId },
 				select: { id: true },
 			}),
 			this.core.patient.many({
 				page: 1,
 				limit: RELATED_ID_LIMIT,
-				where: { facility_id: options.facilityId },
+				where: { facility_id: payload.facilityId },
 				select: { id: true },
 			}),
 			this.core.referral.many({
@@ -80,8 +84,8 @@ export class AuditManager {
 				limit: RELATED_ID_LIMIT,
 				where: {
 					OR: [
-						{ origin_facility_id: options.facilityId },
-						{ destination_facility_id: options.facilityId },
+						{ origin_facility_id: payload.facilityId },
+						{ destination_facility_id: payload.facilityId },
 					],
 				},
 				select: { id: true },
@@ -93,7 +97,7 @@ export class AuditManager {
 		const referralIds = referrals.data.map((row) => row.id);
 
 		const OR: WhereClause<TimelineModelSelect>[] = [
-			{ type: TIMELINE_TYPE.FACILITY, entity: options.facilityId },
+			{ type: TIMELINE_TYPE.FACILITY, entity: payload.facilityId },
 		];
 		if (staffIds.length > 0) {
 			OR.push({ type: TIMELINE_TYPE.USER, entity: { in: staffIds } });
@@ -108,17 +112,13 @@ export class AuditManager {
 		const result = await this.core.timeline.many({
 			where: { OR },
 			order: { changed_at: "desc" },
-			page: options.page,
-			limit: options.limit,
+			page: payload.page,
+			limit: payload.limit,
 			select: TIMELINE_FIELDS,
 			include: TIMELINE_INCLUDE,
 		});
 
-		// `changer` (via `include: TIMELINE_INCLUDE`) isn't modeled by
-		// `Timeline.many()`'s return type — present at runtime, invisible to
-		// this type. Same gap as `AppealManager.list`.
-		const rows = result.data as unknown as Timeline[];
-		const data = await this.hydrateSubjects(rows, options.facilityId);
+		const data = await this.hydrateSubjects(result.data, payload.facilityId);
 
 		return {
 			data,

@@ -11,6 +11,8 @@ import {
 	type CreateOptions,
 	type FindAllOptions,
 	type FindUniqueOptions,
+	type WithCount,
+	type WithRelations,
 } from "./helpers";
 
 /**
@@ -86,7 +88,15 @@ export class Timeline {
 		>,
 	>(
 		options: TOptions & { supersededBy?: TimelineAction[] },
-	): Promise<Pagination<Pick<schema.TimelineModelSelect, TSelect>>> => {
+	): Promise<
+		Pagination<
+			WithRelations<
+				WithCount<Pick<schema.TimelineModelSelect, TSelect>, TOptions>,
+				TOptions,
+				TimelineRelations
+			>
+		>
+	> => {
 		const where = options.supersededBy
 			? {
 					...options.where,
@@ -105,7 +115,13 @@ export class Timeline {
 			{ ...options, where },
 			this.relationConfigs,
 			this.countConfigs,
-		)) as unknown as Pagination<Pick<schema.TimelineModelSelect, TSelect>>;
+		)) as unknown as Pagination<
+			WithRelations<
+				WithCount<Pick<schema.TimelineModelSelect, TSelect>, TOptions>,
+				TOptions,
+				TimelineRelations
+			>
+		>;
 	};
 
 	/**

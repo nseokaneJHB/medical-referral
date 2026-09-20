@@ -60,10 +60,8 @@ export const updatePatient = async (
 	id: string,
 	payload: UpdatePatientBody,
 ): Promise<PatientResponse> => {
-	const { data } = await api.patch<PatientResponse>(
-		`${baseUrl}${buildUrlWithParams(API_PATHS.PATIENT_BY_ID, { id })}`,
-		payload,
-	);
+	const url = `${baseUrl}${buildUrlWithParams(API_PATHS.PATIENT_BY_ID, { id })}`;
+	const { data } = await api.patch<PatientResponse>(url, payload);
 	return data;
 };
 
@@ -71,10 +69,8 @@ export const flagPatient = async (
 	id: string,
 	payload: ModerationReasonBody,
 ): Promise<PatientResponse> => {
-	const { data } = await api.patch<PatientResponse>(
-		`${baseUrl}${buildUrlWithParams(API_PATHS.PATIENT_FLAG, { id })}`,
-		payload,
-	);
+	const url = `${baseUrl}${buildUrlWithParams(API_PATHS.PATIENT_FLAG, { id })}`;
+	const { data } = await api.patch<PatientResponse>(url, payload);
 	return data;
 };
 
@@ -82,10 +78,8 @@ export const unflagPatient = async (
 	id: string,
 	payload: ApproveActionBody,
 ): Promise<PatientResponse> => {
-	const { data } = await api.patch<PatientResponse>(
-		`${baseUrl}${buildUrlWithParams(API_PATHS.PATIENT_UNFLAG, { id })}`,
-		payload,
-	);
+	const url = `${baseUrl}${buildUrlWithParams(API_PATHS.PATIENT_UNFLAG, { id })}`;
+	const { data } = await api.patch<PatientResponse>(url, payload);
 	return data;
 };
 
@@ -93,9 +87,7 @@ export const requestPatientTransfer = async (
 	id: string,
 	payload: TransferRequestBody,
 ): Promise<TransferResponse> => {
-	const { data } = await api.post<TransferResponse>(
-		`${baseUrl}${buildUrlWithParams(API_PATHS.PATIENT_TRANSFER_REQUEST, { id })}`,
-		payload,
-	);
+	const url = `${baseUrl}${buildUrlWithParams(API_PATHS.PATIENT_TRANSFER_REQUEST, { id })}`;
+	const { data } = await api.post<TransferResponse>(url, payload);
 	return data;
 };

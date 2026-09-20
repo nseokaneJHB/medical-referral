@@ -36,7 +36,7 @@ export const authorize = (allowedRoles: Role | Role[]) => {
 	): Promise<void> => {
 		const user = request.user!;
 
-		if (!roles.includes(user.role as Role)) {
+		if (!roles.includes(user.role)) {
 			return forbidden(reply, "Insufficient permissions");
 		}
 

@@ -73,7 +73,7 @@ export class Facility {
 			this.executor,
 			schema.FacilityModel,
 			options,
-		)) as unknown as Pagination<Pick<schema.FacilityModelSelect, TSelect>>;
+		)) as Pagination<Pick<schema.FacilityModelSelect, TSelect>>;
 	};
 
 	/**

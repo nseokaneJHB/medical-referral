@@ -10,10 +10,27 @@ import {
 } from "./field";
 
 /**
+ * Bare `?page=&limit=` query schema — every plain-pagination route (no
+ * sort/search/date filtering) validates its querystring against this,
+ * rather than the fuller `paginationSortAndSearchQuerySchema` below, which
+ * would silently accept sort/search params the route doesn't use.
+ */
+export const paginationQuerySchema = z.object({
+	page: z
+		.string()
+		.default(`${DEFAULT_PAGE_NUMBER}`)
+		.describe("Page number of the results"),
+	limit: z
+		.string()
+		.default(`${DEFAULT_PAGE_LIMIT}`)
+		.describe("Number of items per page"),
+});
+
+/**
  * Generic global pagination query schema
  */
-export const paginationSortAndSearchQuerySchema = z
-	.object({
+export const paginationSortAndSearchQuerySchema = paginationQuerySchema
+	.extend({
 		to: z.string().optional().describe("End date for filtering results"),
 		from: z.string().optional().describe("Start date for filtering results"),
 		tz_offset: z
@@ -25,14 +42,6 @@ export const paginationSortAndSearchQuerySchema = z
 		sort: stringSchema.optional().describe("Field to sort results by"),
 		order: orderDirectionSchema.optional().describe("Sort order (ASC or DESC)"),
 		search: stringSchema.optional().describe("Search string to filter results"),
-		page: z
-			.string()
-			.default(`${DEFAULT_PAGE_NUMBER}`)
-			.describe("Page number of the results"),
-		limit: z
-			.string()
-			.default(`${DEFAULT_PAGE_LIMIT}`)
-			.describe("Number of items per page"),
 	})
 	.refine(
 		(data) =>

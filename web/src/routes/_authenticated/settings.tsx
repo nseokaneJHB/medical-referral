@@ -18,9 +18,9 @@ import {
 
 import {
 	type GlobalResponse,
-	TwoFactorVerifyTotpSchema,
+	twoFactorVerifyCodeSchema,
 	type TwoFactorEnableResponse,
-	type TwoFactorVerifyTotpBody,
+	type TwoFactorVerifyCodeBody,
 	twoFactorPasswordConfirmSchema,
 	type TwoFactorGetTotpUriResponse,
 	type TwoFactorPasswordConfirmBody,
@@ -189,9 +189,9 @@ const EnableTwoFactorDialog = ({
 		control: passwordForm.control,
 	});
 
-	const codeForm = useForm<TwoFactorVerifyTotpBody>({
+	const codeForm = useForm<TwoFactorVerifyCodeBody>({
 		mode: "onChange",
-		resolver: zodResolver(TwoFactorVerifyTotpSchema),
+		resolver: zodResolver(twoFactorVerifyCodeSchema),
 		defaultValues: { code: "" },
 	});
 	const code = useFormField({ name: "code", control: codeForm.control });
@@ -205,7 +205,7 @@ const EnableTwoFactorDialog = ({
 	const confirmMutation = useMutation<
 		GlobalResponse,
 		Error,
-		TwoFactorVerifyTotpBody
+		TwoFactorVerifyCodeBody
 	>({ mutationFn: twoFactorVerifyTotp });
 
 	const reset = () => {
@@ -224,7 +224,7 @@ const EnableTwoFactorDialog = ({
 			},
 		});
 
-	const onSubmitCode = async (values: TwoFactorVerifyTotpBody) =>
+	const onSubmitCode = async (values: TwoFactorVerifyCodeBody) =>
 		useToastMutation({
 			loading: "Confirming...",
 			promise: confirmMutation.mutateAsync(values),

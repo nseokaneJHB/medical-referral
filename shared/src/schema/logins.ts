@@ -9,7 +9,7 @@ import {
 
 import { paginatedGlobalResponseSchema } from "./global";
 
-export const LoginsSchema = z.object({
+export const loginsSchema = z.object({
 	id: uuidSchema,
 	user_id: uuidSchema,
 	login_at: z.date(),
@@ -24,5 +24,5 @@ export const LoginsSchema = z.object({
 });
 
 export const loginsListResponseSchema = paginatedGlobalResponseSchema.extend({
-	data: z.array(LoginsSchema),
+	data: z.array(loginsSchema),
 });

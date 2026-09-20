@@ -16,6 +16,8 @@ import {
 	type DeleteOptions,
 	type FindAllOptions,
 	type FindUniqueOptions,
+	type WithCount,
+	type WithRelations,
 } from "./helpers";
 
 type SpecialtyLinkOwner = "user" | "facility" | "referral";
@@ -153,7 +155,7 @@ export class Specialty {
 			this.executor,
 			schema.SpecialtyModel,
 			options,
-		)) as unknown as Pagination<Pick<schema.SpecialtyModelSelect, TSelect>>;
+		)) as Pagination<Pick<schema.SpecialtyModelSelect, TSelect>>;
 	};
 
 	one = async <
@@ -204,7 +206,15 @@ export class Specialty {
 	>(
 		owner: TOwner,
 		options: TOptions,
-	): Promise<Pagination<Pick<LinkSelect<TOwner>, TSelect>>> => {
+	): Promise<
+		Pagination<
+			WithRelations<
+				WithCount<Pick<LinkSelect<TOwner>, TSelect>, TOptions>,
+				TOptions,
+				LinkRelations<TOwner>
+			>
+		>
+	> => {
 		const table =
 			owner === "user"
 				? schema.UserSpecialtyModel
@@ -230,7 +240,13 @@ export class Specialty {
 			options,
 			relationConfigs,
 			countConfigs,
-		)) as unknown as Pagination<Pick<LinkSelect<TOwner>, TSelect>>;
+		)) as unknown as Pagination<
+			WithRelations<
+				WithCount<Pick<LinkSelect<TOwner>, TSelect>, TOptions>,
+				TOptions,
+				LinkRelations<TOwner>
+			>
+		>;
 	};
 
 	/** Create a link row in `user_specialties`, `facility_specialties`, or `referral_specialties`. */

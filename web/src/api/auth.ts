@@ -9,9 +9,7 @@ import {
 	type GlobalResponse,
 	type SessionResponse,
 	type TwoFactorSendOtpBody,
-	type TwoFactorVerifyOtpBody,
-	type TwoFactorVerifyTotpBody,
-	type TwoFactorVerifyBackupCodeBody,
+	type TwoFactorVerifyCodeBody,
 } from "@referral-tracking/shared";
 
 import { api, forwardedRequestOptions } from "@/api";
@@ -63,7 +61,7 @@ export const sessionRequest = createServerFn({
 
 /** Also doubles as the "confirm enrollment" step right after POST /account/two-factor/enable — see docs/2fa.md. */
 export const twoFactorVerifyTotp = async (
-	payload: TwoFactorVerifyTotpBody,
+	payload: TwoFactorVerifyCodeBody,
 ): Promise<GlobalResponse> => {
 	const url = `${baseUrl}${API_PATHS.TWO_FACTOR_VERIFY_TOTP}`;
 
@@ -73,7 +71,7 @@ export const twoFactorVerifyTotp = async (
 };
 
 export const twoFactorVerifyBackupCode = async (
-	payload: TwoFactorVerifyBackupCodeBody,
+	payload: TwoFactorVerifyCodeBody,
 ): Promise<GlobalResponse> => {
 	const url = `${baseUrl}${API_PATHS.TWO_FACTOR_VERIFY_BACKUP_CODE}`;
 
@@ -93,7 +91,7 @@ export const twoFactorSendOtp = async (
 };
 
 export const twoFactorVerifyOtp = async (
-	payload: TwoFactorVerifyOtpBody,
+	payload: TwoFactorVerifyCodeBody,
 ): Promise<GlobalResponse> => {
 	const url = `${baseUrl}${API_PATHS.TWO_FACTOR_VERIFY_OTP}`;
 

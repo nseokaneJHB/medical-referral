@@ -11,15 +11,15 @@ import { useForm, useController } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import {
-	SignInSchema,
+	signInSchema,
 	FRONTEND_URLS,
 	TWO_FACTOR_METHOD,
 	type SignInBody,
 	type GlobalResponse,
 	type SignInResponse,
 	type TwoFactorMethod,
-	TwoFactorVerifyTotpSchema,
-	type TwoFactorVerifyTotpBody,
+	twoFactorVerifyCodeSchema,
+	type TwoFactorVerifyCodeBody,
 } from "@referral-tracking/shared";
 
 import { Button } from "@/components/ui/button";
@@ -59,7 +59,7 @@ const SignInPage = () => {
 
 	const { control, handleSubmit } = useForm<SignInBody>({
 		mode: "onChange",
-		resolver: zodResolver(SignInSchema),
+		resolver: zodResolver(signInSchema),
 		defaultValues: { email: "", password: "" },
 	});
 
@@ -71,9 +71,9 @@ const SignInPage = () => {
 		handleSubmit: handleTwoFactorSubmit,
 		setValue: setTwoFactorValue,
 		setError: setTwoFactorError,
-	} = useForm<TwoFactorVerifyTotpBody>({
+	} = useForm<TwoFactorVerifyCodeBody>({
 		mode: "onChange",
-		resolver: zodResolver(TwoFactorVerifyTotpSchema),
+		resolver: zodResolver(twoFactorVerifyCodeSchema),
 		defaultValues: { code: "", trustDevice: false },
 	});
 
@@ -131,7 +131,7 @@ const SignInPage = () => {
 	const verifyMutation = useMutation<
 		GlobalResponse,
 		Error,
-		TwoFactorVerifyTotpBody
+		TwoFactorVerifyCodeBody
 	>({
 		mutationFn: (payload) => {
 			if (useBackupCode) return twoFactorVerifyBackupCode(payload);
@@ -141,7 +141,7 @@ const SignInPage = () => {
 		},
 	});
 
-	const onVerify = async (payload: TwoFactorVerifyTotpBody) =>
+	const onVerify = async (payload: TwoFactorVerifyCodeBody) =>
 		useToastMutation({
 			loading: "Verifying...",
 			promise: verifyMutation.mutateAsync(payload),
