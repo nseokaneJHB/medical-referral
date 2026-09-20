@@ -1,6 +1,5 @@
 import { useState } from "react";
 
-import { z } from "zod";
 import { createFileRoute, useNavigate, redirect } from "@tanstack/react-router";
 import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
 
@@ -10,7 +9,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
 	PlusIcon,
 	PencilIcon,
-	SearchIcon,
 	ChevronLeftIcon,
 	ChevronRightIcon,
 	StethoscopeIcon,
@@ -21,6 +19,7 @@ import {
 	DEFAULT_PAGE_LIMIT,
 	DEFAULT_PAGE_NUMBER,
 	CreateSpecialtySchema,
+	paginationSortAndSearchQuerySchema,
 	type Specialty,
 	type SpecialtyResponse,
 	type CreateSpecialtyBody,
@@ -36,7 +35,6 @@ import {
 	TableHead,
 	TableHeader,
 } from "@/components/ui/table";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -51,6 +49,7 @@ import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 
 import { Loader } from "@/components/custom/loader";
 import { StatCard } from "@/components/custom/stat-card";
+import { SearchField } from "@/components/custom/search-field";
 import { Input as FormInput } from "@/components/custom/input";
 import { TextArea } from "@/components/custom/text-area";
 import { RowActionsMenu } from "@/components/custom/row-actions-menu";
@@ -66,12 +65,6 @@ import {
 	createSpecialty,
 	updateSpecialty,
 } from "@/api/specialties";
-
-const searchSchema = z.object({
-	page: z.string().default(`${DEFAULT_PAGE_NUMBER}`),
-	limit: z.string().default(`${DEFAULT_PAGE_LIMIT}`),
-	search: z.string().optional(),
-});
 
 /** Administrator-only. One dialog handles both create (no `specialty`) and rename. */
 const SpecialtyDialog = ({
@@ -216,6 +209,13 @@ const SpecialtiesPage = () => {
 		});
 	};
 
+	const clearSearch = () => {
+		setSearchInput("");
+		navigate({
+			search: (prev) => ({ ...prev, search: undefined, page: "1" }),
+		});
+	};
+
 	const openCreate = () => {
 		setEditing(null);
 		setDialogOpen(true);
@@ -254,20 +254,13 @@ const SpecialtiesPage = () => {
 
 			<Card>
 				<CardContent className="flex items-center gap-2">
-					<div className="ml-auto flex items-center gap-2">
-						<Input
-							value={searchInput}
-							placeholder="Search specialties..."
-							onChange={(event) => setSearchInput(event.target.value)}
-							onKeyDown={(event) => {
-								if (event.key === "Enter") commitSearch();
-							}}
-							className="h-10 max-w-sm text-base"
-						/>
-						<Button variant="outline" title="Search" onClick={commitSearch}>
-							<SearchIcon />
-						</Button>
-					</div>
+					<SearchField
+						value={searchInput}
+						onChange={setSearchInput}
+						onCommit={commitSearch}
+						onClear={clearSearch}
+						placeholder="Search specialties..."
+					/>
 				</CardContent>
 			</Card>
 
@@ -368,7 +361,7 @@ const SpecialtiesPage = () => {
 
 export const Route = createFileRoute("/_authenticated/specialties/")({
 	component: SpecialtiesPage,
-	validateSearch: searchSchema,
+	validateSearch: paginationSortAndSearchQuerySchema,
 	loaderDeps: ({ search }) => search,
 	beforeLoad: ({ context }) => {
 		if (!isAdministrator(context.user)) {

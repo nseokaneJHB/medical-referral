@@ -1,5 +1,4 @@
 import { createServerFn } from "@tanstack/react-start";
-import { getRequest } from "@tanstack/react-start/server";
 
 import {
 	API_URLS,
@@ -15,7 +14,7 @@ import {
 	type TwoFactorVerifyBackupCodeBody,
 } from "@referral-tracking/shared";
 
-import { api } from "@/api";
+import { api, forwardedRequestOptions } from "@/api";
 
 import { env } from "@/lib/env";
 
@@ -32,9 +31,7 @@ export const signUp = async (payload: SignUpBody): Promise<GlobalResponse> => {
 };
 
 /** May come back asking for a second factor instead of a session; see SignInResponse.twoFactorRedirect. */
-export const signIn = async (
-	payload: SignInBody,
-): Promise<SignInResponse> => {
+export const signIn = async (payload: SignInBody): Promise<SignInResponse> => {
 	const url = `${baseUrl}${API_PATHS.SIGN_IN}`;
 
 	const { data } = await api.post<SignInResponse>(url, payload);
@@ -56,13 +53,10 @@ export const sessionRequest = createServerFn({
 }).handler(async (): Promise<SessionResponse> => {
 	const url = `${baseUrl}${API_PATHS.SESSION}`;
 
-	const request = getRequest();
-	const cookie = request.headers.get("cookie");
-
-	let options = {};
-	if (cookie) options = { headers: { cookie } };
-
-	const { data } = await api.get<SessionResponse>(url, options);
+	const { data } = await api.get<SessionResponse>(
+		url,
+		forwardedRequestOptions(),
+	);
 
 	return data;
 });

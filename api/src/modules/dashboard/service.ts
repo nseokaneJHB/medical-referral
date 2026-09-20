@@ -20,6 +20,29 @@ import type {
 	ManagerSummaryRequest,
 } from "./type";
 
+type DateRangeFilter = { gte?: Date; lt?: Date };
+
+/** `to` is inclusive of that whole day, so the upper bound is midnight of the day after. */
+const buildDateRangeFilter = (
+	from?: string,
+	to?: string,
+	tzOffset?: string,
+): DateRangeFilter | undefined => {
+	if (!from && !to) return undefined;
+
+	const filter: DateRangeFilter = {};
+	if (from) filter.gte = localDateStartToUtc(from, tzOffset);
+	if (to) {
+		const end = localDateStartToUtc(to, tzOffset);
+		end.setUTCDate(end.getUTCDate() + 1);
+		filter.lt = end;
+	}
+	return filter;
+};
+
+const sumCounts = (counts: Record<string, number>): number =>
+	Object.values(counts).reduce((a, b) => a + b, 0);
+
 /**
  * PDF Nurse Dashboard widgets: "Referrals Created, Pending Referrals,
  * Canceled Referrals, Referrals on hold".
@@ -30,28 +53,23 @@ export const nurseSummary = async (
 ): Promise<void> => {
 	const { core } = request.server;
 
-	const where: { referrer_id: string; created_at?: Record<string, unknown> } = {
+	const where: { referrer_id: string; created_at?: DateRangeFilter } = {
 		referrer_id: request.user!.id,
 	};
 
-	if (request.query.from) {
-		where.created_at = {
-			...(where.created_at || {}),
-			gte: localDateStartToUtc(request.query.from, request.query.tz_offset),
-		};
-	}
-	if (request.query.to) {
-		const end = localDateStartToUtc(request.query.to, request.query.tz_offset);
-		end.setUTCDate(end.getUTCDate() + 1);
-		where.created_at = { ...(where.created_at || {}), lt: end };
-	}
+	const dateFilter = buildDateRangeFilter(
+		request.query.from,
+		request.query.to,
+		request.query.tz_offset,
+	);
+	if (dateFilter) where.created_at = dateFilter;
 
 	const counts = zeroFillCounts(
 		await core.referral.count(where, "status"),
 		REFERRAL_STATUS,
 	);
 
-	const referralsCreated = Object.values(counts).reduce((a, b) => a + b, 0);
+	const referralsCreated = sumCounts(counts);
 
 	const { status, code } = HTTP_RESPONSE_CODE.OK;
 	reply.status(status).send({
@@ -86,24 +104,19 @@ export const doctorSummary = async (
 		],
 	};
 
-	if (request.query.from) {
-		where.created_at = {
-			...(where.created_at || {}),
-			gte: localDateStartToUtc(request.query.from, request.query.tz_offset),
-		};
-	}
-	if (request.query.to) {
-		const end = localDateStartToUtc(request.query.to, request.query.tz_offset);
-		end.setUTCDate(end.getUTCDate() + 1);
-		where.created_at = { ...(where.created_at || {}), lt: end };
-	}
+	const dateFilter = buildDateRangeFilter(
+		request.query.from,
+		request.query.to,
+		request.query.tz_offset,
+	);
+	if (dateFilter) where.created_at = dateFilter;
 
 	const counts = zeroFillCounts(
 		await core.referral.count(where, "status"),
 		REFERRAL_STATUS,
 	);
 
-	const myReferrals = Object.values(counts).reduce((a, b) => a + b, 0);
+	const myReferrals = sumCounts(counts);
 
 	const { status, code } = HTTP_RESPONSE_CODE.OK;
 	reply.status(status).send({
@@ -129,20 +142,12 @@ export const adminSummary = async (
 
 	const where: Record<string, unknown> = {};
 
-	if (request.query.from) {
-		where.created_at = {
-			...((where.created_at as Record<string, unknown>) || {}),
-			gte: localDateStartToUtc(request.query.from, request.query.tz_offset),
-		};
-	}
-	if (request.query.to) {
-		const end = localDateStartToUtc(request.query.to, request.query.tz_offset);
-		end.setUTCDate(end.getUTCDate() + 1);
-		where.created_at = {
-			...((where.created_at as Record<string, unknown>) || {}),
-			lt: end,
-		};
-	}
+	const dateFilter = buildDateRangeFilter(
+		request.query.from,
+		request.query.to,
+		request.query.tz_offset,
+	);
+	if (dateFilter) where.created_at = dateFilter;
 
 	const [totalUsers, totalPatients, totalFacilities, statusCounts] =
 		await Promise.all([
@@ -156,7 +161,7 @@ export const adminSummary = async (
 		]);
 
 	const counts = zeroFillCounts(statusCounts, REFERRAL_STATUS);
-	const totalReferrals = Object.values(counts).reduce((a, b) => a + b, 0);
+	const totalReferrals = sumCounts(counts);
 
 	const { status, code } = HTTP_RESPONSE_CODE.OK;
 	reply.status(status).send({
@@ -191,20 +196,12 @@ export const managerSummary = async (
 
 	const where: Record<string, unknown> = {};
 
-	if (request.query.from) {
-		where.created_at = {
-			...((where.created_at as Record<string, unknown>) || {}),
-			gte: localDateStartToUtc(request.query.from, request.query.tz_offset),
-		};
-	}
-	if (request.query.to) {
-		const end = localDateStartToUtc(request.query.to, request.query.tz_offset);
-		end.setUTCDate(end.getUTCDate() + 1);
-		where.created_at = {
-			...((where.created_at as Record<string, unknown>) || {}),
-			lt: end,
-		};
-	}
+	const dateFilter = buildDateRangeFilter(
+		request.query.from,
+		request.query.to,
+		request.query.tz_offset,
+	);
+	if (dateFilter) where.created_at = dateFilter;
 
 	const [
 		totalStaff,
@@ -242,7 +239,7 @@ export const managerSummary = async (
 	]);
 
 	const counts = zeroFillCounts(statusCounts, REFERRAL_STATUS);
-	const totalReferrals = Object.values(counts).reduce((a, b) => a + b, 0);
+	const totalReferrals = sumCounts(counts);
 
 	const { status, code } = HTTP_RESPONSE_CODE.OK;
 	reply.status(status).send({

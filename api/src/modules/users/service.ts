@@ -17,7 +17,11 @@ import {
 } from "@referral-tracking/shared";
 
 import { zeroFillCounts, generateUuid } from "../../lib/util";
-import { parseEnumList, parseSortList } from "../../lib/validator";
+import {
+	parseEnumList,
+	parseSortList,
+	buildOrderClause,
+} from "../../lib/validator";
 import { canViewUser, canManagerActOnStaff } from "../../lib/permission";
 
 import { AutoAssignmentManager } from "../../management/auto-assignment";
@@ -26,7 +30,7 @@ import { UserModel, type UserModelSelect } from "../../drizzle/schema";
 
 import type { CoreService } from "../../core";
 
-import type { OrderClause, WhereClause } from "../../core/helpers";
+import type { WhereClause } from "../../core/helpers";
 
 import type {
 	UsersRequest,
@@ -100,12 +104,7 @@ export const users = async (
 
 	const sorts = parseSortList(query.sort, UserModel, "created_at");
 	const orders = parseEnumList(query.order, orderDirectionSchema) ?? ["desc"];
-	const order = Object.fromEntries(
-		sorts.map((sorting, index) => [
-			sorting,
-			orders[index] || orders[0] || "desc",
-		]),
-	) as OrderClause<UserModelSelect>;
+	const order = buildOrderClause<UserModelSelect>(sorts, orders, "desc");
 
 	const result = await server.core.user.many({
 		page,

@@ -1,10 +1,8 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 
-import {
-	DEFAULT_PAGE_LIMIT,
-	DEFAULT_PAGE_NUMBER,
-	HTTP_RESPONSE_CODE,
-} from "@referral-tracking/shared";
+import { HTTP_RESPONSE_CODE } from "@referral-tracking/shared";
+
+import { parsePagination } from "../../lib/validator";
 
 import type { LoginsRequest } from "./type";
 
@@ -23,12 +21,7 @@ export const logins = async (
 	request: FastifyRequest<LoginsRequest>,
 	reply: FastifyReply<LoginsRequest>,
 ): Promise<void> => {
-	const page = request.query.page
-		? Number(request.query.page)
-		: DEFAULT_PAGE_NUMBER;
-	const limit = request.query.limit
-		? Number(request.query.limit)
-		: DEFAULT_PAGE_LIMIT;
+	const { page, limit } = parsePagination(request.query);
 
 	const result = await request.server.core.logins.many({
 		page,

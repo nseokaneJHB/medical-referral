@@ -107,6 +107,12 @@ export const normalizeNullableFields = <T extends Record<string, unknown>>(
 	return normalized;
 };
 
+/** `Date.prototype.getTimezoneOffset()` convention: UTC minus local, in minutes. Falls back to 0 (UTC) when missing/invalid. */
+const parseTzOffset = (tzOffsetMinutes?: string): number => {
+	const offset = tzOffsetMinutes ? Number(tzOffsetMinutes) : 0;
+	return Number.isNaN(offset) ? 0 : offset;
+};
+
 /**
  * Converts a bare `YYYY-MM-DD` date string into the UTC instant that
  * represents local midnight for a viewer at `tzOffsetMinutes` (the
@@ -119,9 +125,9 @@ export const localDateStartToUtc = (
 	tzOffsetMinutes?: string,
 ): Date => {
 	const utcMidnight = new Date(`${dateStr}T00:00:00.000Z`);
-	const offset = tzOffsetMinutes ? Number(tzOffsetMinutes) : 0;
-	if (Number.isNaN(offset)) return utcMidnight;
-	return new Date(utcMidnight.getTime() + offset * 60000);
+	return new Date(
+		utcMidnight.getTime() + parseTzOffset(tzOffsetMinutes) * 60000,
+	);
 };
 
 /**
@@ -130,12 +136,11 @@ export const localDateStartToUtc = (
  * as a UTC instant. Falls back to UTC when no offset is supplied.
  */
 export const localMonthStartToUtc = (tzOffsetMinutes?: string): Date => {
-	const offset = tzOffsetMinutes ? Number(tzOffsetMinutes) : 0;
-	const safeOffset = Number.isNaN(offset) ? 0 : offset;
+	const offset = parseTzOffset(tzOffsetMinutes);
 	const now = new Date();
-	const localNow = new Date(now.getTime() - safeOffset * 60000);
+	const localNow = new Date(now.getTime() - offset * 60000);
 	return new Date(
 		Date.UTC(localNow.getUTCFullYear(), localNow.getUTCMonth(), 1) +
-			safeOffset * 60000,
+			offset * 60000,
 	);
 };

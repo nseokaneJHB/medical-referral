@@ -5,8 +5,6 @@ import {
 	USER_STATUS,
 	TIMELINE_TYPE,
 	TIMELINE_ACTION,
-	DEFAULT_PAGE_LIMIT,
-	DEFAULT_PAGE_NUMBER,
 	HTTP_RESPONSE_CODE,
 } from "@referral-tracking/shared";
 
@@ -15,6 +13,7 @@ import {
 	canFileFacilityAppeal,
 	canManagerActOnStaff,
 } from "../../lib/permission";
+import { parsePagination } from "../../lib/validator";
 import { AppealManager } from "../../management/appeal";
 import { ModerationManager } from "../../management/moderation";
 
@@ -370,12 +369,7 @@ export const appeals = async (
 	reply: FastifyReply<AppealsRequest>,
 ): Promise<void> => {
 	const manager = request.user!;
-	const page = request.query.page
-		? Number(request.query.page)
-		: DEFAULT_PAGE_NUMBER;
-	const limit = request.query.limit
-		? Number(request.query.limit)
-		: DEFAULT_PAGE_LIMIT;
+	const { page, limit } = parsePagination(request.query);
 
 	if (!manager.facility_id) {
 		const { status, code } = HTTP_RESPONSE_CODE.OK;
@@ -424,9 +418,8 @@ export const appeals = async (
 		page,
 		limit,
 	});
-	const by_type = await request.server.management.appeal.countByType(
-		appealWhere,
-	);
+	const by_type =
+		await request.server.management.appeal.countByType(appealWhere);
 
 	const { status, code } = HTTP_RESPONSE_CODE.OK;
 	reply.status(status).send({
@@ -448,12 +441,7 @@ export const auditList = async (
 	reply: FastifyReply<AuditListRequest>,
 ): Promise<void> => {
 	const manager = request.user!;
-	const page = request.query.page
-		? Number(request.query.page)
-		: DEFAULT_PAGE_NUMBER;
-	const limit = request.query.limit
-		? Number(request.query.limit)
-		: DEFAULT_PAGE_LIMIT;
+	const { page, limit } = parsePagination(request.query);
 
 	if (!manager.facility_id) {
 		const { status, code } = HTTP_RESPONSE_CODE.OK;

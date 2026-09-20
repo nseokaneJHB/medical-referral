@@ -1,14 +1,13 @@
-import { sql } from "drizzle-orm";
 import {
 	text,
 	index,
 	boolean,
 	varchar,
-	timestamp,
 	mysqlTable,
 } from "drizzle-orm/mysql-core";
 
 import { UserModel } from "./user";
+import { timestampColumns } from "./helpers";
 
 /** Column names are the snake_case remap targets configured via twoFactor()'s own schema option in lib/auth.ts, not invented independently. */
 export const TwoFactorModel = mysqlTable(
@@ -19,11 +18,7 @@ export const TwoFactorModel = mysqlTable(
 		backup_codes: text("backup_codes").notNull(),
 		verified: boolean("verified").default(true).notNull(),
 
-		created_at: timestamp("created_at").notNull().defaultNow(),
-		updated_at: timestamp("updated_at")
-			.notNull()
-			.defaultNow()
-			.$onUpdate(() => sql`now()`),
+		...timestampColumns(),
 
 		user_id: varchar("user_id", { length: 36 })
 			.notNull()

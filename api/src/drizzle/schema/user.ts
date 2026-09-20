@@ -1,4 +1,3 @@
-import { sql } from "drizzle-orm";
 import {
 	index,
 	boolean,
@@ -12,6 +11,7 @@ import {
 import { ROLES, USER_STATUS } from "@referral-tracking/shared";
 
 import { FacilityModel } from "./facility";
+import { timestampColumns } from "./helpers";
 
 export const UserModel = mysqlTable(
 	"user",
@@ -45,19 +45,13 @@ export const UserModel = mysqlTable(
 		nda_accepted_at: timestamp("nda_accepted_at"),
 
 		/** Mirrors better-auth's own twoFactorEnabled field, remapped via twoFactor()'s schema option in lib/auth.ts. */
-		two_factor_enabled: boolean("two_factor_enabled")
-			.default(false)
-			.notNull(),
+		two_factor_enabled: boolean("two_factor_enabled").default(false).notNull(),
 
 		facility_id: varchar("facility_id", { length: 36 }).references(
 			() => FacilityModel.id,
 		),
 
-		created_at: timestamp("created_at").notNull().defaultNow(),
-		updated_at: timestamp("updated_at")
-			.notNull()
-			.defaultNow()
-			.$onUpdate(() => sql`now()`),
+		...timestampColumns(),
 	},
 	(table) => [
 		index("user_role_idx").on(table.role),

@@ -3,9 +3,12 @@ import { z } from "zod";
 import {
 	ROLES,
 	GENDER,
+	PRIORITY,
 	HTTP_CODE,
 	USER_STATUS,
+	LOGIN_STATUS,
 	ORDER_DIRECTION,
+	REFERRAL_STATUS,
 	FACILITY_STATUS,
 	TWO_FACTOR_METHOD,
 } from "../constant";
@@ -149,6 +152,16 @@ export const genderSchema = z.enum(GENDER).describe("Patient's gender");
 export const twoFactorMethodSchema = z
 	.enum(TWO_FACTOR_METHOD)
 	.describe("Second-factor method");
+
+export const referralStatusSchema = z
+	.enum(REFERRAL_STATUS)
+	.describe("Referral lifecycle status");
+
+export const prioritySchema = z.enum(PRIORITY).describe("Referral priority");
+
+export const loginStatusSchema = z
+	.enum(LOGIN_STATUS)
+	.describe("Login attempt outcome");
 
 /** Minimal nested reference to a facility — id + name, for display. */
 export const facilityRefSchema = z.object({

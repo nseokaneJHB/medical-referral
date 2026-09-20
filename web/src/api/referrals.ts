@@ -1,5 +1,4 @@
 import { createServerFn } from "@tanstack/react-start";
-import { getRequest } from "@tanstack/react-start/server";
 
 import {
 	API_URLS,
@@ -16,17 +15,11 @@ import {
 	type UpdateReferralStatusBody,
 } from "@referral-tracking/shared";
 
-import { api } from "@/api";
+import { api, forwardedRequestOptions } from "@/api";
 
 import { env } from "@/lib/env";
 
 const baseUrl = API_URLS(env.VITE_API_VERSION).REFERRALS;
-
-const forwardedRequestOptions = () => {
-	const request = getRequest();
-	const cookie = request.headers.get("cookie");
-	return cookie ? { headers: { cookie } } : {};
-};
 
 // Read (server-side, cookie-forwarded — used in route loaders)
 export const referralsRequest = createServerFn({ method: "GET" })

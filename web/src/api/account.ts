@@ -1,5 +1,4 @@
 import { createServerFn } from "@tanstack/react-start";
-import { getRequest } from "@tanstack/react-start/server";
 
 import {
 	API_URLS,
@@ -16,7 +15,7 @@ import {
 	type TwoFactorGenerateBackupCodesResponse,
 } from "@referral-tracking/shared";
 
-import { api } from "@/api";
+import { api, forwardedRequestOptions } from "@/api";
 
 import { env } from "@/lib/env";
 
@@ -24,13 +23,9 @@ const baseUrl = API_URLS(env.VITE_API_VERSION).ACCOUNT;
 
 export const accountStatusRequest = createServerFn({ method: "GET" }).handler(
 	async (): Promise<AccountStatusResponse> => {
-		const request = getRequest();
-		const cookie = request.headers.get("cookie");
-		const options = cookie ? { headers: { cookie } } : {};
-
 		const { data } = await api.get<AccountStatusResponse>(
 			`${baseUrl}${API_PATHS.ACCOUNT_STATUS}`,
-			options,
+			forwardedRequestOptions(),
 		);
 		return data;
 	},

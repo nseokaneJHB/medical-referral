@@ -1,5 +1,6 @@
-import { sql } from "drizzle-orm";
 import { index, varchar, timestamp, mysqlTable } from "drizzle-orm/mysql-core";
+
+import { timestampColumns } from "./helpers";
 
 export const VerificationModel = mysqlTable(
 	"verification",
@@ -9,11 +10,7 @@ export const VerificationModel = mysqlTable(
 		value: varchar("value", { length: 255 }).notNull(),
 		expires_at: timestamp("expires_at").notNull(),
 
-		created_at: timestamp("created_at").notNull().defaultNow(),
-		updated_at: timestamp("updated_at")
-			.notNull()
-			.defaultNow()
-			.$onUpdate(() => sql`now()`),
+		...timestampColumns(),
 	},
 	(table) => [index("verification_identifier_idx").on(table.identifier)],
 );

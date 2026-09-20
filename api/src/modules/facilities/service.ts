@@ -18,14 +18,22 @@ import {
 	type FacilityDetailResponse,
 } from "@referral-tracking/shared";
 
-import { generateUuid, zeroFillCounts, normalizeNullableFields } from "../../lib/util";
-import { parseEnumList, parseSortList } from "../../lib/validator";
+import {
+	generateUuid,
+	zeroFillCounts,
+	normalizeNullableFields,
+} from "../../lib/util";
+import {
+	parseEnumList,
+	parseSortList,
+	buildOrderClause,
+} from "../../lib/validator";
 
 import type { CoreService } from "../../core";
 
 import { FacilityModel, type FacilityModelSelect } from "../../drizzle/schema";
 
-import type { OrderClause, WhereClause } from "../../core/helpers";
+import type { WhereClause } from "../../core/helpers";
 
 import type {
 	FacilitiesRequest,
@@ -174,12 +182,7 @@ export const facilities = async (
 
 	const sorts = parseSortList(query.sort, FacilityModel, "name");
 	const orders = parseEnumList(query.order, orderDirectionSchema) ?? ["asc"];
-	const order = Object.fromEntries(
-		sorts.map((sorting, index) => [
-			sorting,
-			orders[index] || orders[0] || "asc",
-		]),
-	) as OrderClause<FacilityModelSelect>;
+	const order = buildOrderClause<FacilityModelSelect>(sorts, orders, "asc");
 
 	const result = await server.core.facility.many({
 		page,

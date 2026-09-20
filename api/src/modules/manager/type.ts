@@ -7,10 +7,10 @@ import type {
 	UserResponse,
 	GlobalResponse,
 	TimelineResponse,
+	AppealListResponse,
 	AppealDecisionBody,
 	ApproveActionBody,
 	ModerationReasonBody,
-	TimelineListResponse,
 	ManagerAuditListResponse,
 } from "@referral-tracking/shared";
 
@@ -57,7 +57,7 @@ export interface AppealDenyRequest extends RouteGenericInterface {
 
 export interface AppealsRequest extends RouteGenericInterface {
 	Querystring: { page?: string; limit?: string };
-	Reply: TimelineListResponse | GlobalResponse;
+	Reply: AppealListResponse | GlobalResponse;
 }
 
 export interface AuditListRequest extends RouteGenericInterface {

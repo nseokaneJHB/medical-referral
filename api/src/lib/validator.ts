@@ -1,6 +1,13 @@
 import type { MySqlTable } from "drizzle-orm/mysql-core";
 import { z } from "zod";
 
+import {
+	DEFAULT_PAGE_LIMIT,
+	DEFAULT_PAGE_NUMBER,
+} from "@referral-tracking/shared";
+
+import type { OrderClause, OrderDirection } from "../core/helpers";
+
 export const parseEnumList = <T extends z.ZodTypeAny>(
 	value: string | undefined,
 	enumSchema: T,
@@ -33,3 +40,25 @@ export const parseSortList = <TTable extends MySqlTable>(
 
 	return columns;
 };
+
+/** Parses page/limit query params, falling back to the app defaults when absent. */
+export const parsePagination = (query: {
+	page?: string;
+	limit?: string;
+}): { page: number; limit: number } => ({
+	page: query.page ? Number(query.page) : DEFAULT_PAGE_NUMBER,
+	limit: query.limit ? Number(query.limit) : DEFAULT_PAGE_LIMIT,
+});
+
+/** Pairs `sorts` (column names) with `orders` (directions) positionally, repeating the first/fallback direction once `orders` runs out. */
+export const buildOrderClause = <TModel>(
+	sorts: string[],
+	orders: OrderDirection[],
+	fallbackDirection: OrderDirection,
+): OrderClause<TModel> =>
+	Object.fromEntries(
+		sorts.map((sorting, index) => [
+			sorting,
+			orders[index] || orders[0] || fallbackDirection,
+		]),
+	) as OrderClause<TModel>;

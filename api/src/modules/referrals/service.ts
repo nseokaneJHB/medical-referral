@@ -13,8 +13,8 @@ import {
 	DEFAULT_PAGE_LIMIT,
 	DEFAULT_PAGE_NUMBER,
 	HTTP_RESPONSE_CODE,
-	PriorityEnum,
-	ReferralStatusEnum,
+	prioritySchema,
+	referralStatusSchema,
 	orderDirectionSchema,
 	stringToTitleCase,
 	type Role,
@@ -22,8 +22,16 @@ import {
 	type ReferralSpecialtyListResponse,
 } from "@referral-tracking/shared";
 
-import { zeroFillCounts, generateUuid, localDateStartToUtc } from "../../lib/util";
-import { parseEnumList, parseSortList } from "../../lib/validator";
+import {
+	zeroFillCounts,
+	generateUuid,
+	localDateStartToUtc,
+} from "../../lib/util";
+import {
+	parseEnumList,
+	parseSortList,
+	buildOrderClause,
+} from "../../lib/validator";
 import {
 	canActOnReferral,
 	canViewReferral,
@@ -35,11 +43,7 @@ import { AutoAssignmentManager } from "../../management/auto-assignment";
 
 import { ReferralModel, type ReferralModelSelect } from "../../drizzle/schema";
 
-import type {
-	OrderClause,
-	WhereClause,
-	WhereOperator,
-} from "../../core/helpers";
+import type { WhereClause, WhereOperator } from "../../core/helpers";
 
 import type {
 	ReferralRequest,
@@ -229,10 +233,10 @@ export const referrals = async (
 	if (query.from || query.to) where.created_at = dateFilter;
 
 	if (query.status) {
-		where.status = { in: parseEnumList(query.status, ReferralStatusEnum) };
+		where.status = { in: parseEnumList(query.status, referralStatusSchema) };
 	}
 	if (query.priority) {
-		where.priority = { in: parseEnumList(query.priority, PriorityEnum) };
+		where.priority = { in: parseEnumList(query.priority, prioritySchema) };
 	}
 
 	if (query.search) {
@@ -243,12 +247,7 @@ export const referrals = async (
 
 	const sorts = parseSortList(query.sort, ReferralModel, "created_at");
 	const orders = parseEnumList(query.order, orderDirectionSchema) ?? ["desc"];
-	const order = Object.fromEntries(
-		sorts.map((sorting, index) => [
-			sorting,
-			orders[index] || orders[0] || "desc",
-		]),
-	) as OrderClause<ReferralModelSelect>;
+	const order = buildOrderClause<ReferralModelSelect>(sorts, orders, "desc");
 
 	const result = await server.core.referral.many({
 		page,
@@ -308,6 +307,21 @@ export const referral = async (
 const isTerminal = (status: string): boolean =>
 	(TERMINAL_REFERRAL_STATUSES as string[]).includes(status);
 
+/** Sends the standard CONFLICT response and returns true when the referral is already terminal, so callers can `if (...) return;`. */
+const requireNonTerminal = (
+	reply: FastifyReply,
+	referralStatus: string,
+): boolean => {
+	if (!isTerminal(referralStatus)) return false;
+
+	const { status, code } = HTTP_RESPONSE_CODE.CONFLICT;
+	reply.status(status).send({
+		code,
+		message: `This referral has already reached a terminal status ("${stringToTitleCase(referralStatus)}").`,
+	});
+	return true;
+};
+
 export const referralUpdate = async (
 	request: FastifyRequest<ReferralUpdateRequest>,
 	reply: FastifyReply<ReferralUpdateRequest>,
@@ -328,13 +342,7 @@ export const referralUpdate = async (
 		return reply.status(status).send({ code, message: "Referral not found." });
 	}
 
-	if (isTerminal(existing.status)) {
-		const { status, code } = HTTP_RESPONSE_CODE.CONFLICT;
-		return reply.status(status).send({
-			code,
-			message: `This referral has already reached a terminal status ("${stringToTitleCase(existing.status)}").`,
-		});
-	}
+	if (requireNonTerminal(reply, existing.status)) return;
 
 	const role = request.user!.role as Role;
 	if (role === ROLES.NURSE && existing.referrer_id !== request.user!.id) {
@@ -378,7 +386,8 @@ export const referralUpdate = async (
 	// Manager reassigning an already-ACCEPTED referral's doctor must
 	// leave a trail too.
 	const doctorChanged =
-		request.body.doctor !== undefined && request.body.doctor !== existing.doctor;
+		request.body.doctor !== undefined &&
+		request.body.doctor !== existing.doctor;
 
 	if (doctorChanged) {
 		await request.server.core.connection.transaction(async (tx) => {
@@ -472,13 +481,7 @@ export const referralAssign = async (
 		return reply.status(status).send({ code, message: "Referral not found." });
 	}
 
-	if (isTerminal(existing.status)) {
-		const { status, code } = HTTP_RESPONSE_CODE.CONFLICT;
-		return reply.status(status).send({
-			code,
-			message: `This referral has already reached a terminal status ("${stringToTitleCase(existing.status)}").`,
-		});
-	}
+	if (requireNonTerminal(reply, existing.status)) return;
 
 	if (existing.doctor) {
 		const { status, code } = HTTP_RESPONSE_CODE.CONFLICT;
@@ -591,13 +594,7 @@ export const referralRedirect = async (
 		});
 	}
 
-	if (isTerminal(existing.status)) {
-		const { status, code } = HTTP_RESPONSE_CODE.CONFLICT;
-		return reply.status(status).send({
-			code,
-			message: `This referral has already reached a terminal status ("${stringToTitleCase(existing.status)}").`,
-		});
-	}
+	if (requireNonTerminal(reply, existing.status)) return;
 
 	const { destination_facility_id: newDestinationId, notes } = request.body;
 
@@ -780,13 +777,7 @@ export const referralSpecialtyAssign = async (
 		});
 	}
 
-	if (isTerminal(existing.status)) {
-		const { status, code } = HTTP_RESPONSE_CODE.CONFLICT;
-		return reply.status(status).send({
-			code,
-			message: `This referral has already reached a terminal status ("${stringToTitleCase(existing.status)}").`,
-		});
-	}
+	if (requireNonTerminal(reply, existing.status)) return;
 
 	const specialty = await core.specialty.one({
 		where: { id: request.body.specialty_id },
@@ -881,13 +872,7 @@ export const referralSpecialtyUnassign = async (
 		});
 	}
 
-	if (isTerminal(existing.status)) {
-		const { status, code } = HTTP_RESPONSE_CODE.CONFLICT;
-		return reply.status(status).send({
-			code,
-			message: `This referral has already reached a terminal status ("${stringToTitleCase(existing.status)}").`,
-		});
-	}
+	if (requireNonTerminal(reply, existing.status)) return;
 
 	const deleted = await core.specialty.linkDelete("referral", {
 		where: {

@@ -2,8 +2,6 @@ export const APP_NAME = "Referral Tracking" as const;
 
 export const NDA_VERSION = "1" as const;
 
-export const DURATION_REGEX = /^(\d+)(ms|s|m|h|d)$/;
-
 export const DEFAULT_PAGE_LIMIT = 10 as const;
 export const DEFAULT_PAGE_NUMBER = 1 as const;
 

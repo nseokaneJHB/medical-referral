@@ -62,6 +62,10 @@ const envSchema = z.object({
 			/^v\d+$/,
 			"API_VERSION must follow the 'vX.X' format (e.g., v1, v2)",
 		),
+
+	DB_POOL_CONNECTION_LIMIT: z.string().default("10").transform(Number),
+	DB_POOL_IDLE_TIMEOUT_MS: z.string().default("30000").transform(Number),
+	DB_POOL_CONNECT_TIMEOUT_MS: z.string().default("10000").transform(Number),
 });
 
 export type Env = z.infer<typeof envSchema>;

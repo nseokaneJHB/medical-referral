@@ -1,5 +1,4 @@
 import { createServerFn } from "@tanstack/react-start";
-import { getRequest } from "@tanstack/react-start/server";
 
 import {
 	API_URLS,
@@ -11,7 +10,7 @@ import {
 	type TransferListResponse,
 } from "@referral-tracking/shared";
 
-import { api } from "@/api";
+import { api, forwardedRequestOptions } from "@/api";
 
 import { env } from "@/lib/env";
 
@@ -47,13 +46,9 @@ const baseUrl = (namespace: TransferNamespace): string =>
 export const transfersRequest = createServerFn({ method: "GET" })
 	.inputValidator((data: { namespace: TransferNamespace }) => data)
 	.handler(async ({ data }): Promise<TransferListResponse> => {
-		const request = getRequest();
-		const cookie = request.headers.get("cookie");
-		const options = cookie ? { headers: { cookie } } : {};
-
 		const { data: response } = await api.get<TransferListResponse>(
 			`${baseUrl(data.namespace)}${PATHS[data.namespace].LIST}`,
-			options,
+			forwardedRequestOptions(),
 		);
 		return response;
 	});

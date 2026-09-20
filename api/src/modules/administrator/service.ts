@@ -5,8 +5,6 @@ import {
 	USER_STATUS,
 	FACILITY_STATUS,
 	TIMELINE_ACTION,
-	DEFAULT_PAGE_LIMIT,
-	DEFAULT_PAGE_NUMBER,
 	HTTP_RESPONSE_CODE,
 	type TimelineType,
 } from "@referral-tracking/shared";
@@ -14,6 +12,7 @@ import {
 import { auth } from "../../lib/auth";
 import { hashPassword } from "../../lib/password";
 import { generateTemporaryPassword } from "../../lib/util";
+import { parsePagination } from "../../lib/validator";
 import { AppealManager } from "../../management/appeal";
 import { ModerationManager } from "../../management/moderation";
 
@@ -687,7 +686,9 @@ export const userCreate = async (
 		select: { id: true },
 	});
 
-	const user = await new ModerationManager(request.server.core).applyUserStatusChange({
+	const user = await new ModerationManager(
+		request.server.core,
+	).applyUserStatusChange({
 		userId: created.user.id,
 		status: USER_STATUS.ACTIVE,
 		action: TIMELINE_ACTION.APPROVED,
@@ -827,12 +828,7 @@ export const appeals = async (
 	request: FastifyRequest<AppealsRequest>,
 	reply: FastifyReply<AppealsRequest>,
 ): Promise<void> => {
-	const page = request.query.page
-		? Number(request.query.page)
-		: DEFAULT_PAGE_NUMBER;
-	const limit = request.query.limit
-		? Number(request.query.limit)
-		: DEFAULT_PAGE_LIMIT;
+	const { page, limit } = parsePagination(request.query);
 
 	const result = await request.server.management.appeal.list({ page, limit });
 	const by_type = await request.server.management.appeal.countByType();

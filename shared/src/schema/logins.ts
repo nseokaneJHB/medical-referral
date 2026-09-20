@@ -1,10 +1,13 @@
 import { z } from "zod";
 
-import { uuidSchema, emailSchema, stringSchema } from "./field";
+import {
+	uuidSchema,
+	emailSchema,
+	stringSchema,
+	loginStatusSchema,
+} from "./field";
 
 import { paginatedGlobalResponseSchema } from "./global";
-
-import { LoginStatusEnum } from "./referral";
 
 export const LoginsSchema = z.object({
 	id: uuidSchema,
@@ -13,7 +16,7 @@ export const LoginsSchema = z.object({
 	logout_at: z.date().nullable(),
 	ip: stringSchema.nullable(),
 	device: stringSchema.nullable(),
-	status: LoginStatusEnum,
+	status: loginStatusSchema,
 	reason: stringSchema.nullable(),
 	user: z
 		.object({ email: emailSchema, name: stringSchema.nullable() })

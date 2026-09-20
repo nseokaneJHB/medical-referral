@@ -6,14 +6,18 @@ import {
 } from "@referral-tracking/shared";
 
 import { generateUuid } from "../../lib/util";
-import { parseSortList, parseEnumList } from "../../lib/validator";
+import {
+	parseSortList,
+	parseEnumList,
+	buildOrderClause,
+} from "../../lib/validator";
 
 import {
 	SpecialtyModel,
 	type SpecialtyModelSelect,
 } from "../../drizzle/schema";
 
-import type { OrderClause, WhereClause } from "../../core/helpers";
+import type { WhereClause } from "../../core/helpers";
 
 import type {
 	SpecialtiesRequest,
@@ -46,12 +50,7 @@ export const specialties = async (
 
 	const sorts = parseSortList(query.sort, SpecialtyModel, "name");
 	const orders = parseEnumList(query.order, orderDirectionSchema) ?? ["asc"];
-	const order = Object.fromEntries(
-		sorts.map((sorting, index) => [
-			sorting,
-			orders[index] || orders[0] || "asc",
-		]),
-	) as OrderClause<SpecialtyModelSelect>;
+	const order = buildOrderClause<SpecialtyModelSelect>(sorts, orders, "asc");
 
 	const result = await server.core.specialty.many({
 		page,

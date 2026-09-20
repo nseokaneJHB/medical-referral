@@ -20,18 +20,18 @@ import {
 	localDateStartToUtc,
 	localMonthStartToUtc,
 } from "../../lib/util";
-import { parseEnumList, parseSortList } from "../../lib/validator";
+import {
+	parseEnumList,
+	parseSortList,
+	buildOrderClause,
+} from "../../lib/validator";
 import { canAccessPatient } from "../../lib/permission";
 
 import type { CoreService } from "../../core";
 
 import { PatientModel, type PatientModelSelect } from "../../drizzle/schema";
 
-import type {
-	OrderClause,
-	WhereClause,
-	WhereOperator,
-} from "../../core/helpers";
+import type { WhereClause, WhereOperator } from "../../core/helpers";
 
 import type {
 	PatientRequest,
@@ -249,12 +249,7 @@ export const patients = async (
 
 	const sorts = parseSortList(query.sort, PatientModel, "created_at");
 	const orders = parseEnumList(query.order, orderDirectionSchema) ?? ["desc"];
-	const order = Object.fromEntries(
-		sorts.map((sorting, index) => [
-			sorting,
-			orders[index] || orders[0] || "desc",
-		]),
-	) as OrderClause<PatientModelSelect>;
+	const order = buildOrderClause<PatientModelSelect>(sorts, orders, "desc");
 
 	const result = await server.core.patient.many({
 		page,
@@ -372,9 +367,7 @@ export const patientUpdate = async (
 	}
 
 	const changes = Object.entries(body)
-		.filter(
-			([key, value]) => value !== existing[key as keyof typeof existing],
-		)
+		.filter(([key, value]) => value !== existing[key as keyof typeof existing])
 		.map(
 			([key, value]) =>
 				`${key}: "${existing[key as keyof typeof existing]}" → "${value}"`,
