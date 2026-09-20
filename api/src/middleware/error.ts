@@ -4,6 +4,8 @@ import { APIError } from "better-auth";
 
 import { GlobalResponse, HTTP_RESPONSE_CODE } from "@referral-tracking/shared";
 
+import { httpCodeForStatus } from "../lib/http-response";
+
 export const error = async (
 	error: FastifyError,
 	request: FastifyRequest,
@@ -93,11 +95,8 @@ export const error = async (
 		error.statusCode >= 400 &&
 		error.statusCode < 500
 	) {
-		const matched = Object.values(HTTP_RESPONSE_CODE).find(
-			(entry) => entry.status === error.statusCode,
-		);
 		const response: GlobalResponse = {
-			code: matched?.code ?? HTTP_RESPONSE_CODE.BAD_REQUEST.code,
+			code: httpCodeForStatus(error.statusCode),
 			message: error.message,
 		};
 

@@ -7,11 +7,15 @@ import {
 	TIMELINE_TYPE,
 	TIMELINE_ACTION,
 	HTTP_RESPONSE_CODE,
+	type TwoFactorEnableResponse,
+	type TwoFactorGetTotpUriResponse,
+	type TwoFactorGenerateBackupCodesResponse,
 } from "@referral-tracking/shared";
 
 import { auth } from "../../lib/auth";
 import { generateUuid } from "../../lib/util";
 import { canFileAppeal } from "../../lib/permission";
+import { httpCodeForStatus } from "../../lib/http-response";
 import { hashPassword, verifyPassword } from "../../lib/password";
 
 import { AppealManager } from "../../management/appeal";
@@ -239,12 +243,27 @@ export const twoFactorEnable = async (
 	request: FastifyRequest<TwoFactorEnableRequest>,
 	reply: FastifyReply<TwoFactorEnableRequest>,
 ): Promise<void> => {
-	const result = await auth.api.enableTwoFactor({
+	const response = await auth.api.enableTwoFactor({
+		asResponse: true,
 		headers: fromNodeHeaders(request.headers),
 		body: request.body,
 	});
 
-	return reply.status(200).send(result);
+	const cookies = response.headers.getSetCookie();
+	if (cookies.length > 0) reply.header("set-cookie", cookies);
+
+	const body = await response.json().catch(() => null);
+
+	if (response.ok) {
+		return reply.status(response.status).send(body as TwoFactorEnableResponse);
+	}
+
+	return reply.status(response.status).send({
+		code: httpCodeForStatus(response.status),
+		message:
+			(body as { message?: string } | null)?.message ??
+			"Could not enable two-factor authentication.",
+	});
 };
 
 /** disableTwoFactor rotates the session internally, so its response cookie is forwarded directly — a fresh getSession call would look up the already-deleted old token. */
@@ -263,12 +282,8 @@ export const twoFactorDisable = async (
 			message?: string;
 		} | null;
 
-		const matched = Object.values(HTTP_RESPONSE_CODE).find(
-			(entry) => entry.status === response.status,
-		);
-
 		return reply.status(response.status).send({
-			code: matched?.code ?? HTTP_RESPONSE_CODE.BAD_REQUEST.code,
+			code: httpCodeForStatus(response.status),
 			message: body?.message ?? "Could not disable two-factor authentication.",
 		});
 	}
@@ -286,22 +301,56 @@ export const twoFactorGetTotpUri = async (
 	request: FastifyRequest<TwoFactorGetTotpUriRequest>,
 	reply: FastifyReply<TwoFactorGetTotpUriRequest>,
 ): Promise<void> => {
-	const result = await auth.api.getTOTPURI({
+	const response = await auth.api.getTOTPURI({
+		asResponse: true,
 		headers: fromNodeHeaders(request.headers),
 		body: request.body,
 	});
 
-	return reply.status(200).send(result);
+	const cookies = response.headers.getSetCookie();
+	if (cookies.length > 0) reply.header("set-cookie", cookies);
+
+	const body = await response.json().catch(() => null);
+
+	if (response.ok) {
+		return reply
+			.status(response.status)
+			.send(body as TwoFactorGetTotpUriResponse);
+	}
+
+	return reply.status(response.status).send({
+		code: httpCodeForStatus(response.status),
+		message:
+			(body as { message?: string } | null)?.message ??
+			"Could not fetch TOTP URI.",
+	});
 };
 
 export const twoFactorGenerateBackupCodes = async (
 	request: FastifyRequest<TwoFactorGenerateBackupCodesRequest>,
 	reply: FastifyReply<TwoFactorGenerateBackupCodesRequest>,
 ): Promise<void> => {
-	const result = await auth.api.generateBackupCodes({
+	const response = await auth.api.generateBackupCodes({
+		asResponse: true,
 		headers: fromNodeHeaders(request.headers),
 		body: request.body,
 	});
 
-	return reply.status(200).send(result);
+	const cookies = response.headers.getSetCookie();
+	if (cookies.length > 0) reply.header("set-cookie", cookies);
+
+	const body = await response.json().catch(() => null);
+
+	if (response.ok) {
+		return reply
+			.status(response.status)
+			.send(body as TwoFactorGenerateBackupCodesResponse);
+	}
+
+	return reply.status(response.status).send({
+		code: httpCodeForStatus(response.status),
+		message:
+			(body as { message?: string } | null)?.message ??
+			"Could not generate backup codes.",
+	});
 };

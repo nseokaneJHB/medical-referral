@@ -13,6 +13,7 @@ import {
 
 import { auth } from "../../lib/auth";
 import { generateUuid } from "../../lib/util";
+import { httpCodeForStatus } from "../../lib/http-response";
 
 import type {
 	SignUpRequest,
@@ -113,12 +114,8 @@ export const signUp = async (
 		message?: string;
 	} | null;
 
-	const matched = Object.values(HTTP_RESPONSE_CODE).find(
-		(entry) => entry.status === response.status,
-	);
-
 	return reply.status(response.status).send({
-		code: matched?.code ?? HTTP_RESPONSE_CODE.BAD_REQUEST.code,
+		code: httpCodeForStatus(response.status),
 		message: failure?.message ?? "Could not create account.",
 	});
 };
@@ -251,12 +248,8 @@ export const signIn = async (
 			.send({ code: HTTP_RESPONSE_CODE.OK.code, message: "Signed in." });
 	}
 
-	const matched = Object.values(HTTP_RESPONSE_CODE).find(
-		(entry) => entry.status === response.status,
-	);
-
 	return reply.status(response.status).send({
-		code: matched?.code ?? HTTP_RESPONSE_CODE.BAD_REQUEST.code,
+		code: httpCodeForStatus(response.status),
 		message: body?.message ?? "Invalid email or password.",
 	});
 };
@@ -320,7 +313,7 @@ export const session = async (
 		headers: fromNodeHeaders(request.headers),
 	});
 
-	const { code } = HTTP_RESPONSE_CODE.OK;
+	const { status, code } = HTTP_RESPONSE_CODE.OK;
 
 	const response: SessionResponse = {
 		code,
@@ -350,7 +343,7 @@ export const session = async (
 			: null,
 	};
 
-	reply.status(200).send(response);
+	reply.status(status).send(response);
 };
 
 export const twoFactorVerifyTotp = async (
@@ -381,12 +374,8 @@ export const twoFactorVerifyTotp = async (
 			.send({ code: HTTP_RESPONSE_CODE.OK.code, message: "Signed in." });
 	}
 
-	const matched = Object.values(HTTP_RESPONSE_CODE).find(
-		(entry) => entry.status === response.status,
-	);
-
 	return reply.status(response.status).send({
-		code: matched?.code ?? HTTP_RESPONSE_CODE.BAD_REQUEST.code,
+		code: httpCodeForStatus(response.status),
 		message: body?.message ?? "Invalid code.",
 	});
 };
@@ -419,12 +408,8 @@ export const twoFactorVerifyBackupCode = async (
 			.send({ code: HTTP_RESPONSE_CODE.OK.code, message: "Signed in." });
 	}
 
-	const matched = Object.values(HTTP_RESPONSE_CODE).find(
-		(entry) => entry.status === response.status,
-	);
-
 	return reply.status(response.status).send({
-		code: matched?.code ?? HTTP_RESPONSE_CODE.BAD_REQUEST.code,
+		code: httpCodeForStatus(response.status),
 		message: body?.message ?? "Invalid backup code.",
 	});
 };
@@ -450,12 +435,8 @@ export const twoFactorSendOtp = async (
 		message?: string;
 	} | null;
 
-	const matched = Object.values(HTTP_RESPONSE_CODE).find(
-		(entry) => entry.status === response.status,
-	);
-
 	return reply.status(response.status).send({
-		code: matched?.code ?? HTTP_RESPONSE_CODE.BAD_REQUEST.code,
+		code: httpCodeForStatus(response.status),
 		message: body?.message ?? "Could not send code.",
 	});
 };
@@ -488,12 +469,8 @@ export const twoFactorVerifyOtp = async (
 			.send({ code: HTTP_RESPONSE_CODE.OK.code, message: "Signed in." });
 	}
 
-	const matched = Object.values(HTTP_RESPONSE_CODE).find(
-		(entry) => entry.status === response.status,
-	);
-
 	return reply.status(response.status).send({
-		code: matched?.code ?? HTTP_RESPONSE_CODE.BAD_REQUEST.code,
+		code: httpCodeForStatus(response.status),
 		message: body?.message ?? "Invalid code.",
 	});
 };
