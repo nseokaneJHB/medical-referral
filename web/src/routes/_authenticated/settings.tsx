@@ -16,7 +16,6 @@ import {
 } from "lucide-react";
 
 import {
-	HTTP_CODE,
 	type GlobalResponse,
 	type TwoFactorEnableResponse,
 	type TwoFactorGetTotpUriResponse,
@@ -165,9 +164,9 @@ const EnableTwoFactorDialog = ({
 	onOpenChange: (open: boolean) => void;
 	onEnabled: () => Promise<void>;
 }) => {
-	const [enrollment, setEnrollment] = useState<TwoFactorEnableResponse | null>(
-		null,
-	);
+	const [enrollment, setEnrollment] = useState<
+		TwoFactorEnableResponse["data"] | null
+	>(null);
 
 	const passwordForm = useForm<{ password: string }>({
 		mode: "onChange",
@@ -201,13 +200,7 @@ const EnableTwoFactorDialog = ({
 	const onSubmitPassword = async (values: { password: string }) =>
 		useToastMutation({
 			loading: "Starting enrollment...",
-			promise: enableMutation
-				.mutateAsync(values.password)
-				.then((data): GlobalResponse & { data: TwoFactorEnableResponse } => ({
-					code: HTTP_CODE.OK,
-					message: "Scan the QR code below.",
-					data,
-				})),
+			promise: enableMutation.mutateAsync(values.password),
 			onSuccess: async (result) => setEnrollment(result.data),
 			onError: async (error) => {
 				passwordForm.setError("password", { message: error.message });
@@ -353,15 +346,7 @@ const ViewQrCodeDialog = ({
 	const onSubmit = async (values: { password: string }) =>
 		useToastMutation({
 			loading: "Loading QR code...",
-			promise: mutation
-				.mutateAsync(values.password)
-				.then(
-					(data): GlobalResponse & { data: TwoFactorGetTotpUriResponse } => ({
-						code: HTTP_CODE.OK,
-						message: "QR code ready.",
-						data,
-					}),
-				),
+			promise: mutation.mutateAsync(values.password),
 			onSuccess: async (result) => setTotpURI(result.data.totpURI),
 			onError: async (error) => {
 				setError("password", { message: error.message });
@@ -454,17 +439,7 @@ const RegenerateBackupCodesDialog = ({
 	const onSubmit = async (values: { password: string }) =>
 		useToastMutation({
 			loading: "Generating new backup codes...",
-			promise: mutation.mutateAsync(values.password).then(
-				(
-					data,
-				): GlobalResponse & {
-					data: TwoFactorGenerateBackupCodesResponse;
-				} => ({
-					code: HTTP_CODE.OK,
-					message: "Previous backup codes are no longer valid.",
-					data,
-				}),
-			),
+			promise: mutation.mutateAsync(values.password),
 			onSuccess: async (result) => setCodes(result.data.backupCodes),
 			onError: async (error) => {
 				setError("password", { message: error.message });

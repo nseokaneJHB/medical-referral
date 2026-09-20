@@ -56,19 +56,23 @@ export const twoFactorPasswordConfirmSchema = z.object({
 	password: stringSchema.min(1, "Password is required"),
 });
 
-/** Raw better-auth response shape, not this app's {code, message, data} envelope — see docs/2fa.md's "Response-schema mismatch" bug note. */
-export const twoFactorEnableResponseSchema = z.object({
-	totpURI: stringSchema,
-	backupCodes: z.array(stringSchema),
+export const twoFactorEnableResponseSchema = globalResponseSchema.extend({
+	data: z.object({
+		totpURI: stringSchema,
+		backupCodes: z.array(stringSchema),
+	}),
 });
 
-/** Raw better-auth response shape, same reason as twoFactorEnableResponseSchema above. */
-export const twoFactorGetTotpUriResponseSchema = z.object({
-	totpURI: stringSchema,
+export const twoFactorGetTotpUriResponseSchema = globalResponseSchema.extend({
+	data: z.object({
+		totpURI: stringSchema,
+	}),
 });
 
-/** Raw better-auth response shape, same reason as twoFactorEnableResponseSchema above. */
-export const twoFactorGenerateBackupCodesResponseSchema = z.object({
-	status: booleanSchema,
-	backupCodes: z.array(stringSchema),
-});
+export const twoFactorGenerateBackupCodesResponseSchema =
+	globalResponseSchema.extend({
+		data: z.object({
+			status: booleanSchema,
+			backupCodes: z.array(stringSchema),
+		}),
+	});

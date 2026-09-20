@@ -262,14 +262,15 @@ mismatches, not type errors:
    by `mysqlTable("two_factor", ...)` in the schema file, so the
    `modelName` override was both unnecessary and broken — removed.
 2. **Response-schema mismatch**: `enable`/`get-totp-uri`/
-   `generate-backup-codes` forward better-auth's raw flat response body
-   (`{totpURI, backupCodes}`) via `forwardAuthResponse`, but their Fastify
-   routes declared a `response: {200: ...}` schema expecting this app's
-   usual `{code, message, data}` envelope, which never matched — every
-   call 500'd with `FST_ERR_RESPONSE_SERIALIZATION`. Fixed by removing the
-   response schema declaration on those 3 routes, matching the existing
-   `signUp`/`signIn`/`signOut` precedent (raw-forwarding routes don't
-   declare one).
+   `generate-backup-codes` forwarded better-auth's raw flat response body
+   (`{totpURI, backupCodes}`), but their Fastify routes declared a
+   `response: {200: ...}` schema expecting this app's usual `{code,
+   message, data}` envelope, which never matched — every call 500'd with
+   `FST_ERR_RESPONSE_SERIALIZATION`. Originally fixed by dropping the
+   response schema and raw-forwarding the body instead; superseded
+   2026-09-20 (see "Response-envelope fix" below) — these 3 routes now
+   wrap the body in the standard `{code, message, data}` envelope like
+   every other route, instead of raw-forwarding.
 3. **Disable silently logged the user out**: `disableTwoFactor` rotates the
    session internally (issues a fresh token, deletes the old one) as part
    of turning 2FA off, and its own response already carries the correct new
@@ -371,3 +372,31 @@ clearing `.modules.yaml` and the directory contents. Fixed with
 `pnpm add qrcode.react@4.2.0` run inside the container's `web/` workspace,
 which forced the actual link (no lockfile/package.json drift — the
 version already matched what was on the host).
+
+## Response-envelope fix (2026-09-20)
+
+Caught in PR review: `enable`/`get-totp-uri`/`generate-backup-codes`
+(`api/src/modules/account/service.ts`) called better-auth without
+`asResponse: true` and hardcoded `reply.status(200)` — inconsistent with
+every other better-auth call in the codebase (which always pass
+`asResponse: true` and read the real `response.status`), and with no
+cookie or error handling. Also, `api/src/modules/account/route.ts` was
+the only route file with routes missing a `response:` schema, and the
+duplicated `Object.values(HTTP_RESPONSE_CODE).find(...)` status lookup
+(the fix for bug #2 above) had been copy-pasted into 8 places across
+`authentication/service.ts`, `account/service.ts`, and
+`middleware/error.ts`.
+
+Fixed by: extracting that lookup into `api/src/lib/http-response.ts`'s
+`httpCodeForStatus`; switching all three handlers to `asResponse: true`
+with real status codes; and — reversing bug #2's original fix — wrapping
+their success body in the standard `{code, message, data}` envelope
+instead of raw-forwarding it, with matching response schemas added back
+to `account/route.ts` and `shared/src/schema/account.ts`'s three response
+schemas updated to `globalResponseSchema.extend({ data: ... })`. This
+restores the schema-serialization safety bug #2 removed the schema to
+avoid — safe this time because the schema now matches what's actually
+sent. `web/src/routes/_authenticated/settings.tsx`'s three 2FA dialogs no
+longer need to manually re-wrap the raw response client-side; they
+consume `result.data` directly, since the backend now returns the
+envelope itself.

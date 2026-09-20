@@ -7,8 +7,11 @@ import {
 	globalResponseSchema,
 	timelineResponseSchema,
 	changePasswordSchema,
+	twoFactorEnableResponseSchema,
 	accountStatusResponseSchema,
 	twoFactorPasswordConfirmSchema,
+	twoFactorGetTotpUriResponseSchema,
+	twoFactorGenerateBackupCodesResponseSchema,
 } from "@referral-tracking/shared";
 
 import {
@@ -99,6 +102,10 @@ export const route: FastifyPluginAsync = async (
 		],
 		schema: {
 			body: twoFactorPasswordConfirmSchema,
+			response: {
+				200: twoFactorEnableResponseSchema,
+				401: globalResponseSchema,
+			},
 		},
 	});
 
@@ -129,6 +136,10 @@ export const route: FastifyPluginAsync = async (
 		],
 		schema: {
 			body: twoFactorPasswordConfirmSchema,
+			response: {
+				200: twoFactorGetTotpUriResponseSchema,
+				401: globalResponseSchema,
+			},
 		},
 	});
 
@@ -142,6 +153,10 @@ export const route: FastifyPluginAsync = async (
 		],
 		schema: {
 			body: twoFactorPasswordConfirmSchema,
+			response: {
+				200: twoFactorGenerateBackupCodesResponseSchema,
+				401: globalResponseSchema,
+			},
 		},
 	});
 };

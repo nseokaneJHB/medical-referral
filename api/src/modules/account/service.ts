@@ -255,7 +255,11 @@ export const twoFactorEnable = async (
 	const body = await response.json().catch(() => null);
 
 	if (response.ok) {
-		return reply.status(response.status).send(body as TwoFactorEnableResponse);
+		return reply.status(response.status).send({
+			code: HTTP_RESPONSE_CODE.OK.code,
+			message: "Two-factor authentication enrollment started.",
+			data: body as TwoFactorEnableResponse["data"],
+		});
 	}
 
 	return reply.status(response.status).send({
@@ -313,9 +317,11 @@ export const twoFactorGetTotpUri = async (
 	const body = await response.json().catch(() => null);
 
 	if (response.ok) {
-		return reply
-			.status(response.status)
-			.send(body as TwoFactorGetTotpUriResponse);
+		return reply.status(response.status).send({
+			code: HTTP_RESPONSE_CODE.OK.code,
+			message: "TOTP URI retrieved.",
+			data: body as TwoFactorGetTotpUriResponse["data"],
+		});
 	}
 
 	return reply.status(response.status).send({
@@ -342,9 +348,11 @@ export const twoFactorGenerateBackupCodes = async (
 	const body = await response.json().catch(() => null);
 
 	if (response.ok) {
-		return reply
-			.status(response.status)
-			.send(body as TwoFactorGenerateBackupCodesResponse);
+		return reply.status(response.status).send({
+			code: HTTP_RESPONSE_CODE.OK.code,
+			message: "Backup codes generated.",
+			data: body as TwoFactorGenerateBackupCodesResponse["data"],
+		});
 	}
 
 	return reply.status(response.status).send({
