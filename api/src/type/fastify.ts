@@ -5,19 +5,11 @@ import type pino from "pino";
 
 import type { Role } from "@referral-tracking/shared";
 
-import { CoreService } from "../core";
-import { ManagementService } from "../management";
-
 import { UserModelSelect, SessionModelSelect } from "../drizzle/schema";
 
 import type { connection, close } from "../lib/database";
 
 import type { EventName, CustomLevels } from "./global";
-
-interface Core extends CoreService {
-	close: typeof close;
-	connection: typeof connection;
-}
 
 declare module "fastify" {
 	interface FastifyInstance {
@@ -27,8 +19,8 @@ declare module "fastify" {
 		event: (event: EventName) => preHandlerHookHandler;
 		authorize: (roles: Role | Role[]) => preHandlerHookHandler;
 
-		core: Core;
-		management: ManagementService;
+		database: typeof connection;
+		closeDatabase: typeof close;
 	}
 
 	interface FastifyRequest {

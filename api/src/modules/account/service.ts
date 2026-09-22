@@ -1,4 +1,4 @@
-import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import type { FastifyReply, FastifyRequest } from "fastify";
 
 import { fromNodeHeaders } from "better-auth/node";
 
@@ -17,7 +17,13 @@ import { canFileAppeal } from "../../lib/permission";
 import { generateUuid, httpCodeForStatus } from "../../lib/util";
 import { hashPassword, verifyPassword } from "../../lib/password";
 
-import { AppealManager } from "../../management/appeal";
+import { userUpdate } from "../../repository/user";
+import { timelineMany, timelineCreate } from "../../repository/timeline";
+import { accountOne, accountUpdate } from "../../repository/account";
+import { facilityOne } from "../../repository/facility";
+import { appealHasOpenAppeal } from "../../repository/cross-schema/appeal";
+
+import type { Executor } from "../../repository/helpers";
 
 import type {
 	AcceptNdaRequest,
@@ -33,20 +39,18 @@ import type {
 /** Shape of better-auth's own error response body, read once per failed call. */
 type AuthErrorBody = { message?: string };
 
-/**
- * Latest timeline row for an entity, whatever action it was — used as
- * "the reason you're currently in this state," regardless of which
- * specific action put you there.
- */
+/** Latest timeline row for an entity, whatever action it was — used as "the reason you're currently in this state." */
 const latestReason = async (
-	server: FastifyInstance,
-	type: (typeof TIMELINE_TYPE)[keyof typeof TIMELINE_TYPE],
-	entity: string,
+	database: Executor,
+	options: {
+		type: (typeof TIMELINE_TYPE)[keyof typeof TIMELINE_TYPE];
+		entity: string;
+	},
 ): Promise<string | null> => {
-	const result = await server.core.timeline.many({
+	const result = await timelineMany(database, {
 		page: 1,
 		limit: 1,
-		where: { type, entity },
+		where: { type: options.type, entity: options.entity },
 		order: { changed_at: "desc" },
 		select: { notes: true },
 	});
@@ -54,16 +58,19 @@ const latestReason = async (
 	return result.data[0]?.notes ?? null;
 };
 
+/** Reports the caller's own account status plus their facility's, each with the reason behind its current state. */
 export const accountStatus = async (
 	request: FastifyRequest<AccountStatusRequest>,
 	reply: FastifyReply<AccountStatusRequest>,
 ): Promise<void> => {
 	const user = request.user!;
 
+	const database = request.server.database;
+
 	const [reason, facility] = await Promise.all([
-		latestReason(request.server, TIMELINE_TYPE.USER, user.id),
+		latestReason(database, { type: TIMELINE_TYPE.USER, entity: user.id }),
 		user.facility_id
-			? request.server.core.facility.one({
+			? facilityOne(database, {
 					where: { id: user.facility_id },
 					select: { id: true, name: true, status: true },
 				})
@@ -71,7 +78,10 @@ export const accountStatus = async (
 	]);
 
 	const facilityReason = facility
-		? await latestReason(request.server, TIMELINE_TYPE.FACILITY, facility.id)
+		? await latestReason(database, {
+				type: TIMELINE_TYPE.FACILITY,
+				entity: facility.id,
+			})
 		: null;
 
 	const { status, code } = HTTP_RESPONSE_CODE.OK;
@@ -95,6 +105,7 @@ export const accountStatus = async (
 	});
 };
 
+/** Files an appeal against the caller's own current status, rejecting a second appeal while one is already pending. */
 export const appealSubmit = async (
 	request: FastifyRequest<AppealSubmitRequest>,
 	reply: FastifyReply<AppealSubmitRequest>,
@@ -110,8 +121,12 @@ export const appealSubmit = async (
 		});
 	}
 
-	const appealManager = new AppealManager(request.server.core);
-	if (await appealManager.hasOpenAppeal(TIMELINE_TYPE.USER, user.id)) {
+	if (
+		await appealHasOpenAppeal(request.server.database, {
+			type: TIMELINE_TYPE.USER,
+			entity: user.id,
+		})
+	) {
 		const { status, code } = HTTP_RESPONSE_CODE.CONFLICT;
 		return reply.status(status).send({
 			code,
@@ -119,8 +134,21 @@ export const appealSubmit = async (
 		});
 	}
 
-	const [entry] = await request.server.core.timeline.create({
-		data: {
+	const [entry] = await timelineCreate(
+		request.server.database,
+		{
+			select: {
+				id: true,
+				type: true,
+				entity: true,
+				action: true,
+				previous: true,
+				next: true,
+				notes: true,
+				changed_at: true,
+			},
+		},
+		{
 			id: generateUuid(),
 			type: TIMELINE_TYPE.USER,
 			entity: user.id,
@@ -130,17 +158,7 @@ export const appealSubmit = async (
 			changer_id: user.id,
 			notes: request.body.reason,
 		},
-		select: {
-			id: true,
-			type: true,
-			entity: true,
-			action: true,
-			previous: true,
-			next: true,
-			notes: true,
-			changed_at: true,
-		},
-	});
+	);
 
 	const { status, code } = HTTP_RESPONSE_CODE.CREATED;
 	reply.status(status).send({
@@ -150,13 +168,14 @@ export const appealSubmit = async (
 	});
 };
 
+/** Changes the caller's password after verifying their current one, then re-signs them in to refresh their `must_change_password` cookie cache. */
 export const changePassword = async (
 	request: FastifyRequest<ChangePasswordRequest>,
 	reply: FastifyReply<ChangePasswordRequest>,
 ): Promise<void> => {
 	const user = request.user!;
 
-	const account = await request.server.core.account.one({
+	const account = await accountOne(request.server.database, {
 		where: { user_id: user.id },
 		select: { id: true, password: true },
 	});
@@ -180,28 +199,19 @@ export const changePassword = async (
 			.send({ code, message: "Current password is incorrect." });
 	}
 
-	await request.server.core.account.update({
-		where: { id: account.id },
-		data: { password: await hashPassword(request.body.new_password) },
-		select: { id: true },
-	});
+	await accountUpdate(
+		request.server.database,
+		{ where: { id: account.id }, select: { id: true } },
+		{ password: await hashPassword(request.body.new_password) },
+	);
 
-	await request.server.core.user.update({
-		where: { id: user.id },
-		data: { must_change_password: false },
-		select: { id: true },
-	});
+	await userUpdate(
+		request.server.database,
+		{ where: { id: user.id }, select: { id: true } },
+		{ must_change_password: false },
+	);
 
-	/**
-	 * better-auth's session cookie-cache (`lib/auth.ts`'s `session.cookieCache`)
-	 * embeds `must_change_password` at sign-in time and has no way to know
-	 * this row just changed underneath it — re-running the sign-in flow
-	 * server-side with the new password re-issues a fresh cookie reflecting
-	 * the cleared flag, so the caller isn't immediately blocked by
-	 * `middleware/authorize.ts` on their very next request after an
-	 * otherwise-successful password change. Same mechanism
-	 * `modules/authentication/service.ts`'s `signIn` handler already uses.
-	 */
+	/** Re-running sign-in server-side re-issues a fresh cookie reflecting the cleared `must_change_password` flag, so `middleware/authorize.ts` doesn't immediately re-block the caller — same mechanism `modules/authentication/service.ts`'s `signIn` uses. */
 	const signInResponse = await auth.api.signInEmail({
 		asResponse: true,
 		headers: fromNodeHeaders(request.headers),
@@ -215,17 +225,18 @@ export const changePassword = async (
 	reply.status(status).send({ code, message: "Password changed." });
 };
 
+/** Records the caller's NDA acceptance and refreshes their session so `middleware/authorize.ts` sees it immediately. */
 export const acceptNda = async (
 	request: FastifyRequest<AcceptNdaRequest>,
 	reply: FastifyReply<AcceptNdaRequest>,
 ): Promise<void> => {
 	const user = request.user!;
 
-	await request.server.core.user.update({
-		where: { id: user.id },
-		data: { nda_accepted_version: NDA_VERSION, nda_accepted_at: new Date() },
-		select: { id: true },
-	});
+	await userUpdate(
+		request.server.database,
+		{ where: { id: user.id }, select: { id: true } },
+		{ nda_accepted_version: NDA_VERSION, nda_accepted_at: new Date() },
+	);
 
 	/** disableCookieCache forces a fresh DB-backed read so the caller isn't immediately re-blocked by middleware/authorize.ts. */
 	const sessionResponse = await auth.api.getSession({
@@ -241,6 +252,7 @@ export const acceptNda = async (
 	reply.status(status).send({ code, message: "NDA accepted." });
 };
 
+/** Starts two-factor enrollment via better-auth. */
 export const twoFactorEnable = async (
 	request: FastifyRequest<TwoFactorEnableRequest>,
 	reply: FastifyReply<TwoFactorEnableRequest>,
@@ -299,6 +311,7 @@ export const twoFactorDisable = async (
 		.send({ code, message: "Two-factor authentication disabled." });
 };
 
+/** Fetches the TOTP enrollment URI via better-auth. */
 export const twoFactorGetTotpUri = async (
 	request: FastifyRequest<TwoFactorGetTotpUriRequest>,
 	reply: FastifyReply<TwoFactorGetTotpUriRequest>,
@@ -328,6 +341,7 @@ export const twoFactorGetTotpUri = async (
 	});
 };
 
+/** Generates fresh two-factor backup codes via better-auth. */
 export const twoFactorGenerateBackupCodes = async (
 	request: FastifyRequest<TwoFactorGenerateBackupCodesRequest>,
 	reply: FastifyReply<TwoFactorGenerateBackupCodesRequest>,

@@ -14,9 +14,22 @@ import {
 
 import { generateUuid } from "../../lib/util";
 import { canDecideTransfer, canRequestTransfer } from "../../lib/permission";
-import { TransferManager, type TransferRow } from "../../management/transfer";
 
-import type { CoreService } from "../../core";
+import { userCount, userOne } from "../../repository/user";
+import { timelineCreate, timelineMany } from "../../repository/timeline";
+import { patientOne, patientUpdate } from "../../repository/patient";
+import { facilityOne } from "../../repository/facility";
+import {
+	type TransferRow,
+	transferIsOpen,
+	transferResolveRequest,
+	transferGetLatestAction,
+	transferGetPendingForFacility,
+	transferGetLatestActionsByPatient,
+	transferGetLatestRequestsByPatient,
+} from "../../repository/cross-schema/transfer";
+
+import type { Executor } from "../../repository/helpers";
 
 import type {
 	TransfersRequest,
@@ -24,8 +37,6 @@ import type {
 	TransferRejectRequest,
 	TransferRequestRequest,
 } from "./type";
-
-type TransferHydrationCore = Pick<CoreService, "patient" | "facility" | "user">;
 
 const TRANSFER_ROW_FIELDS = {
 	id: true,
@@ -38,33 +49,26 @@ const TRANSFER_ROW_FIELDS = {
 	changed_at: true,
 } as const;
 
-/**
- * Hydrates a transfer episode into the richer `transferSchema` shape.
- * `request` (the original `TRANSFER_REQUESTED` row) supplies the reason,
- * requester, and facility ids — stable for the episode's whole lifetime;
- * `latest` supplies the current stage (`action`/`changed_at`), which may be
- * a later row than `request` once a decision's been made. They're the same
- * row right after creation.
- */
+/** Hydrates a transfer episode into the richer `transferSchema` shape — `request` supplies the stable reason/requester/facility ids, `latest` supplies the current stage. */
 const hydrateTransfer = async (
-	core: TransferHydrationCore,
+	database: Executor,
 	{ request, latest }: { request: TransferRow; latest: TransferRow },
 ): Promise<TransferResponse["data"]> => {
 	const [patient, originFacility, destinationFacility, requester] =
 		await Promise.all([
-			core.patient.one({
+			patientOne(database, {
 				where: { id: request.entity },
 				select: { id: true, first_name: true, last_name: true },
 			}),
-			core.facility.one({
+			facilityOne(database, {
 				where: { id: request.previous! },
 				select: { id: true, name: true },
 			}),
-			core.facility.one({
+			facilityOne(database, {
 				where: { id: request.next! },
 				select: { id: true, name: true },
 			}),
-			core.user.one({
+			userOne(database, {
 				where: { id: request.changer_id },
 				select: { id: true, name: true },
 			}),
@@ -82,20 +86,14 @@ const hydrateTransfer = async (
 	};
 };
 
-/**
- * Nurse/Doctor at the patient's *current* facility only — replaces every
- * direct `facility_id` edit that used to exist (see
- * `docs/roles-permissions.md`, Row 1). Destination must be `APPROVED`
- * (same rule as a Doctor's referral redirect); only one transfer can be
- * open per patient at a time.
- */
+/** Requests a patient transfer — Nurse/Doctor at the patient's current facility only, to an `APPROVED` destination, one open transfer per patient at a time. */
 export const transferRequest = async (
 	request: FastifyRequest<TransferRequestRequest>,
 	reply: FastifyReply<TransferRequestRequest>,
 ): Promise<void> => {
-	const { core } = request.server;
+	const database = request.server.database;
 
-	const patient = await core.patient.one({
+	const patient = await patientOne(database, {
 		where: { id: request.params.id },
 		select: { id: true, facility_id: true },
 	});
@@ -126,10 +124,10 @@ export const transferRequest = async (
 		});
 	}
 
-	const transferManager = new TransferManager(core);
-
-	const existing = await transferManager.getLatestAction(patient.id);
-	if (existing && transferManager.isOpen(existing.action)) {
+	const existing = await transferGetLatestAction(database, {
+		patientId: patient.id,
+	});
+	if (existing && transferIsOpen(existing.action)) {
 		const { status, code } = HTTP_RESPONSE_CODE.CONFLICT;
 		return reply.status(status).send({
 			code,
@@ -137,7 +135,7 @@ export const transferRequest = async (
 		});
 	}
 
-	const destination = await core.facility.one({
+	const destination = await facilityOne(database, {
 		where: { id: destinationId },
 		select: { id: true, status: true },
 	});
@@ -150,8 +148,10 @@ export const transferRequest = async (
 		});
 	}
 
-	const [row] = await core.timeline.create({
-		data: {
+	const [row] = await timelineCreate(
+		database,
+		{ select: TRANSFER_ROW_FIELDS },
+		{
 			id: generateUuid(),
 			type: TIMELINE_TYPE.PATIENT,
 			entity: patient.id,
@@ -161,26 +161,26 @@ export const transferRequest = async (
 			changer_id: request.user!.id,
 			notes: reason,
 		},
-		select: TRANSFER_ROW_FIELDS,
-	});
+	);
 
-	const data = await hydrateTransfer(core, { request: row, latest: row });
+	const data = await hydrateTransfer(database, { request: row, latest: row });
 
 	const { status, code } = HTTP_RESPONSE_CODE.CREATED;
 	reply.status(status).send({ code, message: "Transfer requested.", data });
 };
 
+/** Shared decide logic for the four origin/destination approve/reject endpoints. */
 const decideTransferSide = async (
 	request: FastifyRequest<TransferApproveRequest | TransferRejectRequest>,
 	reply: FastifyReply<TransferApproveRequest | TransferRejectRequest>,
 	side: "origin" | "destination",
 	approve: boolean,
 ): Promise<void> => {
-	const { core } = request.server;
+	const database = request.server.database;
 
-	const resolved = await new TransferManager(core).resolveRequest(
-		request.params.id,
-	);
+	const resolved = await transferResolveRequest(database, {
+		requestId: request.params.id,
+	});
 	if (!resolved) {
 		const { status, code } = HTTP_RESPONSE_CODE.NOT_FOUND;
 		return reply
@@ -212,10 +212,12 @@ const decideTransferSide = async (
 	const role = request.user!.role;
 	const isOrphaned =
 		role === ROLES.ADMINISTRATOR
-			? (await core.user.count({
-					facility_id: facilityId,
-					role: ROLES.MANAGER,
-					status: USER_STATUS.ACTIVE,
+			? (await userCount(database, {
+					where: {
+						facility_id: facilityId,
+						role: ROLES.MANAGER,
+						status: USER_STATUS.ACTIVE,
+					},
 				})) === 0
 			: false;
 	if (
@@ -237,19 +239,19 @@ const decideTransferSide = async (
 	const body = request.body as { notes?: string; reason?: string };
 	const notes = approve ? (body.notes ?? null) : body.reason!;
 
-	const newRow = await core.connection.transaction(async (tx) => {
-		const txCore = core.withTransaction(tx);
-
+	const newRow = await database.transaction(async (tx) => {
 		if (side === "destination" && approve) {
-			await txCore.patient.update({
-				where: { id: requestRow.entity },
-				data: { facility_id: requestRow.next! },
-				select: { id: true },
-			});
+			await patientUpdate(
+				tx,
+				{ where: { id: requestRow.entity }, select: { id: true } },
+				{ facility_id: requestRow.next! },
+			);
 		}
 
-		const [created] = await txCore.timeline.create({
-			data: {
+		const [created] = await timelineCreate(
+			tx,
+			{ select: TRANSFER_ROW_FIELDS },
+			{
 				id: generateUuid(),
 				type: TIMELINE_TYPE.PATIENT,
 				entity: requestRow.entity,
@@ -259,13 +261,12 @@ const decideTransferSide = async (
 				changer_id: request.user!.id,
 				notes,
 			},
-			select: TRANSFER_ROW_FIELDS,
-		});
+		);
 
 		return created;
 	});
 
-	const data = await hydrateTransfer(core, {
+	const data = await hydrateTransfer(database, {
 		request: requestRow,
 		latest: newRow,
 	});
@@ -278,39 +279,36 @@ const decideTransferSide = async (
 	});
 };
 
+/** Approves a transfer's origin side. */
 export const transferOriginApprove = (
 	request: FastifyRequest<TransferApproveRequest>,
 	reply: FastifyReply<TransferApproveRequest>,
 ): Promise<void> => decideTransferSide(request, reply, "origin", true);
 
+/** Rejects a transfer's origin side. */
 export const transferOriginReject = (
 	request: FastifyRequest<TransferRejectRequest>,
 	reply: FastifyReply<TransferRejectRequest>,
 ): Promise<void> => decideTransferSide(request, reply, "origin", false);
 
+/** Approves a transfer's destination side, moving the patient's facility. */
 export const transferDestinationApprove = (
 	request: FastifyRequest<TransferApproveRequest>,
 	reply: FastifyReply<TransferApproveRequest>,
 ): Promise<void> => decideTransferSide(request, reply, "destination", true);
 
+/** Rejects a transfer's destination side. */
 export const transferDestinationReject = (
 	request: FastifyRequest<TransferRejectRequest>,
 	reply: FastifyReply<TransferRejectRequest>,
 ): Promise<void> => decideTransferSide(request, reply, "destination", false);
 
-/**
- * Pending transfers awaiting *this* caller's decision, either side.
- * Manager: scoped to their own facility. Administrator: every currently-
- * orphaned facility (no active Manager) — the same fallback used for
- * Nurse/Doctor account approvals, checked per-candidate here since there's
- * no cheap "all orphaned facilities" aggregate query at this ORM layer and
- * the candidate set is expected to be small.
- */
+/** Pending transfers awaiting this caller's decision — Manager sees their own facility, Administrator sees every currently-orphaned facility. */
 export const transfers = async (
 	request: FastifyRequest<TransfersRequest>,
 	reply: FastifyReply<TransfersRequest>,
 ): Promise<void> => {
-	const { core } = request.server;
+	const database = request.server.database;
 	const role = request.user!.role;
 	const userFacilityId = request.user!.facility_id;
 
@@ -334,15 +332,15 @@ export const transfers = async (
 		});
 	};
 
-	const transferManager = new TransferManager(core);
-
 	let current: TransferRow[];
 
 	if (role === ROLES.MANAGER) {
 		if (!userFacilityId) return empty();
-		current = await transferManager.getPendingForFacility(userFacilityId);
+		current = await transferGetPendingForFacility(database, {
+			facilityId: userFacilityId,
+		});
 	} else {
-		const rows = await core.timeline.many({
+		const rows = await timelineMany(database, {
 			page: 1,
 			limit: 1000,
 			where: {
@@ -358,9 +356,9 @@ export const transfers = async (
 			select: TRANSFER_ROW_FIELDS,
 		});
 
-		const latestByPatient = await transferManager.getLatestActionsByPatient(
-			rows.data.map((row) => row.entity),
-		);
+		const latestByPatient = await transferGetLatestActionsByPatient(database, {
+			patientIds: rows.data.map((row) => row.entity),
+		});
 
 		const candidates = rows.data.filter(
 			(row) => latestByPatient.get(row.entity)?.id === row.id,
@@ -372,13 +370,13 @@ export const transfers = async (
 					row.action === TIMELINE_ACTION.TRANSFER_REQUESTED
 						? row.previous!
 						: row.next!;
-				return core.user
-					.count({
+				return userCount(database, {
+					where: {
 						facility_id: facilityId,
 						role: ROLES.MANAGER,
 						status: USER_STATUS.ACTIVE,
-					})
-					.then((count) => count === 0);
+					},
+				}).then((count) => count === 0);
 			}),
 		);
 		current = candidates.filter((_, index) => orphaned[index]);
@@ -387,13 +385,13 @@ export const transfers = async (
 	const total = current.length;
 	const paged = current.slice((page - 1) * limit, (page - 1) * limit + limit);
 
-	const requestsByPatient = await transferManager.getLatestRequestsByPatient(
-		paged.map((row) => row.entity),
-	);
+	const requestsByPatient = await transferGetLatestRequestsByPatient(database, {
+		patientIds: paged.map((row) => row.entity),
+	});
 
 	const data = await Promise.all(
 		paged.map((row) =>
-			hydrateTransfer(core, {
+			hydrateTransfer(database, {
 				request: requestsByPatient.get(row.entity)!,
 				latest: row,
 			}),

@@ -15,8 +15,22 @@ import {
 	canFileFacilityAppeal,
 	canManagerActOnStaff,
 } from "../../lib/permission";
-import { AppealManager } from "../../management/appeal";
-import { ModerationManager } from "../../management/moderation";
+
+import { userOne, userMany } from "../../repository/user";
+import { facilityOne } from "../../repository/facility";
+import { timelineOne, timelineCreate } from "../../repository/timeline";
+import {
+	appealList,
+	appealDecide,
+	appealIsOpen,
+	appealCountByType,
+	appealHasOpenAppeal,
+	appealResolveAuthority,
+} from "../../repository/cross-schema/appeal";
+import { auditListForFacility } from "../../repository/cross-schema/audit";
+import {
+	moderationApplyUserStatusChange,
+} from "../../repository/cross-schema/moderation";
 
 import type {
 	AppealsRequest,
@@ -54,15 +68,7 @@ const TIMELINE_FIELDS = {
 
 type StaffTarget = { id: string; role: string; status: string };
 
-/**
- * Shared staff-target lookup + the two guards every staff action needs:
- * the target must actually be this Manager's own staff (`canManagerActOnStaff`,
- * 404 rather than 403 if not — non-enumerating, matches `canAccessPatient`'s
- * pattern), and — the one FLAG carve-out this pass actually enforces — a
- * `FLAGGED` Manager can't moderate staff at all (see
- * `lib/permission.ts`'s `isAccountUsable` docstring for why this lives
- * here instead of the general middleware gate).
- */
+/** Shared staff-target lookup: 404s (not 403, non-enumerating) if the target isn't this Manager's own staff, and blocks a `FLAGGED` Manager from moderating staff at all. */
 const resolveStaffTarget = async (
 	request: FastifyRequest<{ Params: { id: string } }>,
 	reply: FastifyReply,
@@ -77,7 +83,7 @@ const resolveStaffTarget = async (
 		return null;
 	}
 
-	const target = await request.server.core.user.one({
+	const target = await userOne(request.server.database, {
 		where: { id: request.params.id },
 		select: { id: true, role: true, status: true, facility_id: true },
 	});
@@ -95,6 +101,7 @@ const resolveStaffTarget = async (
 	return target;
 };
 
+/** Approves a pending staff application. */
 export const staffApprove = async (
 	request: FastifyRequest<StaffApproveRequest>,
 	reply: FastifyReply<StaffApproveRequest>,
@@ -109,9 +116,7 @@ export const staffApprove = async (
 			.send({ code, message: "Only a pending application can be approved." });
 	}
 
-	const updated = await new ModerationManager(
-		request.server.core,
-	).applyUserStatusChange({
+	const updated = await moderationApplyUserStatusChange(request.server.database, {
 		userId: target.id,
 		status: USER_STATUS.ACTIVE,
 		action: TIMELINE_ACTION.APPROVED,
@@ -126,6 +131,7 @@ export const staffApprove = async (
 		.send({ code, message: "Staff approved.", data: updated });
 };
 
+/** Rejects a pending staff application. */
 export const staffReject = async (
 	request: FastifyRequest<StaffRejectRequest>,
 	reply: FastifyReply<StaffRejectRequest>,
@@ -140,9 +146,7 @@ export const staffReject = async (
 			.send({ code, message: "Only a pending application can be rejected." });
 	}
 
-	const updated = await new ModerationManager(
-		request.server.core,
-	).applyUserStatusChange({
+	const updated = await moderationApplyUserStatusChange(request.server.database, {
 		userId: target.id,
 		status: USER_STATUS.REJECTED,
 		action: TIMELINE_ACTION.REJECTED,
@@ -157,6 +161,7 @@ export const staffReject = async (
 		.send({ code, message: "Staff rejected.", data: updated });
 };
 
+/** Disables an active or flagged staff member. */
 export const staffDisable = async (
 	request: FastifyRequest<StaffDisableRequest>,
 	reply: FastifyReply<StaffDisableRequest>,
@@ -177,9 +182,7 @@ export const staffDisable = async (
 		});
 	}
 
-	const updated = await new ModerationManager(
-		request.server.core,
-	).applyUserStatusChange({
+	const updated = await moderationApplyUserStatusChange(request.server.database, {
 		userId: target.id,
 		status: USER_STATUS.DISABLED,
 		action: TIMELINE_ACTION.DISABLED,
@@ -194,6 +197,7 @@ export const staffDisable = async (
 		.send({ code, message: "Staff disabled.", data: updated });
 };
 
+/** Flags an active staff member for review. */
 export const staffFlag = async (
 	request: FastifyRequest<StaffFlagRequest>,
 	reply: FastifyReply<StaffFlagRequest>,
@@ -208,9 +212,7 @@ export const staffFlag = async (
 			.send({ code, message: "Only an active staff member can be flagged." });
 	}
 
-	const updated = await new ModerationManager(
-		request.server.core,
-	).applyUserStatusChange({
+	const updated = await moderationApplyUserStatusChange(request.server.database, {
 		userId: target.id,
 		status: USER_STATUS.FLAGGED,
 		action: TIMELINE_ACTION.FLAGGED,
@@ -223,11 +225,13 @@ export const staffFlag = async (
 	reply.status(status).send({ code, message: "Staff flagged.", data: updated });
 };
 
+/** Files an appeal against the Manager's own facility's current status. */
 export const facilityAppealSubmit = async (
 	request: FastifyRequest<FacilityAppealSubmitRequest>,
 	reply: FastifyReply<FacilityAppealSubmitRequest>,
 ): Promise<void> => {
 	const manager = request.user!;
+	const database = request.server.database;
 
 	if (!manager.facility_id) {
 		const { status, code } = HTTP_RESPONSE_CODE.CONFLICT;
@@ -236,7 +240,7 @@ export const facilityAppealSubmit = async (
 			.send({ code, message: "You aren't attached to a facility." });
 	}
 
-	const facility = await request.server.core.facility.one({
+	const facility = await facilityOne(database, {
 		where: { id: manager.facility_id },
 		select: { id: true, status: true },
 	});
@@ -249,8 +253,12 @@ export const facilityAppealSubmit = async (
 		});
 	}
 
-	const appealManager = new AppealManager(request.server.core);
-	if (await appealManager.hasOpenAppeal(TIMELINE_TYPE.FACILITY, facility.id)) {
+	if (
+		await appealHasOpenAppeal(database, {
+			type: TIMELINE_TYPE.FACILITY,
+			entity: facility.id,
+		})
+	) {
 		const { status, code } = HTTP_RESPONSE_CODE.CONFLICT;
 		return reply.status(status).send({
 			code,
@@ -259,8 +267,10 @@ export const facilityAppealSubmit = async (
 		});
 	}
 
-	const [entry] = await request.server.core.timeline.create({
-		data: {
+	const [entry] = await timelineCreate(
+		database,
+		{ select: TIMELINE_FIELDS },
+		{
 			id: generateUuid(),
 			type: TIMELINE_TYPE.FACILITY,
 			entity: facility.id,
@@ -270,8 +280,7 @@ export const facilityAppealSubmit = async (
 			changer_id: manager.id,
 			notes: request.body.reason,
 		},
-		select: TIMELINE_FIELDS,
-	});
+	);
 
 	const { status, code } = HTTP_RESPONSE_CODE.CREATED;
 	reply.status(status).send({
@@ -281,12 +290,14 @@ export const facilityAppealSubmit = async (
 	});
 };
 
+/** Shared decide logic for `appealApprove`/`appealDeny` — only lets a Manager decide an appeal for a status they personally imposed. */
 const decideAppealAsManager = async (
 	request: FastifyRequest<AppealApproveRequest>,
 	reply: FastifyReply<AppealApproveRequest>,
 	approve: boolean,
 ): Promise<void> => {
 	const manager = request.user!;
+	const database = request.server.database;
 
 	if (manager.status !== USER_STATUS.ACTIVE) {
 		const { status, code } = HTTP_RESPONSE_CODE.FORBIDDEN;
@@ -295,7 +306,7 @@ const decideAppealAsManager = async (
 			.send({ code, message: "Your account isn't active." });
 	}
 
-	const appeal = await request.server.core.timeline.one({
+	const appeal = await timelineOne(database, {
 		where: { id: request.params.id },
 		select: { id: true, type: true, entity: true, action: true },
 	});
@@ -305,7 +316,7 @@ const decideAppealAsManager = async (
 		return reply.status(status).send({ code, message: "Appeal not found." });
 	}
 
-	if (!(await request.server.management.appeal.isOpen(appeal))) {
+	if (!(await appealIsOpen(database, appeal))) {
 		const { status, code } = HTTP_RESPONSE_CODE.CONFLICT;
 		return reply
 			.status(status)
@@ -315,7 +326,7 @@ const decideAppealAsManager = async (
 	const type =
 		appeal.type as (typeof TIMELINE_TYPE)[keyof typeof TIMELINE_TYPE];
 
-	const authority = await request.server.management.appeal.resolveAuthority({
+	const authority = await appealResolveAuthority(database, {
 		type,
 		entity: appeal.entity,
 	});
@@ -329,17 +340,15 @@ const decideAppealAsManager = async (
 		});
 	}
 
-	const entry = await request.server.core.connection.transaction(async (tx) => {
-		const txCore = request.server.core.withTransaction(tx);
-
-		return new AppealManager(txCore).decide({
+	const entry = await database.transaction(async (tx) =>
+		appealDecide(tx, {
 			type,
 			entity: appeal.entity,
 			approve,
 			notes: request.body.notes,
 			decidedBy: manager.id,
-		});
-	});
+		}),
+	);
 
 	const { status, code } = HTTP_RESPONSE_CODE.OK;
 	reply.status(status).send({
@@ -349,27 +358,25 @@ const decideAppealAsManager = async (
 	});
 };
 
+/** Approves an appeal the Manager personally imposed the status for. */
 export const appealApprove = (
 	request: FastifyRequest<AppealApproveRequest>,
 	reply: FastifyReply<AppealApproveRequest>,
 ): Promise<void> => decideAppealAsManager(request, reply, true);
 
+/** Denies an appeal the Manager personally imposed the status for. */
 export const appealDeny = (
 	request: FastifyRequest<AppealDenyRequest>,
 	reply: FastifyReply<AppealDenyRequest>,
 ): Promise<void> => decideAppealAsManager(request, reply, false);
 
-/**
- * Scoped to this Manager's own staff — a Manager never legitimately
- * decides a Facility appeal (only Administrator ever imposes a facility's
- * punitive status), so unlike Administrator's system-wide queue, this only
- * looks at `USER`-type appeals for Nurse/Doctor at the Manager's facility.
- */
+/** Lists open appeals scoped to this Manager's own staff — only `USER`-type appeals for their facility's Nurse/Doctor, unlike Administrator's system-wide queue. */
 export const appeals = async (
 	request: FastifyRequest<AppealsRequest>,
 	reply: FastifyReply<AppealsRequest>,
 ): Promise<void> => {
 	const manager = request.user!;
+	const database = request.server.database;
 	const page = request.query.page
 		? Number(request.query.page)
 		: DEFAULT_PAGE_NUMBER;
@@ -391,7 +398,7 @@ export const appeals = async (
 		});
 	}
 
-	const staff = await request.server.core.user.many({
+	const staff = await userMany(database, {
 		page: 1,
 		limit: 1000,
 		where: {
@@ -419,13 +426,12 @@ export const appeals = async (
 
 	const appealWhere = { type: TIMELINE_TYPE.USER, entity: { in: staffIds } };
 
-	const result = await request.server.management.appeal.list({
+	const result = await appealList(database, {
 		where: appealWhere,
 		page,
 		limit,
 	});
-	const by_type =
-		await request.server.management.appeal.countByType(appealWhere);
+	const by_type = await appealCountByType(database, { where: appealWhere });
 
 	const { status, code } = HTTP_RESPONSE_CODE.OK;
 	reply.status(status).send({
@@ -436,12 +442,7 @@ export const appeals = async (
 	});
 };
 
-/**
- * A Manager's facility-wide activity feed — every `timeline` row about
- * their staff, their patients, referrals touching their facility, or their
- * facility itself. See `AuditManager.listForFacility` for how the
- * facility-scoping actually works.
- */
+/** A Manager's facility-wide activity feed — see `auditListForFacility` for how the facility-scoping works. */
 export const auditList = async (
 	request: FastifyRequest<AuditListRequest>,
 	reply: FastifyReply<AuditListRequest>,
@@ -467,7 +468,7 @@ export const auditList = async (
 		});
 	}
 
-	const result = await request.server.management.audit.listForFacility({
+	const result = await auditListForFacility(request.server.database, {
 		facilityId: manager.facility_id,
 		page,
 		limit,

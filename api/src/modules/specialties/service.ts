@@ -9,7 +9,15 @@ import {
 	type SpecialtyModelSelect,
 } from "../../drizzle/schema";
 
-import { buildOrderClause, type WhereClause } from "../../core/helpers";
+import { buildOrderClause, type WhereClause } from "../../repository/helpers";
+
+import {
+	specialtyMany,
+	specialtyOne,
+	specialtyCreate as repositorySpecialtyCreate,
+	specialtyUpdate as repositorySpecialtyUpdate,
+	specialtyLinkCount,
+} from "../../repository/specialty";
 
 import type {
 	SpecialtiesRequest,
@@ -26,11 +34,13 @@ const SPECIALTY_FIELDS = {
 	updated_at: true,
 } as const;
 
+/** Lists specialties with pagination/search, each annotated with its facility and staff assignment counts. */
 export const specialties = async (
 	request: FastifyRequest<SpecialtiesRequest>,
 	reply: FastifyReply<SpecialtiesRequest>,
 ): Promise<void> => {
 	const { query, server } = request;
+	const database = server.database;
 
 	const page = Number(query.page);
 	const limit = Number(query.limit);
@@ -48,7 +58,7 @@ export const specialties = async (
 		"asc",
 	);
 
-	const result = await server.core.specialty.many({
+	const result = await specialtyMany(database, {
 		page,
 		limit,
 		where,
@@ -57,8 +67,8 @@ export const specialties = async (
 	});
 
 	const [facilityCounts, staffCounts] = await Promise.all([
-		server.core.specialty.linkCount("facility", undefined, "specialty_id"),
-		server.core.specialty.linkCount("user", undefined, "specialty_id"),
+		specialtyLinkCount(database, { owner: "facility", groupBy: "specialty_id" }),
+		specialtyLinkCount(database, { owner: "user", groupBy: "specialty_id" }),
 	]);
 
 	const data = result.data.map((row) => ({
@@ -76,11 +86,12 @@ export const specialties = async (
 	});
 };
 
+/** Fetches a single specialty by id. */
 export const specialty = async (
 	request: FastifyRequest<SpecialtyRequest>,
 	reply: FastifyReply<SpecialtyRequest>,
 ): Promise<void> => {
-	const specialty = await request.server.core.specialty.one({
+	const specialty = await specialtyOne(request.server.database, {
 		where: { id: request.params.id },
 		select: SPECIALTY_FIELDS,
 	});
@@ -96,11 +107,12 @@ export const specialty = async (
 		.send({ code, message: "Specialty retrieved.", data: specialty });
 };
 
+/** Creates a new specialty, rejecting a duplicate name. */
 export const specialtyCreate = async (
 	request: FastifyRequest<SpecialtyCreateRequest>,
 	reply: FastifyReply<SpecialtyCreateRequest>,
 ): Promise<void> => {
-	const existing = await request.server.core.specialty.one({
+	const existing = await specialtyOne(request.server.database, {
 		where: { name: request.body.name },
 		select: { id: true },
 	});
@@ -112,10 +124,11 @@ export const specialtyCreate = async (
 			.send({ code, message: "A specialty with this name already exists." });
 	}
 
-	const [specialty] = await request.server.core.specialty.create({
-		data: { id: generateUuid(), ...request.body },
-		select: SPECIALTY_FIELDS,
-	});
+	const [specialty] = await repositorySpecialtyCreate(
+		request.server.database,
+		{ select: SPECIALTY_FIELDS },
+		{ id: generateUuid(), ...request.body },
+	);
 
 	const { status, code } = HTTP_RESPONSE_CODE.CREATED;
 	reply
@@ -123,11 +136,12 @@ export const specialtyCreate = async (
 		.send({ code, message: "Specialty created.", data: specialty });
 };
 
+/** Updates a specialty, rejecting a rename onto an already-taken name. */
 export const specialtyUpdate = async (
 	request: FastifyRequest<SpecialtyUpdateRequest>,
 	reply: FastifyReply<SpecialtyUpdateRequest>,
 ): Promise<void> => {
-	const existing = await request.server.core.specialty.one({
+	const existing = await specialtyOne(request.server.database, {
 		where: { id: request.params.id },
 		select: { id: true },
 	});
@@ -138,7 +152,7 @@ export const specialtyUpdate = async (
 	}
 
 	if (request.body.name) {
-		const nameTaken = await request.server.core.specialty.one({
+		const nameTaken = await specialtyOne(request.server.database, {
 			where: { name: request.body.name },
 			select: { id: true },
 		});
@@ -151,11 +165,11 @@ export const specialtyUpdate = async (
 		}
 	}
 
-	const [updated] = await request.server.core.specialty.update({
-		where: { id: request.params.id },
-		data: request.body,
-		select: SPECIALTY_FIELDS,
-	});
+	const [updated] = await repositorySpecialtyUpdate(
+		request.server.database,
+		{ where: { id: request.params.id }, select: SPECIALTY_FIELDS },
+		request.body,
+	);
 
 	const { status, code } = HTTP_RESPONSE_CODE.OK;
 	reply

@@ -9,23 +9,20 @@ import {
 
 import { zeroFillCounts, localDateStartToUtc } from "../../lib/util";
 
-import type { WhereClause } from "../../core/helpers";
+import { referralCount } from "../../repository/referral";
+
+import type { WhereClause } from "../../repository/helpers";
 
 import type { ReferralModelSelect } from "../../drizzle/schema";
 
 import type { ReferralsReportRequest } from "./type";
 
-/**
- * Role-scoped per build-spec.md's Phase 7 table: Admin sees every referral,
- * Doctor sees only ones assigned to them, Nurse sees only ones they
- * created — same scoping rule as `GET /referrals`. `from`/`to` filter on
- * `created_at`.
- */
+/** Role-scoped per build-spec.md's Phase 7 table — Admin sees every referral, Doctor only their own, Nurse only ones they created; `from`/`to` filter on `created_at`. */
 export const referralsReport = async (
 	request: FastifyRequest<ReferralsReportRequest>,
 	reply: FastifyReply<ReferralsReportRequest>,
 ): Promise<void> => {
-	const { core } = request.server;
+	const database = request.server.database;
 	const role = request.user!.role;
 
 	const where: WhereClause<ReferralModelSelect> = {};
@@ -61,16 +58,13 @@ export const referralsReport = async (
 	}
 
 	const [rawStatusCounts, rawPriorityCounts] = await Promise.all([
-		core.referral.count(where, "status"),
-		core.referral.count(where, "priority"),
+		referralCount(database, { where, groupBy: "status" }),
+		referralCount(database, { where, groupBy: "priority" }),
 	]);
 
 	const statusCounts = zeroFillCounts(rawStatusCounts, REFERRAL_STATUS);
 	const priorityCounts = zeroFillCounts(rawPriorityCounts, PRIORITY);
 
-	// Field names here are the report's own stable shape, decoupled from
-	// `REFERRAL_STATUS`'s casing — same remap `dashboard/service.ts` already
-	// does for its per-status counts.
 	const byStatus = {
 		pending: statusCounts[REFERRAL_STATUS.PENDING],
 		accepted: statusCounts[REFERRAL_STATUS.ACCEPTED],

@@ -1,4 +1,4 @@
-import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import type { FastifyReply, FastifyRequest } from "fastify";
 
 import { fromNodeHeaders } from "better-auth/node";
 
@@ -14,6 +14,14 @@ import {
 import { env } from "../../lib/env";
 import { auth } from "../../lib/auth";
 import { generateUuid, httpCodeForStatus } from "../../lib/util";
+
+import { userOne } from "../../repository/user";
+import { facilityOne, facilityCreate } from "../../repository/facility";
+import { loginsMany, loginsCreate, loginsUpdate } from "../../repository/logins";
+import { authSignOut } from "../../repository/authentication";
+import { sessionMapUser } from "../../repository/cross-schema/session";
+
+import type { Executor } from "../../repository/helpers";
 
 import type {
 	SignUpRequest,
@@ -37,30 +45,13 @@ type SignInBody = AuthErrorBody & {
 	twoFactorMethods?: TwoFactorMethod[];
 };
 
-/**
- * A facility only ever comes into being `PENDING`, paired with its
- * founding Manager's own (also-`PENDING`) application — approved together
- * by an Administrator, or both stay hidden/rejected. Joining an *existing*
- * facility (Manager or Nurse/Doctor) instead must actually be one an
- * Administrator has approved — closes the gap where a client bypasses the
- * visibility filter on `GET /facilities` and POSTs a known-but-hidden
- * (pending/rejected/flagged/suspended) facility id directly.
- *
- * Not wrapped in a try/catch to clean up a just-created facility if
- * `signUpEmail` fails afterward: `Facility`'s repo class deliberately has
- * no `delete` (see `core/facility.ts` — a facility already referenced by
- * other rows is a reassignment/soft-delete problem, not a hard delete,
- * matching this whole redesign's no-hard-delete stance). A failure here
- * leaves the paired facility `PENDING` and orphaned (no Manager ever
- * attached) — inert and Administrator-visible-only, not a data integrity
- * problem, just a harmless leftover. True atomicity across this Drizzle
- * write and better-auth's own adapter writes isn't achievable without
- * deeper surgery on the adapter regardless.
- */
+/** Signs up a new account, creating a `PENDING` facility for a founding Manager or validating an existing approved one to join; not wrapped in a cleanup try/catch since `repository/facility.ts` has no `delete` and an orphaned `PENDING` facility is a harmless leftover, not a data-integrity problem. */
 export const signUp = async (
 	request: FastifyRequest<SignUpRequest>,
 	reply: FastifyReply<SignUpRequest>,
 ): Promise<void> => {
+	const database = request.server.database;
+
 	const {
 		name,
 		email,
@@ -74,18 +65,19 @@ export const signUp = async (
 	let resolvedFacilityId = facility_id;
 
 	if (role === ROLES.MANAGER && new_facility_name) {
-		const [facility] = await request.server.core.facility.create({
-			data: {
+		const [facility] = await facilityCreate(
+			database,
+			{ select: { id: true } },
+			{
 				id: generateUuid(),
 				name: new_facility_name,
 				address: new_facility_address ?? null,
 				status: FACILITY_STATUS.PENDING,
 			},
-			select: { id: true },
-		});
+		);
 		resolvedFacilityId = facility.id;
 	} else if (facility_id) {
-		const facility = await request.server.core.facility.one({
+		const facility = await facilityOne(database, {
 			where: { id: facility_id },
 			select: { id: true, status: true },
 		});
@@ -131,14 +123,14 @@ export const signUp = async (
 
 /** Better-auth doesn't expose whose 2FA attempt just failed, so this resolves stale pending rows on the user's next sign-in instead — see docs/2fa.md decision #6. */
 const resolveStalePendingLogins = async (
-	server: FastifyInstance,
+	database: Executor,
 	userId: string,
 ): Promise<void> => {
 	const cutoff = new Date(
 		Date.now() - env.TWO_FACTOR_COOKIE_MAX_AGE_SECONDS * 1000,
 	);
 
-	const stale = await server.core.logins.many({
+	const stale = await loginsMany(database, {
 		page: 1,
 		limit: 20,
 		where: {
@@ -150,23 +142,23 @@ const resolveStalePendingLogins = async (
 	});
 
 	for (const row of stale.data) {
-		await server.core.logins.update({
-			where: { id: row.id },
-			data: {
+		await loginsUpdate(
+			database,
+			{ where: { id: row.id }, select: { id: true } },
+			{
 				status: LOGIN_STATUS.FAILED,
 				reason: "Second factor not completed.",
 			},
-			select: { id: true },
-		});
+		);
 	}
 };
 
 /** Mirrors signOut's "most recent open row" lookup further below. */
 const resolvePendingLoginSuccess = async (
-	server: FastifyInstance,
+	database: Executor,
 	userId: string,
 ): Promise<void> => {
-	const pending = await server.core.logins.many({
+	const pending = await loginsMany(database, {
 		page: 1,
 		limit: 1,
 		order: { login_at: "desc" },
@@ -177,11 +169,11 @@ const resolvePendingLoginSuccess = async (
 	const [row] = pending.data;
 	if (!row) return;
 
-	await server.core.logins.update({
-		where: { id: row.id },
-		data: { status: LOGIN_STATUS.SUCCESS },
-		select: { id: true },
-	});
+	await loginsUpdate(
+		database,
+		{ where: { id: row.id }, select: { id: true } },
+		{ status: LOGIN_STATUS.SUCCESS },
+	);
 };
 
 /** Unknown emails aren't logged (no user row to attach the FK to); a correct password against a 2FA-enabled account logs TWO_FACTOR_PENDING instead of SUCCESS. */
@@ -189,15 +181,16 @@ export const signIn = async (
 	request: FastifyRequest<SignInRequest>,
 	reply: FastifyReply<SignInRequest>,
 ): Promise<void> => {
+	const database = request.server.database;
 	const { email, password } = request.body;
 
-	const existingUser = await request.server.core.user.one({
+	const existingUser = await userOne(database, {
 		where: { email },
 		select: { id: true },
 	});
 
 	if (existingUser) {
-		await resolveStalePendingLogins(request.server, existingUser.id);
+		await resolveStalePendingLogins(database, existingUser.id);
 	}
 
 	const response = await auth.api.signInEmail({
@@ -221,8 +214,10 @@ export const signIn = async (
 			status = LOGIN_STATUS.SUCCESS;
 		}
 
-		await request.server.core.logins.create({
-			data: {
+		await loginsCreate(
+			database,
+			{ select: { id: true } },
+			{
 				id: generateUuid(),
 				user_id: existingUser.id,
 				login_at: new Date(),
@@ -231,8 +226,7 @@ export const signIn = async (
 				status,
 				reason,
 			},
-			select: { id: true },
-		});
+		);
 	}
 
 	const cookies = response.headers.getSetCookie();
@@ -259,25 +253,19 @@ export const signIn = async (
 	});
 };
 
-/**
- * Stamps `logout_at` on the most recent still-open `logins` row for this
- * user — resolving the session as the standard `authenticate` middleware
- * would, but sign-out itself stays open to unauthenticated requests
- * (better-auth's own signOut no-ops gracefully without one).
- */
+/** Stamps `logout_at` on the most recent still-open `logins` row for this user; sign-out itself stays open to unauthenticated requests since better-auth's own signOut no-ops gracefully without one. */
 export const signOut = async (
 	request: FastifyRequest<SignOutRequest>,
 	reply: FastifyReply<SignOutRequest>,
 ): Promise<void> => {
+	const database = request.server.database;
 	const headers = fromNodeHeaders(request.headers);
 	const currentSession = await auth.api.getSession({ headers });
 
-	const response = await request.server.core.betterAuth.signOut(
-		request.headers,
-	);
+	const response = await authSignOut(request.headers);
 
 	if (currentSession?.user?.id) {
-		const openLogins = await request.server.core.logins.many({
+		const openLogins = await loginsMany(database, {
 			limit: 1,
 			order: { login_at: "desc" },
 			where: {
@@ -290,11 +278,11 @@ export const signOut = async (
 
 		const [openLogin] = openLogins.data;
 		if (openLogin) {
-			await request.server.core.logins.update({
-				where: { id: openLogin.id },
-				data: { logout_at: new Date() },
-				select: { id: true },
-			});
+			await loginsUpdate(
+				database,
+				{ where: { id: openLogin.id }, select: { id: true } },
+				{ logout_at: new Date() },
+			);
 		}
 	}
 
@@ -310,6 +298,7 @@ export const signOut = async (
 		.send({ code, message: response.ok ? "Signed out." : "Sign out failed." });
 };
 
+/** Reports the caller's current session, or a null user if there isn't one. */
 export const session = async (
 	request: FastifyRequest<SessionRequest>,
 	reply: FastifyReply<SessionRequest>,
@@ -320,9 +309,7 @@ export const session = async (
 
 	const { status, code } = HTTP_RESPONSE_CODE.OK;
 
-	const user = userSession
-		? request.server.management.session.mapUser(userSession.user)
-		: null;
+	const user = userSession ? sessionMapUser(userSession.user) : null;
 
 	const response: SessionResponse = {
 		code,
@@ -345,6 +332,7 @@ export const session = async (
 	reply.status(status).send(response);
 };
 
+/** Completes sign-in with a TOTP code. */
 export const twoFactorVerifyTotp = async (
 	request: FastifyRequest<TwoFactorVerifyTotpRequest>,
 	reply: FastifyReply<TwoFactorVerifyTotpRequest>,
@@ -358,7 +346,7 @@ export const twoFactorVerifyTotp = async (
 	const body = (await response.json()) as TwoFactorVerifyBody;
 
 	if (response.ok && body?.user?.id) {
-		await resolvePendingLoginSuccess(request.server, body.user.id);
+		await resolvePendingLoginSuccess(request.server.database, body.user.id);
 	}
 
 	const cookies = response.headers.getSetCookie();
@@ -376,6 +364,7 @@ export const twoFactorVerifyTotp = async (
 	});
 };
 
+/** Completes sign-in with a two-factor backup code. */
 export const twoFactorVerifyBackupCode = async (
 	request: FastifyRequest<TwoFactorVerifyBackupCodeRequest>,
 	reply: FastifyReply<TwoFactorVerifyBackupCodeRequest>,
@@ -389,7 +378,7 @@ export const twoFactorVerifyBackupCode = async (
 	const body = (await response.json()) as TwoFactorVerifyBody;
 
 	if (response.ok && body?.user?.id) {
-		await resolvePendingLoginSuccess(request.server, body.user.id);
+		await resolvePendingLoginSuccess(request.server.database, body.user.id);
 	}
 
 	const cookies = response.headers.getSetCookie();
@@ -407,6 +396,7 @@ export const twoFactorVerifyBackupCode = async (
 	});
 };
 
+/** Sends a two-factor OTP code to the caller's email. */
 export const twoFactorSendOtp = async (
 	request: FastifyRequest<TwoFactorSendOtpRequest>,
 	reply: FastifyReply<TwoFactorSendOtpRequest>,
@@ -432,6 +422,7 @@ export const twoFactorSendOtp = async (
 	});
 };
 
+/** Completes sign-in with a two-factor OTP code. */
 export const twoFactorVerifyOtp = async (
 	request: FastifyRequest<TwoFactorVerifyOtpRequest>,
 	reply: FastifyReply<TwoFactorVerifyOtpRequest>,
@@ -445,7 +436,7 @@ export const twoFactorVerifyOtp = async (
 	const body = (await response.json()) as TwoFactorVerifyBody;
 
 	if (response.ok && body?.user?.id) {
-		await resolvePendingLoginSuccess(request.server, body.user.id);
+		await resolvePendingLoginSuccess(request.server.database, body.user.id);
 	}
 
 	const cookies = response.headers.getSetCookie();

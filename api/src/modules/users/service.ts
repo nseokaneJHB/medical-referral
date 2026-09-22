@@ -18,13 +18,21 @@ import { zeroFillCounts, generateUuid } from "../../lib/util";
 import { parseEnumList } from "../../lib/validator";
 import { canViewUser, canManagerActOnStaff } from "../../lib/permission";
 
-import { AutoAssignmentManager } from "../../management/auto-assignment";
+import { userOne, userMany, userCount } from "../../repository/user";
+import { accountOne } from "../../repository/account";
+import { timelineMany } from "../../repository/timeline";
+import { referralCount } from "../../repository/referral";
+import {
+	specialtyOne,
+	specialtyLinkMany,
+	specialtyLinkCreate,
+	specialtyLinkDelete,
+} from "../../repository/specialty";
+import { autoAssignmentRecheckFacility } from "../../repository/cross-schema/auto-assignment";
 
 import { UserModel, type UserModelSelect } from "../../drizzle/schema";
 
-import type { CoreService } from "../../core";
-
-import { buildOrderClause, type WhereClause } from "../../core/helpers";
+import { buildOrderClause, type Executor, type WhereClause } from "../../repository/helpers";
 
 import type {
 	UsersRequest,
@@ -65,11 +73,13 @@ const USER_INCLUDE = {
 	facility: { select: { id: true, name: true } },
 } as const;
 
+/** Lists users with pagination/role/status/search filtering, role-scoped to the caller's own facility for a Manager. */
 export const users = async (
 	request: FastifyRequest<UsersRequest>,
 	reply: FastifyReply<UsersRequest>,
 ): Promise<void> => {
 	const { query, server } = request;
+	const database = server.database;
 
 	const page = Number(query.page);
 	const limit = Number(query.limit);
@@ -104,7 +114,7 @@ export const users = async (
 		"desc",
 	);
 
-	const result = await server.core.user.many({
+	const result = await userMany(database, {
 		page,
 		limit,
 		where,
@@ -112,9 +122,8 @@ export const users = async (
 		select: USER_FIELDS,
 	});
 
-	const pendingApplications = await server.core.user.count({
-		...roleScopeWhere,
-		status: USER_STATUS.PENDING,
+	const pendingApplications = await userCount(database, {
+		where: { ...roleScopeWhere, status: USER_STATUS.PENDING },
 	});
 
 	const { status, code } = HTTP_RESPONSE_CODE.OK;
@@ -126,21 +135,15 @@ export const users = async (
 	});
 };
 
-/**
- * No `disableUser` — `PATCH /users/:id/disable` is removed. It let
- * Administrator disable *any* user unconditionally with no recorded
- * reason, which contradicts the new authority model (Administrator
- * moderates Managers, Manager moderates their own Nurse/Doctor staff,
- * always with a reason). Fully superseded by the role-first moderation
- * endpoints in `modules/administrator` and `modules/manager`.
- */
+/** No `disableUser` — superseded by the role-first moderation endpoints in `modules/administrator` and `modules/manager`, which always record a reason. */
 
+/** Computes a doctor's referral totals/completion-rate stat block. */
 const doctorStats = async (
-	core: Pick<CoreService, "referral">,
+	database: Executor,
 	doctorId: string,
 ): Promise<UserDetailResponse["data"]["stats"]> => {
 	const counts = zeroFillCounts(
-		await core.referral.count({ doctor: doctorId }, "status"),
+		await referralCount(database, { where: { doctor: doctorId }, groupBy: "status" }),
 		REFERRAL_STATUS,
 	);
 
@@ -154,13 +157,15 @@ const doctorStats = async (
 	};
 };
 
+/** Fetches a single user, with a doctor's referral stats attached when applicable. */
 export const user = async (
 	request: FastifyRequest<UserRequest>,
 	reply: FastifyReply<UserRequest>,
 ): Promise<void> => {
 	const role = request.user!.role;
+	const database = request.server.database;
 
-	const user = await request.server.core.user.one({
+	const user = await userOne(database, {
 		where: { id: request.params.id },
 		select: USER_FIELDS,
 		include: USER_INCLUDE,
@@ -172,11 +177,9 @@ export const user = async (
 	}
 
 	const stats =
-		user.role === ROLES.DOCTOR
-			? await doctorStats(request.server.core, user.id)
-			: undefined;
+		user.role === ROLES.DOCTOR ? await doctorStats(database, user.id) : undefined;
 
-	const account = await request.server.core.account.one({
+	const account = await accountOne(database, {
 		where: { user_id: user.id },
 		select: { updated_at: true },
 	});
@@ -193,13 +196,15 @@ export const user = async (
 	});
 };
 
+/** Lists a user's moderation/status timeline, paginated. */
 export const userHistory = async (
 	request: FastifyRequest<UserHistoryRequest>,
 	reply: FastifyReply<UserHistoryRequest>,
 ): Promise<void> => {
 	const role = request.user!.role;
+	const database = request.server.database;
 
-	const user = await request.server.core.user.one({
+	const user = await userOne(database, {
 		where: { id: request.params.id },
 		select: { id: true, facility_id: true },
 	});
@@ -216,7 +221,7 @@ export const userHistory = async (
 		? Number(request.query.limit)
 		: DEFAULT_PAGE_LIMIT;
 
-	const result = await request.server.core.timeline.many({
+	const result = await timelineMany(database, {
 		page,
 		limit,
 		where: { type: TIMELINE_TYPE.USER, entity: request.params.id },
@@ -233,14 +238,7 @@ export const userHistory = async (
 	});
 };
 
-/**
- * Manager-only, and only for their own facility's Doctors/Nurses — mirrors
- * `canManagerActOnStaff`'s existing moderation gate. Administrator manages
- * the specialty vocabulary itself (`modules/specialties`) but not any one
- * user's assignments. Specialties only make sense for clinical staff, so
- * the target's role is checked too (Manager/Administrator accounts have
- * none).
- */
+/** Manager-only, and only for their own facility's Doctors/Nurses — Administrator manages the specialty vocabulary itself, not any one user's assignments. */
 const canManageStaffSpecialties = (
 	role: Role,
 	caller: Pick<UserModelSelect, "facility_id">,
@@ -251,13 +249,15 @@ const canManageStaffSpecialties = (
 	return false;
 };
 
+/** Lists a user's assigned specialties. */
 export const userSpecialties = async (
 	request: FastifyRequest<UserSpecialtiesRequest>,
 	reply: FastifyReply<UserSpecialtiesRequest>,
 ): Promise<void> => {
 	const role = request.user!.role;
+	const database = request.server.database;
 
-	const target = await request.server.core.user.one({
+	const target = await userOne(database, {
 		where: { id: request.params.id },
 		select: { id: true, role: true, facility_id: true },
 	});
@@ -267,7 +267,8 @@ export const userSpecialties = async (
 		return reply.status(status).send({ code, message: "User not found." });
 	}
 
-	const result = await request.server.core.specialty.linkMany("user", {
+	const result = await specialtyLinkMany(database, {
+		owner: "user",
 		page: 1,
 		limit: 100,
 		where: { user_id: request.params.id },
@@ -285,13 +286,15 @@ export const userSpecialties = async (
 	});
 };
 
+/** Assigns a specialty to a Doctor/Nurse, then best-effort re-triggers auto-assignment recheck if the target is a Doctor. */
 export const userSpecialtyAssign = async (
 	request: FastifyRequest<UserSpecialtyAssignRequest>,
 	reply: FastifyReply<UserSpecialtyAssignRequest>,
 ): Promise<void> => {
 	const role = request.user!.role;
+	const database = request.server.database;
 
-	const target = await request.server.core.user.one({
+	const target = await userOne(database, {
 		where: { id: request.params.id },
 		select: { id: true, role: true, facility_id: true },
 	});
@@ -316,7 +319,7 @@ export const userSpecialtyAssign = async (
 		});
 	}
 
-	const specialty = await request.server.core.specialty.one({
+	const specialty = await specialtyOne(database, {
 		where: { id: request.body.specialty_id },
 		select: { id: true, name: true, description: true },
 	});
@@ -326,7 +329,8 @@ export const userSpecialtyAssign = async (
 		return reply.status(status).send({ code, message: "Specialty not found." });
 	}
 
-	const existing = await request.server.core.specialty.linkMany("user", {
+	const existing = await specialtyLinkMany(database, {
+		owner: "user",
 		page: 1,
 		limit: 1,
 		where: {
@@ -344,20 +348,21 @@ export const userSpecialtyAssign = async (
 		});
 	}
 
-	const [link] = await request.server.core.specialty.linkCreate("user", {
-		data: {
+	const [link] = await specialtyLinkCreate(
+		database,
+		{ owner: "user", select: { id: true, user_id: true, created_at: true } },
+		{
 			id: generateUuid(),
 			user_id: request.params.id,
 			specialty_id: request.body.specialty_id,
 		},
-		select: { id: true, user_id: true, created_at: true },
-	});
+	);
 
 	if (target.role === ROLES.DOCTOR && target.facility_id) {
 		try {
-			await new AutoAssignmentManager(request.server.core).recheckFacility(
-				target.facility_id,
-			);
+			await autoAssignmentRecheckFacility(database, {
+				facilityId: target.facility_id,
+			});
 		} catch (error) {
 			request.log.error(
 				{ error, userId: target.id },
@@ -374,13 +379,15 @@ export const userSpecialtyAssign = async (
 	});
 };
 
+/** Unassigns a specialty from a Doctor/Nurse. */
 export const userSpecialtyUnassign = async (
 	request: FastifyRequest<UserSpecialtyUnassignRequest>,
 	reply: FastifyReply<UserSpecialtyUnassignRequest>,
 ): Promise<void> => {
 	const role = request.user!.role;
+	const database = request.server.database;
 
-	const target = await request.server.core.user.one({
+	const target = await userOne(database, {
 		where: { id: request.params.id },
 		select: { id: true, role: true, facility_id: true },
 	});
@@ -405,7 +412,8 @@ export const userSpecialtyUnassign = async (
 		});
 	}
 
-	const deleted = await request.server.core.specialty.linkDelete("user", {
+	const deleted = await specialtyLinkDelete(database, {
+		owner: "user",
 		where: {
 			user_id: request.params.id,
 			specialty_id: request.params.specialtyId,

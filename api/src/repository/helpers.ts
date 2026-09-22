@@ -37,21 +37,12 @@ import {
 
 import { parseEnumList, parseSortList } from "../lib/validator";
 
-/* ═══════════════════════════════════════════════════════════════
-   EXECUTOR - db connection OR an open transaction, interchangeably
-   ═══════════════════════════════════════════════════════════════ */
 export type Database = MySql2Database<Record<string, any>>;
 
-// The exact type Drizzle hands you inside `db.transaction(async (tx) => ...)`.
-// Derived from the connection itself rather than hardcoded, so it can't
-// drift out of sync with the installed drizzle-orm version.
+/** The exact type Drizzle hands you inside `database.transaction(async (tx) => ...)`, derived from the connection so it can't drift out of sync with the installed drizzle-orm version. */
 type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 
 export type Executor = Database | Transaction;
-
-/* ═══════════════════════════════════════════════════════════════
-   CORE TYPES - What repositories work with
-   ═══════════════════════════════════════════════════════════════ */
 
 export type WhereOperator<T> = {
 	lt?: T;
@@ -69,13 +60,7 @@ export type WhereOperator<T> = {
 	notBetween?: T extends Date ? [Date, Date] : [T, T];
 };
 
-/**
- * "Only rows not superseded by a later row" — for append-only tables where
- * whether a row still applies depends on comparing it against every later
- * row for the same group, not on the row's own columns. See
- * `buildWhere`'s `NOT_SUPERSEDED_BY` handling and
- * `Timeline.many()`'s `supersededBy` option, its only current caller.
- */
+/** "Only rows not superseded by a later row" for append-only tables — see `buildWhere`'s `NOT_SUPERSEDED_BY` handling. */
 export type SupersededCondition<TModel> = {
 	groupBy: (keyof TModel & string)[];
 	orderBy: keyof TModel & string;
@@ -101,8 +86,12 @@ export type SelectClause<TModel> = {
 	[K in keyof TModel]?: boolean;
 };
 
-export type CountOptions<TModel> = {
+export type CountOptions<
+	TModel,
+	TGroupBy extends keyof TModel & string = never,
+> = {
 	where?: WhereClause<TModel>;
+	groupBy?: TGroupBy;
 };
 
 export type GenericManyOptions<
@@ -132,11 +121,7 @@ export type CountClause<TRelations> = {
 	};
 };
 
-/**
- * Adds the relation counts requested through an `_count.select` clause to a
- * record's type. Both `manyRecords` and `oneRecord` add this property at
- * runtime, so repository return types must model it as well.
- */
+/** Adds the relation counts requested through `_count.select` to a record's type, mirroring what `manyRecords`/`oneRecord` attach at runtime. */
 export type WithCount<TRecord, TOptions> = TOptions extends {
 	_count: { select: infer TSelect };
 }
@@ -149,14 +134,7 @@ export type WithCount<TRecord, TOptions> = TOptions extends {
 		}
 	: TRecord;
 
-/**
- * Adds the relations requested through an `include` clause to a record's
- * type — same "shape depends on the options passed" idiom as `WithCount`.
- * `TRelations[K]` already encodes cardinality per relation (each repo's own
- * `XRelations` interface types a "many" relation as an array, a "one" as a
- * bare object), so this doesn't need the runtime relation-type info
- * `buildRelations` uses — it just looks it up.
- */
+/** Adds the relations requested through an `include` clause to a record's type, same "shape depends on options" idiom as `WithCount`. */
 export type WithRelations<TRecord, TOptions, TRelations> = TOptions extends {
 	include: infer TInclude;
 }
@@ -173,9 +151,7 @@ export type Pagination<T> = {
 	data: T[];
 	page: number;
 	limit: number;
-	/** Number of items returned in this page (i.e. `data.length`). */
 	count: number;
-	/** Total number of items matching the filter, across all pages. */
 	total: number;
 };
 
@@ -187,10 +163,6 @@ type RelationConfig = {
 };
 
 type CountConfig = Omit<RelationConfig, "type">;
-
-/* ═══════════════════════════════════════════════════════════════
-   REPOSITORY METHOD OPTIONS - Prisma-like API
-   ═══════════════════════════════════════════════════════════════ */
 
 export type FindAllOptions<
 	TModel,
@@ -228,11 +200,6 @@ export type AggregateOptions<TModel> = {
 	where?: WhereClause<TModel>;
 };
 
-/* ═══════════════════════════════════════════════════════════════
-   QUERY PARAM PARSING - turns a request's raw sort/order strings
-   into the OrderClause<TModel> repositories accept
-   ═══════════════════════════════════════════════════════════════ */
-
 /** Resolves `?sort=&order=` into an `OrderClause<TModel>`, pairing each sort column with its positional direction and repeating the first/fallback direction once `order` runs out. */
 export const buildOrderClause = <
 	TModel,
@@ -257,10 +224,7 @@ export const buildOrderClause = <
 	) as OrderClause<TModel>;
 };
 
-/* ═══════════════════════════════════════════════════════════════
-   INTERNAL BUILDERS - Drizzle SQL construction (hidden from repos)
-   ═══════════════════════════════════════════════════════════════ */
-
+/** Builds the Drizzle column-selection map for a `select` clause, throwing on an unknown column or an empty selection. */
 export const buildSelect = <TTable extends MySqlTable, TModel>(
 	table: TTable,
 	select: SelectClause<TModel>,
@@ -282,6 +246,7 @@ export const buildSelect = <TTable extends MySqlTable, TModel>(
 	return selectedFields;
 };
 
+/** Translates a `WhereClause` (including `OR`/`AND`/`NOT_SUPERSEDED_BY`) into a Drizzle `SQL` condition, or `undefined` if empty. */
 export const buildWhere = <TTable extends MySqlTable, TModel>(
 	table: TTable,
 	where?: WhereClause<TModel>,
@@ -291,7 +256,6 @@ export const buildWhere = <TTable extends MySqlTable, TModel>(
 	const conditions: SQL<unknown>[] = [];
 
 	for (const [key, value] of Object.entries(where)) {
-		// Handle OR operator
 		if (key === "OR" && Array.isArray(value)) {
 			const orConditions = value
 				.map((clause) => buildWhere(table, clause))
@@ -302,7 +266,6 @@ export const buildWhere = <TTable extends MySqlTable, TModel>(
 			continue;
 		}
 
-		// Handle AND operator
 		if (key === "AND" && Array.isArray(value)) {
 			const andConditions = value
 				.map((clause) => buildWhere(table, clause))
@@ -313,7 +276,6 @@ export const buildWhere = <TTable extends MySqlTable, TModel>(
 			continue;
 		}
 
-		// Handle "not superseded by a later row" (see `SupersededCondition`)
 		if (key === "NOT_SUPERSEDED_BY" && value) {
 			const condition = value as SupersededCondition<unknown>;
 			conditions.push(
@@ -331,10 +293,8 @@ export const buildWhere = <TTable extends MySqlTable, TModel>(
 		const column = table[key as keyof typeof table] as MySqlColumn;
 		if (!column) throw new Error(`Invalid column: ${key}`);
 
-		// Handle null/undefined
 		if (value === null || value === undefined) continue;
 
-		// Handle operator objects
 		const isPlainObject =
 			typeof value === "object" &&
 			!Array.isArray(value) &&
@@ -371,13 +331,9 @@ export const buildWhere = <TTable extends MySqlTable, TModel>(
 				conditions.push(not(inArray(column, operator.notIn)));
 			}
 			if (operator.contains !== undefined) {
-				// Escape LIKE metacharacters so literal %, _, and \ in user input
-				// are matched literally instead of acting as wildcards.
 				const escaped = operator.contains.replace(/[\\%_]/g, "\\$&");
 				const pattern = `%${escaped}%`;
 				if (operator.mode === "insensitive") {
-					// MySQL has no ILIKE operator — LOWER() on both sides keeps
-					// this case-insensitive regardless of column collation.
 					conditions.push(sql`LOWER(${column}) LIKE LOWER(${pattern})`);
 				} else {
 					conditions.push(like(column, pattern));
@@ -391,22 +347,7 @@ export const buildWhere = <TTable extends MySqlTable, TModel>(
 	return conditions.length > 0 ? and(...conditions) : undefined;
 };
 
-/**
- * A `NOT EXISTS` correlated subquery: `true` for a row unless a *later* row
- * (by `orderColumn`) exists on the same table, matching the same
- * `groupColumns` values, whose `matchColumn` is one of `matchValues`. Used
- * for append-only tables where "is this row still current" isn't a
- * property of one row — it depends on comparing it against every later row
- * for the same group, which the flat `WhereClause` builder above can't
- * express (see `Timeline.many()`'s `supersededBy` option, its only current
- * caller). Fully generic — table-agnostic, like the rest of this file;
- * doesn't know what "current" means for any particular table, only how to
- * ask the question.
- *
- * Builds a proper Drizzle table alias (`alias()`) rather than raw SQL
- * table/column name strings, so the self-join stays tied to the real
- * schema instead of a hand-maintained table name.
- */
+/** A `NOT EXISTS` correlated subquery: true unless a later row (by `orderColumn`) in the same group has `matchColumn` in `matchValues` — the append-only "still current" check `buildWhere`'s `NOT_SUPERSEDED_BY` delegates to. */
 export const buildSupersededCondition = <TTable extends MySqlTable>(
 	table: TTable,
 	groupColumns: (keyof TTable & string)[],
@@ -425,12 +366,6 @@ export const buildSupersededCondition = <TTable extends MySqlTable>(
 		eq(laterColumn(column), outerColumn(column)),
 	);
 
-	// `${later}` alone (interpolated directly as a `FROM` target) renders
-	// only the alias's quoted name, not `` `<table>` AS `later` `` — MySQL
-	// then has no idea what `later` refers to. `getTableName(table)` +
-	// `sql.identifier` spells the real table name out explicitly instead;
-	// `later`'s column refs (used below in the `WHERE`) still render
-	// correctly qualified by the alias regardless.
 	return sql`NOT EXISTS (
 		SELECT 1 FROM ${sql.identifier(getTableName(table))} AS later
 		WHERE ${and(
@@ -441,13 +376,11 @@ export const buildSupersededCondition = <TTable extends MySqlTable>(
 	)`;
 };
 
+/** Builds `ORDER BY` clauses, sorting NULLs to the requested end since MySQL has no `NULLS LAST`/`NULLS FIRST`. */
 export const buildOrder = <TTable extends MySqlTable, TModel>(
 	table: TTable,
 	order?: OrderClause<TModel>,
 ): SQL<unknown>[] => {
-	// MySQL has no `NULLS LAST`/`NULLS FIRST` clause — `(column IS NULL)`
-	// evaluates to 0/1, so ordering by it first pushes NULLs to the requested
-	// end regardless of the column's own sort direction.
 	if (!order || Object.keys(order).length === 0) {
 		const defaultColumn = table["created_at" as keyof typeof table] as
 			| MySqlColumn
@@ -471,6 +404,7 @@ export const buildOrder = <TTable extends MySqlTable, TModel>(
 		});
 };
 
+/** Resolves a `groupBy` field name to its Drizzle column. */
 export const buildGroup = <TTable extends MySqlTable>(
 	table: TTable,
 	field: string | keyof TTable,
@@ -480,11 +414,7 @@ export const buildGroup = <TTable extends MySqlTable>(
 	return column;
 };
 
-/**
- * Resolves a table's single-column primary key. Every table in this schema
- * has one (`id`, `patient_id`, `referral_id`, `history_id`, `audit_id`, ...)
- * — nothing here assumes the column is literally named `id`.
- */
+/** Resolves a table's single-column primary key — every table in this schema has exactly one, not necessarily named `id`. */
 export const getPrimaryKeyColumn = (table: MySqlTable): MySqlColumn => {
 	const columns = getTableColumns(table);
 	const pk = Object.values(columns).find(
@@ -500,8 +430,9 @@ export const getPrimaryKeyColumn = (table: MySqlTable): MySqlColumn => {
 	return pk as MySqlColumn;
 };
 
+/** Batch-counts related rows per main record for an `_count.select` clause, keyed by each main record's primary key. */
 export const buildCounts = async <TMain, TRelations = unknown>(
-	db: Executor,
+	database: Executor,
 	mainRecords: TMain[],
 	countSelect: CountClause<TRelations>["select"],
 	countConfigs: Record<string, CountConfig>,
@@ -543,7 +474,7 @@ export const buildCounts = async <TMain, TRelations = unknown>(
 
 			const where = buildWhere(table, whereConditions);
 
-			const relationCounts = await db
+			const relationCounts = await database
 				.select({
 					ref_id: table[foreignKey as keyof typeof table] as MySqlColumn,
 					count: sql<number>`count(*)`,
@@ -573,8 +504,9 @@ export const buildCounts = async <TMain, TRelations = unknown>(
 	return counts;
 };
 
+/** Batch-attaches the relations requested through an `include` clause to a set of main records, re-querying for any foreign keys not already selected. */
 export const buildRelations = async <TMain, TRelations>(
-	db: Executor,
+	database: Executor,
 	mainRecords: TMain[],
 	include: IncludeClause<TRelations> | undefined,
 	relationConfigs: Record<string, RelationConfig>,
@@ -586,7 +518,6 @@ export const buildRelations = async <TMain, TRelations>(
 	const pkColumn = getPrimaryKeyColumn(mainTable);
 	const pk = pkColumn.name;
 
-	// Check which foreign keys are missing and which were explicitly requested
 	const missingForeignKeys: string[] = [];
 	const explicitlyRequestedForeignKeys = new Set<string>();
 
@@ -596,12 +527,10 @@ export const buildRelations = async <TMain, TRelations>(
 
 		const foreignKeyField = config.references;
 
-		// Check if it was explicitly requested in the original select
 		if (originalSelect[foreignKeyField] === true) {
 			explicitlyRequestedForeignKeys.add(foreignKeyField);
 		}
 
-		// Check if the foreign key exists in the records
 		const hasForeignKey = mainRecords.some(
 			(r: any) => r[foreignKeyField] !== undefined,
 		);
@@ -611,17 +540,15 @@ export const buildRelations = async <TMain, TRelations>(
 		}
 	}
 
-	// Re-query to get missing foreign keys if needed
 	let recordsWithForeignKeys = mainRecords;
 	if (missingForeignKeys.length > 0) {
 		const ids = mainRecords.map((r: any) => r[pk]).filter(Boolean);
 
 		if (ids.length === 0) return mainRecords;
 
-		// Build select with original fields + missing foreign keys
 		const selectWithForeignKeys: Record<string, boolean> = {
 			...originalSelect,
-			[pk]: true, // Always need the PK to match back
+			[pk]: true,
 		};
 
 		for (const fk of missingForeignKeys) {
@@ -630,16 +557,14 @@ export const buildRelations = async <TMain, TRelations>(
 
 		const select = buildSelect(mainTable, selectWithForeignKeys);
 
-		const reQueried = await db
+		const reQueried = await database
 			.select(select)
 			.from(mainTable)
 			.where(inArray(pkColumn, ids));
 
-		// Merge the foreign keys back into original records
 		recordsWithForeignKeys = mainRecords.map((record: any) => {
 			const matched = reQueried.find((r: any) => r[pk] === record[pk]);
 			if (matched) {
-				// Only add the missing foreign keys
 				const merged = { ...record };
 				for (const fk of missingForeignKeys) {
 					merged[fk] = matched[fk];
@@ -659,10 +584,6 @@ export const buildRelations = async <TMain, TRelations>(
 				.map((r: any) => r[config.references])
 				.filter(Boolean);
 
-			// Every record's FK is null (e.g. no referral in this batch has an
-			// assigned doctor) — skip the query, but still report an empty
-			// result so the attach step below sets null/[] instead of omitting
-			// the key entirely (which fails response-schema validation).
 			if (ids.length === 0) {
 				return {
 					relationName,
@@ -677,36 +598,28 @@ export const buildRelations = async <TMain, TRelations>(
 				? ({} as Partial<GenericManyOptions<any>>)
 				: (relationOptions as GenericManyOptions<any>);
 
-			// Build where clause for the relation
 			const relationWhere: any = { ...options.where };
 			relationWhere[config.foreignKey] = { in: ids };
 
 			const where = buildWhere(config.table, relationWhere);
 
-			// Track if foreign key was explicitly requested
 			const foreignKeyExplicitlyRequested =
 				options.select?.[config.foreignKey] === true;
 
-			// `include: { relation: true }` (bare boolean, no explicit `select`)
-			// means "give me the whole related record" — without this fallback,
-			// only the foreign key itself gets selected, and since it's then
-			// stripped as "not explicitly requested" below, the relation would
-			// always resolve to `{}`.
 			const baseSelect =
 				options.select ??
 				Object.fromEntries(
 					Object.keys(getTableColumns(config.table)).map((key) => [key, true]),
 				);
 
-			// IMPORTANT: Always include the foreign key in the selection for matching
 			const select = buildSelect(config.table, {
 				...baseSelect,
-				[config.foreignKey]: true, // Force include foreign key
+				[config.foreignKey]: true,
 			});
 
 			const order = buildOrder(config.table, options.order);
 
-			let query = db.select(select).from(config.table).where(where);
+			let query = database.select(select).from(config.table).where(where);
 
 			if (order.length > 0) {
 				query = query.orderBy(...order) as any;
@@ -737,7 +650,6 @@ export const buildRelations = async <TMain, TRelations>(
 		}),
 	);
 
-	// Attach relations to main records
 	return recordsWithForeignKeys.map((record: any) => {
 		const enrichedRecord = { ...record };
 
@@ -752,12 +664,10 @@ export const buildRelations = async <TMain, TRelations>(
 			} = result;
 
 			if (config.type === "one") {
-				// For 'one' relations: e.g. referral.doctor matches user.id
 				const relatedRecord = relatedRecords.find(
 					(r: any) => r[config.foreignKey] === record[config.references],
 				);
 
-				// Remove foreign key if it wasn't explicitly requested
 				if (relatedRecord && !foreignKeyExplicitlyRequested) {
 					const { [config.foreignKey]: _, ...cleanRecord } = relatedRecord;
 					enrichedRecord[relationName] = cleanRecord;
@@ -765,12 +675,10 @@ export const buildRelations = async <TMain, TRelations>(
 					enrichedRecord[relationName] = relatedRecord || null;
 				}
 			} else {
-				// For 'many' relations: e.g. referral.patient_id matches patient.patient_id
 				const relatedRecordsFiltered = relatedRecords.filter(
 					(r: any) => r[config.foreignKey] === record[config.references],
 				);
 
-				// Remove foreign key from each record if it wasn't explicitly requested
 				if (!foreignKeyExplicitlyRequested) {
 					enrichedRecord[relationName] = relatedRecordsFiltered.map(
 						(r: any) => {
@@ -784,7 +692,6 @@ export const buildRelations = async <TMain, TRelations>(
 			}
 		}
 
-		// Remove auto-included foreign keys that weren't explicitly requested
 		for (const fk of missingForeignKeys) {
 			if (!explicitlyRequestedForeignKeys.has(fk)) {
 				delete enrichedRecord[fk];
@@ -795,21 +702,14 @@ export const buildRelations = async <TMain, TRelations>(
 	});
 };
 
-/* ═══════════════════════════════════════════════════════════════
-   UTILITY FUNCTIONS
-   ═══════════════════════════════════════════════════════════════ */
-
+/** Reads the first row's `count` out of a raw `COUNT(*)` result. */
 export const extractCount = (
 	result: Array<{ count: number | string }>,
 ): number => {
 	return Number(result[0]?.count || 0);
 };
 
-/* ═══════════════════════════════════════════════════════════════
-   GENERIC REPOSITORY OPERATIONS - shared CRUD shape, reused by
-   every repo class (User, Session, Verification, and future ones)
-   ═══════════════════════════════════════════════════════════════ */
-
+/** Paginated `SELECT`, optionally enriched with `include` relations and `_count` — the shared engine behind every table's `xMany`. */
 export const manyRecords = async <TModel>(
 	executor: Executor,
 	table: MySqlTable,
@@ -878,23 +778,12 @@ export const manyRecords = async <TModel>(
 	};
 };
 
-/**
- * `count()`'s return type depends on whether `groupBy` was passed — a plain
- * `number` without it, a `Record<string, number>` (one entry per distinct
- * value actually present — callers zero-fill any values that returned no
- * rows) with it. Same "shape depends on the options passed" idiom as
- * `WithCount` above.
- */
+/** `count()`'s return type: a plain `number` without `groupBy`, a `Record<string, number>` (zero-filled by callers) with it. */
 export type CountResult<TGroupBy> = TGroupBy extends string
 	? Record<string, number>
 	: number;
 
-/**
- * `COUNT(*)` matching `where` (or the whole table if omitted), optionally
- * `GROUP BY` a single column — one generic primitive for both a flat
- * dashboard total and a per-status/per-priority breakdown, rather than a
- * separate named method per grouped column.
- */
+/** `COUNT(*)` matching `where`, optionally `GROUP BY` a single column — one primitive for both a flat total and a per-column breakdown. */
 export const countRecords = async <
 	TModel,
 	TGroupBy extends keyof TModel & string = never,
@@ -932,6 +821,7 @@ export const countRecords = async <
 	return counts as CountResult<TGroupBy>;
 };
 
+/** Fetches a single row by `where`, optionally enriched with `include` relations and `_count`. */
 export const oneRecord = async <TModel, TRelations = unknown>(
 	executor: Executor,
 	table: MySqlTable,
@@ -984,9 +874,7 @@ export const oneRecord = async <TModel, TRelations = unknown>(
 	return enriched;
 };
 
-// MySQL's Drizzle driver has no `.returning()` — every write below does a
-// plain write, then a re-select keyed off `getPrimaryKeyColumn(table)`.
-
+/** Inserts one or more rows and re-selects them by primary key — MySQL's Drizzle driver has no `.returning()`. */
 export const createRecords = async <TInsert, TModel>(
 	executor: Executor,
 	table: MySqlTable,
@@ -1009,11 +897,8 @@ export const createRecords = async <TInsert, TModel>(
 	let ids: (string | number)[];
 
 	if (explicitIds.length === data.length) {
-		// Caller supplied the primary key explicitly (e.g. a generated uuid).
 		ids = explicitIds;
 	} else if (result.insertId) {
-		// Autoincrement PK — MySQL guarantees consecutive ids within a single
-		// batch INSERT statement, so a window from insertId is safe.
 		ids = Array.from({ length: data.length }, (_, i) => result.insertId + i);
 	} else {
 		throw new Error(
@@ -1027,6 +912,7 @@ export const createRecords = async <TInsert, TModel>(
 		.where(inArray(pkColumn, ids))) as TModel[];
 };
 
+/** Updates rows matching `where` and re-selects them by primary key, stamping `updated_at` when the table has that column. */
 export const updateRecords = async <TInsert, TModel>(
 	executor: Executor,
 	table: MySqlTable,
@@ -1039,8 +925,6 @@ export const updateRecords = async <TInsert, TModel>(
 
 	const pkColumn = getPrimaryKeyColumn(table);
 
-	// Capture which rows match *before* writing — the update itself might
-	// change the very columns `where` filtered on.
 	const targets = await executor
 		.select({ pk: pkColumn })
 		.from(table)
@@ -1050,10 +934,6 @@ export const updateRecords = async <TInsert, TModel>(
 
 	const ids = targets.map((target) => target.pk as string | number);
 
-	/**
-	 * Not every table has an `updated_at` column (e.g. `logins`) — only
-	 * stamp it when the column actually exists.
-	 */
 	const columns = getTableColumns(table);
 	const data =
 		"updated_at" in columns
@@ -1070,6 +950,7 @@ export const updateRecords = async <TInsert, TModel>(
 		.where(inArray(pkColumn, ids))) as TModel[];
 };
 
+/** Reads rows matching `where`, deletes them, and returns what was captured beforehand since MySQL gives nothing back on delete. */
 export const deleteRecords = async <TModel>(
 	executor: Executor,
 	table: MySqlTable,
@@ -1082,8 +963,6 @@ export const deleteRecords = async <TModel>(
 
 	const select = buildSelect(table, options.select);
 
-	// Capture the rows before they're gone — there's nothing left to
-	// re-select afterward.
 	const targets = (await executor
 		.select(select)
 		.from(table)
