@@ -38,8 +38,7 @@ export const NotFound = () => {
 					Page Not Found
 				</h2>
 				<p className="text-muted-foreground text-lg">
-					This page seems to have wandered off into an untold story. Let's get
-					you back to familiar tales.
+					The page you're looking for doesn't exist or may have moved.
 				</p>
 			</div>
 
@@ -60,19 +59,14 @@ export const NotFound = () => {
 				</Link>
 			</div>
 
-			<div className="relative mt-6 space-y-2">
-				<div className="flex justify-center space-x-2">
-					{["dot-1", "dot-2", "dot-3", "dot-4", "dot-5"].map((id, i) => (
-						<div
-							key={id}
-							className="animate-bounce-dot bg-primary h-2 w-2 rounded-full"
-							style={{ animationDelay: `${i * 0.1}s` }}
-						></div>
-					))}
-				</div>
-				<p className="text-accent text-sm italic">
-					"Every story has a path, even the lost ones find their way home."
-				</p>
+			<div className="relative mt-6 flex justify-center space-x-2">
+				{["dot-1", "dot-2", "dot-3", "dot-4", "dot-5"].map((id, i) => (
+					<div
+						key={id}
+						className="animate-bounce-dot bg-primary h-2 w-2 rounded-full"
+						style={{ animationDelay: `${i * 0.1}s` }}
+					></div>
+				))}
 			</div>
 		</div>
 	);

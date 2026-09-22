@@ -1,5 +1,4 @@
 import { createServerFn } from "@tanstack/react-start";
-import { getRequest } from "@tanstack/react-start/server";
 
 import {
 	API_URLS,
@@ -18,17 +17,11 @@ import {
 	type ResetUserPasswordResponse,
 } from "@referral-tracking/shared";
 
-import { api } from "@/api";
+import { api, forwardedRequestOptions } from "@/api";
 
 import { env } from "@/lib/env";
 
 const baseUrl = API_URLS(env.VITE_API_VERSION).USERS;
-
-const forwardedRequestOptions = () => {
-	const request = getRequest();
-	const cookie = request.headers.get("cookie");
-	return cookie ? { headers: { cookie } } : {};
-};
 
 // Read (server-side, cookie-forwarded — Admin only, enforced by the API)
 export const usersRequest = createServerFn({ method: "GET" })
@@ -101,10 +94,8 @@ export const approveStaff = async (
 	id: string,
 	payload: ApproveActionBody,
 ): Promise<UserResponse> => {
-	const { data } = await api.patch<UserResponse>(
-		`${staffBaseUrl(namespace)}${buildUrlWithParams(STAFF_PATHS[namespace].APPROVE, { id })}`,
-		payload,
-	);
+	const url = `${staffBaseUrl(namespace)}${buildUrlWithParams(STAFF_PATHS[namespace].APPROVE, { id })}`;
+	const { data } = await api.patch<UserResponse>(url, payload);
 	return data;
 };
 
@@ -113,10 +104,8 @@ export const rejectStaff = async (
 	id: string,
 	payload: ModerationReasonBody,
 ): Promise<UserResponse> => {
-	const { data } = await api.patch<UserResponse>(
-		`${staffBaseUrl(namespace)}${buildUrlWithParams(STAFF_PATHS[namespace].REJECT, { id })}`,
-		payload,
-	);
+	const url = `${staffBaseUrl(namespace)}${buildUrlWithParams(STAFF_PATHS[namespace].REJECT, { id })}`;
+	const { data } = await api.patch<UserResponse>(url, payload);
 	return data;
 };
 
@@ -125,10 +114,8 @@ export const flagStaff = async (
 	id: string,
 	payload: ModerationReasonBody,
 ): Promise<UserResponse> => {
-	const { data } = await api.patch<UserResponse>(
-		`${staffBaseUrl(namespace)}${buildUrlWithParams(STAFF_PATHS[namespace].FLAG, { id })}`,
-		payload,
-	);
+	const url = `${staffBaseUrl(namespace)}${buildUrlWithParams(STAFF_PATHS[namespace].FLAG, { id })}`;
+	const { data } = await api.patch<UserResponse>(url, payload);
 	return data;
 };
 
@@ -137,22 +124,20 @@ export const disableStaff = async (
 	id: string,
 	payload: ModerationReasonBody,
 ): Promise<UserResponse> => {
-	const { data } = await api.patch<UserResponse>(
-		`${staffBaseUrl(namespace)}${buildUrlWithParams(STAFF_PATHS[namespace].DISABLE, { id })}`,
-		payload,
-	);
+	const url = `${staffBaseUrl(namespace)}${buildUrlWithParams(STAFF_PATHS[namespace].DISABLE, { id })}`;
+	const { data } = await api.patch<UserResponse>(url, payload);
 	return data;
 };
 
 /** Manager account moderation — Administrator-only, no namespace needed. */
+const administratorBaseUrl = API_URLS(env.VITE_API_VERSION).ADMINISTRATOR;
+
 export const approveManager = async (
 	id: string,
 	payload: ApproveActionBody,
 ): Promise<UserResponse> => {
-	const { data } = await api.patch<UserResponse>(
-		`${API_URLS(env.VITE_API_VERSION).ADMINISTRATOR}${buildUrlWithParams(API_PATHS.ADMINISTRATOR_MANAGER_APPROVE, { id })}`,
-		payload,
-	);
+	const url = `${administratorBaseUrl}${buildUrlWithParams(API_PATHS.ADMINISTRATOR_MANAGER_APPROVE, { id })}`;
+	const { data } = await api.patch<UserResponse>(url, payload);
 	return data;
 };
 
@@ -160,10 +145,8 @@ export const rejectManager = async (
 	id: string,
 	payload: ModerationReasonBody,
 ): Promise<UserResponse> => {
-	const { data } = await api.patch<UserResponse>(
-		`${API_URLS(env.VITE_API_VERSION).ADMINISTRATOR}${buildUrlWithParams(API_PATHS.ADMINISTRATOR_MANAGER_REJECT, { id })}`,
-		payload,
-	);
+	const url = `${administratorBaseUrl}${buildUrlWithParams(API_PATHS.ADMINISTRATOR_MANAGER_REJECT, { id })}`;
+	const { data } = await api.patch<UserResponse>(url, payload);
 	return data;
 };
 
@@ -171,10 +154,8 @@ export const flagManager = async (
 	id: string,
 	payload: ModerationReasonBody,
 ): Promise<UserResponse> => {
-	const { data } = await api.patch<UserResponse>(
-		`${API_URLS(env.VITE_API_VERSION).ADMINISTRATOR}${buildUrlWithParams(API_PATHS.ADMINISTRATOR_MANAGER_FLAG, { id })}`,
-		payload,
-	);
+	const url = `${administratorBaseUrl}${buildUrlWithParams(API_PATHS.ADMINISTRATOR_MANAGER_FLAG, { id })}`;
+	const { data } = await api.patch<UserResponse>(url, payload);
 	return data;
 };
 
@@ -182,10 +163,8 @@ export const disableManager = async (
 	id: string,
 	payload: ModerationReasonBody,
 ): Promise<UserResponse> => {
-	const { data } = await api.patch<UserResponse>(
-		`${API_URLS(env.VITE_API_VERSION).ADMINISTRATOR}${buildUrlWithParams(API_PATHS.ADMINISTRATOR_MANAGER_DISABLE, { id })}`,
-		payload,
-	);
+	const url = `${administratorBaseUrl}${buildUrlWithParams(API_PATHS.ADMINISTRATOR_MANAGER_DISABLE, { id })}`;
+	const { data } = await api.patch<UserResponse>(url, payload);
 	return data;
 };
 
@@ -193,10 +172,8 @@ export const disableManager = async (
 export const createUser = async (
 	payload: CreateUserByAdminBody,
 ): Promise<CreateUserByAdminResponse> => {
-	const { data } = await api.post<CreateUserByAdminResponse>(
-		`${API_URLS(env.VITE_API_VERSION).ADMINISTRATOR}${API_PATHS.ADMINISTRATOR_USER_CREATE}`,
-		payload,
-	);
+	const url = `${administratorBaseUrl}${API_PATHS.ADMINISTRATOR_USER_CREATE}`;
+	const { data } = await api.post<CreateUserByAdminResponse>(url, payload);
 	return data;
 };
 
@@ -208,9 +185,7 @@ export const createUser = async (
 export const resetUserPassword = async (
 	id: string,
 ): Promise<ResetUserPasswordResponse> => {
-	const { data } = await api.patch<ResetUserPasswordResponse>(
-		`${API_URLS(env.VITE_API_VERSION).ADMINISTRATOR}${buildUrlWithParams(API_PATHS.ADMINISTRATOR_USER_RESET_PASSWORD, { id })}`,
-		{},
-	);
+	const url = `${administratorBaseUrl}${buildUrlWithParams(API_PATHS.ADMINISTRATOR_USER_RESET_PASSWORD, { id })}`;
+	const { data } = await api.patch<ResetUserPasswordResponse>(url, {});
 	return data;
 };

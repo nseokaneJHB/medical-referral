@@ -34,6 +34,22 @@ services:
       - referral-tracking # Shared internal Docker network
 
   # =========================
+  # 📧 MAILPIT (dev-only SMTP capture)
+  # =========================
+  referral-tracking-mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+
+    ports:
+      - "11025:1025" # SMTP
+      - "18025:8025" # Web UI — view sent emails at http://localhost:18025
+
+    networks:
+      referral-tracking:
+        aliases:
+          - mailpit # so SMTP_HOST=mailpit (env.ts default) resolves
+
+  # =========================
   # 🚀 BACKEND API SERVICE
   # =========================
   referral-tracking-api:
@@ -52,6 +68,8 @@ services:
     depends_on:
       referral-tracking-database:
         condition: service_healthy # Ensures DB is ready before API starts
+      referral-tracking-mailpit:
+        condition: service_started
 
     working_dir: /workspace # Ensures pnpm + TS resolve from monorepo root
 

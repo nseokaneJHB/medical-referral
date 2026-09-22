@@ -8,6 +8,7 @@ import {
 	stringSchema,
 	booleanSchema,
 	userStatusSchema,
+	twoFactorMethodSchema,
 } from "./field";
 
 import { globalResponseSchema } from "./global";
@@ -44,7 +45,7 @@ export const signUpRoleSchema = z.enum([
  * new one (`new_facility_name`), both starting `PENDING` — see
  * `authentication/service.ts`'s `signUp`.
  */
-export const SignUpSchema = z
+export const signUpSchema = z
 	.object({
 		name: nameSchema,
 		email: emailSchema,
@@ -89,9 +90,14 @@ export const SignUpSchema = z
 		}
 	});
 
-export const SignInSchema = z.object({
+export const signInSchema = z.object({
 	email: emailSchema,
 	password: stringSchema.min(1, "Password is required"),
+});
+
+export const signInResponseSchema = globalResponseSchema.extend({
+	twoFactorRedirect: z.literal(true).optional(),
+	twoFactorMethods: z.array(twoFactorMethodSchema).optional(),
 });
 
 export const sessionResponseSchema = globalResponseSchema.extend({
@@ -104,6 +110,18 @@ export const sessionResponseSchema = globalResponseSchema.extend({
 			status: userStatusSchema,
 			facility_id: stringSchema.nullable(),
 			must_change_password: booleanSchema,
+			nda_accepted_version: stringSchema.nullable(),
+			two_factor_enabled: booleanSchema,
 		})
 		.nullable(),
+});
+
+/** Shared by every "verify a second-factor code" endpoint — TOTP, backup code, and email OTP all take the same `{ code, trustDevice }` shape. Also confirms enrollment right after POST /account/two-factor/enable, not just sign-in's second factor. */
+export const twoFactorVerifyCodeSchema = z.object({
+	code: stringSchema.min(1, "Code is required"),
+	trustDevice: booleanSchema.optional(),
+});
+
+export const twoFactorSendOtpSchema = z.object({
+	trustDevice: booleanSchema.optional(),
 });

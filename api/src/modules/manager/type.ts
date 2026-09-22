@@ -1,16 +1,17 @@
 import type { RouteGenericInterface } from "fastify";
 
 import type {
+	PaginationQuery,
 	UserParams,
 	AppealBody,
 	AppealParams,
 	UserResponse,
 	GlobalResponse,
 	TimelineResponse,
+	AppealListResponse,
 	AppealDecisionBody,
 	ApproveActionBody,
 	ModerationReasonBody,
-	TimelineListResponse,
 	ManagerAuditListResponse,
 } from "@referral-tracking/shared";
 
@@ -56,11 +57,11 @@ export interface AppealDenyRequest extends RouteGenericInterface {
 }
 
 export interface AppealsRequest extends RouteGenericInterface {
-	Querystring: { page?: string; limit?: string };
-	Reply: TimelineListResponse | GlobalResponse;
+	Querystring: PaginationQuery;
+	Reply: AppealListResponse | GlobalResponse;
 }
 
 export interface AuditListRequest extends RouteGenericInterface {
-	Querystring: { page?: string; limit?: string };
+	Querystring: PaginationQuery;
 	Reply: ManagerAuditListResponse | GlobalResponse;
 }

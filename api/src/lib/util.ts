@@ -3,6 +3,8 @@ import { randomBytes } from "node:crypto";
 
 import { v7 as uuidv7 } from "uuid";
 
+import { HTTP_RESPONSE_CODE } from "@referral-tracking/shared";
+
 /**
  * Generate a unique ID using UUID v7.
  *
@@ -107,6 +109,12 @@ export const normalizeNullableFields = <T extends Record<string, unknown>>(
 	return normalized;
 };
 
+/** `Date.prototype.getTimezoneOffset()` convention: UTC minus local, in minutes. Falls back to 0 (UTC) when missing/invalid. */
+const parseTzOffset = (tzOffsetMinutes?: string): number => {
+	const offset = tzOffsetMinutes ? Number(tzOffsetMinutes) : 0;
+	return Number.isNaN(offset) ? 0 : offset;
+};
+
 /**
  * Converts a bare `YYYY-MM-DD` date string into the UTC instant that
  * represents local midnight for a viewer at `tzOffsetMinutes` (the
@@ -119,9 +127,9 @@ export const localDateStartToUtc = (
 	tzOffsetMinutes?: string,
 ): Date => {
 	const utcMidnight = new Date(`${dateStr}T00:00:00.000Z`);
-	const offset = tzOffsetMinutes ? Number(tzOffsetMinutes) : 0;
-	if (Number.isNaN(offset)) return utcMidnight;
-	return new Date(utcMidnight.getTime() + offset * 60000);
+	return new Date(
+		utcMidnight.getTime() + parseTzOffset(tzOffsetMinutes) * 60000,
+	);
 };
 
 /**
@@ -130,12 +138,18 @@ export const localDateStartToUtc = (
  * as a UTC instant. Falls back to UTC when no offset is supplied.
  */
 export const localMonthStartToUtc = (tzOffsetMinutes?: string): Date => {
-	const offset = tzOffsetMinutes ? Number(tzOffsetMinutes) : 0;
-	const safeOffset = Number.isNaN(offset) ? 0 : offset;
+	const offset = parseTzOffset(tzOffsetMinutes);
 	const now = new Date();
-	const localNow = new Date(now.getTime() - safeOffset * 60000);
+	const localNow = new Date(now.getTime() - offset * 60000);
 	return new Date(
 		Date.UTC(localNow.getUTCFullYear(), localNow.getUTCMonth(), 1) +
-			safeOffset * 60000,
+			offset * 60000,
 	);
 };
+
+/** Maps any HTTP status back to this app's HTTP_RESPONSE_CODE, falling back to BAD_REQUEST for anything unmapped. */
+export const httpCodeForStatus = (
+	status: number,
+): (typeof HTTP_RESPONSE_CODE)[keyof typeof HTTP_RESPONSE_CODE]["code"] =>
+	Object.values(HTTP_RESPONSE_CODE).find((entry) => entry.status === status)
+		?.code ?? HTTP_RESPONSE_CODE.BAD_REQUEST.code;

@@ -11,12 +11,12 @@ import {
 /**
  * A clinical specialty (e.g. "Cardiology") — a controlled-vocabulary
  * reference a Facility or a Doctor/Nurse can be associated with,
- * many-to-many, via `FacilitySpecialtyLinkSchema`/`UserSpecialtyLinkSchema`.
+ * many-to-many, via `facilitySpecialtyLinkSchema`/`userSpecialtyLinkSchema`.
  * Administrator-managed; no delete endpoint (rename only) — same
  * no-hard-delete stance as the rest of this app, and a hard delete would
  * orphan any existing facility/user links pointing at it.
  */
-export const SpecialtySchema = z.object({
+export const specialtySchema = z.object({
 	id: uuidSchema,
 	name: stringSchema,
 	description: stringSchema,
@@ -25,13 +25,13 @@ export const SpecialtySchema = z.object({
 });
 
 /** Minimal nested reference to a specialty — id, name, description, for display. */
-export const specialtyRefSchema = SpecialtySchema.pick({
+export const specialtyRefSchema = specialtySchema.pick({
 	id: true,
 	name: true,
 	description: true,
 });
 
-export const CreateSpecialtySchema = z.object({
+export const createSpecialtySchema = z.object({
 	name: stringSchema
 		.min(1)
 		.max(255)
@@ -42,26 +42,26 @@ export const CreateSpecialtySchema = z.object({
 	description: stringSchema.min(1).max(1000),
 });
 
-export const UpdateSpecialtySchema = CreateSpecialtySchema.partial();
+export const updateSpecialtySchema = createSpecialtySchema.partial();
 
 export const specialtyResponseSchema = globalResponseSchema.extend({
-	data: SpecialtySchema,
+	data: specialtySchema,
 });
 
 /**
  * `GET /specialties` list rows only — how many facilities and how many
  * Doctor/Nurse staff currently have each specialty assigned, computed via
  * `Specialty.linkCount` grouped by `specialty_id`. Not present on the bare
- * `SpecialtySchema` used by the detail/create/update endpoints.
+ * `specialtySchema` used by the detail/create/update endpoints.
  */
-export const SpecialtyListItemSchema = SpecialtySchema.extend({
+export const specialtyListItemSchema = specialtySchema.extend({
 	facility_count: z.number(),
 	staff_count: z.number(),
 });
 
 export const specialtyListResponseSchema = paginatedGlobalResponseSchema.extend(
 	{
-		data: z.array(SpecialtyListItemSchema),
+		data: z.array(specialtyListItemSchema),
 	},
 );
 
@@ -77,7 +77,7 @@ export const specialtiesQuerySchema = paginationSortAndSearchQuerySchema;
  * the frontend can render the name without a second round trip, same
  * reasoning as `facilityRefSchema`/`userRefSchema` elsewhere.
  */
-export const FacilitySpecialtyLinkSchema = z.object({
+export const facilitySpecialtyLinkSchema = z.object({
 	id: uuidSchema,
 	facility_id: uuidSchema,
 	specialty: specialtyRefSchema,
@@ -89,11 +89,11 @@ export const assignFacilitySpecialtySchema = z.object({
 });
 
 export const facilitySpecialtyListResponseSchema = globalResponseSchema.extend({
-	data: z.array(FacilitySpecialtyLinkSchema),
+	data: z.array(facilitySpecialtyLinkSchema),
 });
 
 export const facilitySpecialtyLinkResponseSchema = globalResponseSchema.extend({
-	data: FacilitySpecialtyLinkSchema,
+	data: facilitySpecialtyLinkSchema,
 });
 
 export const facilitySpecialtyUnassignParamsSchema = z.object({
@@ -105,7 +105,7 @@ export const facilitySpecialtyUnassignParamsSchema = z.object({
  * A Doctor/Nurse's specialty link — one row per user/specialty pairing.
  * Same nested-ref shape as the facility link above.
  */
-export const UserSpecialtyLinkSchema = z.object({
+export const userSpecialtyLinkSchema = z.object({
 	id: uuidSchema,
 	user_id: uuidSchema,
 	specialty: specialtyRefSchema,
@@ -117,11 +117,11 @@ export const assignUserSpecialtySchema = z.object({
 });
 
 export const userSpecialtyListResponseSchema = globalResponseSchema.extend({
-	data: z.array(UserSpecialtyLinkSchema),
+	data: z.array(userSpecialtyLinkSchema),
 });
 
 export const userSpecialtyLinkResponseSchema = globalResponseSchema.extend({
-	data: UserSpecialtyLinkSchema,
+	data: userSpecialtyLinkSchema,
 });
 
 export const userSpecialtyUnassignParamsSchema = z.object({
@@ -133,7 +133,7 @@ export const userSpecialtyUnassignParamsSchema = z.object({
  * A referral's specialty link — one row per referral/specialty pairing.
  * Same nested-ref shape as the facility/user links above.
  */
-export const ReferralSpecialtyLinkSchema = z.object({
+export const referralSpecialtyLinkSchema = z.object({
 	id: uuidSchema,
 	referral_id: uuidSchema,
 	specialty: specialtyRefSchema,
@@ -145,11 +145,11 @@ export const assignReferralSpecialtySchema = z.object({
 });
 
 export const referralSpecialtyListResponseSchema = globalResponseSchema.extend({
-	data: z.array(ReferralSpecialtyLinkSchema),
+	data: z.array(referralSpecialtyLinkSchema),
 });
 
 export const referralSpecialtyLinkResponseSchema = globalResponseSchema.extend({
-	data: ReferralSpecialtyLinkSchema,
+	data: referralSpecialtyLinkSchema,
 });
 
 export const referralSpecialtyUnassignParamsSchema = z.object({

@@ -6,6 +6,7 @@ import { env } from "./lib/env";
 import { logger } from "./lib/logger";
 import { setShuttingDown } from "./lib/shutdown";
 
+/** Builds the Fastify app, wires graceful shutdown, and starts listening. */
 const start = async (): Promise<void> => {
 	if (!logger) {
 		throw new Error("Logger not initialized.");
@@ -19,7 +20,7 @@ const start = async (): Promise<void> => {
 		app.log.error(
 			"No longer accepting new requests, waiting for ongoing requests to finish...",
 		);
-		await app.core.close();
+		await app.closeDatabase();
 		app.log.error("Database connections closed, shutting down server...");
 		await app.close();
 

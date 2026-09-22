@@ -22,7 +22,7 @@ import {
 	FRONTEND_URLS,
 	FACILITY_STATUS,
 	stringToTitleCase,
-	UpdateFacilitySchema,
+	updateFacilitySchema,
 	type AppealBody,
 	type TimelineResponse,
 	type FacilityResponse,
@@ -314,7 +314,7 @@ const FacilityDetailPage = () => {
 
 	const { control, handleSubmit } = useForm<UpdateFacilityBody>({
 		mode: "onChange",
-		resolver: zodResolver(UpdateFacilitySchema),
+		resolver: zodResolver(updateFacilitySchema),
 		defaultValues: {
 			name: facility.name,
 			address: facility.address,

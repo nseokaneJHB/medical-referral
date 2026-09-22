@@ -1,43 +1,43 @@
 import { z } from "zod";
 
 import {
-	SpecialtySchema,
+	specialtySchema,
 	specialtyRefSchema,
-	CreateSpecialtySchema,
-	UpdateSpecialtySchema,
+	createSpecialtySchema,
+	updateSpecialtySchema,
 	specialtyParamsSchema,
 	specialtiesQuerySchema,
 	specialtyResponseSchema,
-	SpecialtyListItemSchema,
+	specialtyListItemSchema,
 	specialtyListResponseSchema,
-	FacilitySpecialtyLinkSchema,
+	facilitySpecialtyLinkSchema,
 	assignFacilitySpecialtySchema,
 	facilitySpecialtyListResponseSchema,
 	facilitySpecialtyLinkResponseSchema,
 	facilitySpecialtyUnassignParamsSchema,
-	UserSpecialtyLinkSchema,
+	userSpecialtyLinkSchema,
 	assignUserSpecialtySchema,
 	userSpecialtyListResponseSchema,
 	userSpecialtyLinkResponseSchema,
 	userSpecialtyUnassignParamsSchema,
-	ReferralSpecialtyLinkSchema,
+	referralSpecialtyLinkSchema,
 	assignReferralSpecialtySchema,
 	referralSpecialtyListResponseSchema,
 	referralSpecialtyLinkResponseSchema,
 	referralSpecialtyUnassignParamsSchema,
 } from "../schema/specialty";
 
-export type Specialty = z.infer<typeof SpecialtySchema>;
+export type Specialty = z.infer<typeof specialtySchema>;
 export type SpecialtyRef = z.infer<typeof specialtyRefSchema>;
-export type CreateSpecialtyBody = z.infer<typeof CreateSpecialtySchema>;
-export type UpdateSpecialtyBody = z.infer<typeof UpdateSpecialtySchema>;
+export type CreateSpecialtyBody = z.infer<typeof createSpecialtySchema>;
+export type UpdateSpecialtyBody = z.infer<typeof updateSpecialtySchema>;
 export type SpecialtyParams = z.infer<typeof specialtyParamsSchema>;
 export type SpecialtiesQuery = z.infer<typeof specialtiesQuerySchema>;
 export type SpecialtyResponse = z.infer<typeof specialtyResponseSchema>;
-export type SpecialtyListItem = z.infer<typeof SpecialtyListItemSchema>;
+export type SpecialtyListItem = z.infer<typeof specialtyListItemSchema>;
 export type SpecialtyListResponse = z.infer<typeof specialtyListResponseSchema>;
 
-export type FacilitySpecialtyLink = z.infer<typeof FacilitySpecialtyLinkSchema>;
+export type FacilitySpecialtyLink = z.infer<typeof facilitySpecialtyLinkSchema>;
 export type AssignFacilitySpecialtyBody = z.infer<
 	typeof assignFacilitySpecialtySchema
 >;
@@ -51,7 +51,7 @@ export type FacilitySpecialtyUnassignParams = z.infer<
 	typeof facilitySpecialtyUnassignParamsSchema
 >;
 
-export type UserSpecialtyLink = z.infer<typeof UserSpecialtyLinkSchema>;
+export type UserSpecialtyLink = z.infer<typeof userSpecialtyLinkSchema>;
 export type AssignUserSpecialtyBody = z.infer<typeof assignUserSpecialtySchema>;
 export type UserSpecialtyListResponse = z.infer<
 	typeof userSpecialtyListResponseSchema
@@ -63,7 +63,7 @@ export type UserSpecialtyUnassignParams = z.infer<
 	typeof userSpecialtyUnassignParamsSchema
 >;
 
-export type ReferralSpecialtyLink = z.infer<typeof ReferralSpecialtyLinkSchema>;
+export type ReferralSpecialtyLink = z.infer<typeof referralSpecialtyLinkSchema>;
 export type AssignReferralSpecialtyBody = z.infer<
 	typeof assignReferralSpecialtySchema
 >;

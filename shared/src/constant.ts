@@ -1,6 +1,6 @@
 export const APP_NAME = "Referral Tracking" as const;
 
-export const DURATION_REGEX = /^(\d+)(ms|s|m|h|d)$/;
+export const NDA_VERSION = "1" as const;
 
 export const DEFAULT_PAGE_LIMIT = 10 as const;
 export const DEFAULT_PAGE_NUMBER = 1 as const;
@@ -31,6 +31,8 @@ export const FRONTEND_URLS = {
 	APPEALS: "/appeals",
 	ACCOUNT_STATUS: "/account-status",
 	CHANGE_PASSWORD: "/change-password",
+	ACCEPT_NDA: "/accept-nda",
+	SETTINGS: "/settings",
 } as const;
 
 export type FrontendRedirectUrlPaths = typeof FRONTEND_URLS;
@@ -181,6 +183,10 @@ export const API_PATHS = {
 	SIGN_IN: "/sign-in",
 	SIGN_OUT: "/sign-out",
 	SESSION: "/session",
+	TWO_FACTOR_VERIFY_TOTP: "/two-factor/verify-totp",
+	TWO_FACTOR_VERIFY_BACKUP_CODE: "/two-factor/verify-backup-code",
+	TWO_FACTOR_SEND_OTP: "/two-factor/send-otp",
+	TWO_FACTOR_VERIFY_OTP: "/two-factor/verify-otp",
 
 	LIVEZ: "/livez",
 	READYZ: "/readyz",
@@ -188,6 +194,11 @@ export const API_PATHS = {
 	ACCOUNT_STATUS: "/status",
 	ACCOUNT_APPEAL: "/appeal",
 	ACCOUNT_CHANGE_PASSWORD: "/change-password",
+	ACCOUNT_ACCEPT_NDA: "/accept-nda",
+	ACCOUNT_TWO_FACTOR_ENABLE: "/two-factor/enable",
+	ACCOUNT_TWO_FACTOR_DISABLE: "/two-factor/disable",
+	ACCOUNT_TWO_FACTOR_GET_TOTP_URI: "/two-factor/get-totp-uri",
+	ACCOUNT_TWO_FACTOR_GENERATE_BACKUP_CODES: "/two-factor/generate-backup-codes",
 
 	ADMINISTRATOR_MANAGER_APPROVE: "/managers/:id/approve",
 	ADMINISTRATOR_MANAGER_REJECT: "/managers/:id/reject",
@@ -525,4 +536,10 @@ export const LOGIN_STATUS = {
 	SUCCESS: "success",
 	FAILED: "failed",
 	LOCKED_OUT: "locked_out",
+	TWO_FACTOR_PENDING: "two_factor_pending",
+} as const;
+
+export const TWO_FACTOR_METHOD = {
+	TOTP: "totp",
+	OTP: "otp",
 } as const;

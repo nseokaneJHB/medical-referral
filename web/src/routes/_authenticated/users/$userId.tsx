@@ -148,8 +148,8 @@ const ResetPasswordAction = ({
 						<DialogHeader>
 							<DialogTitle>Reset password?</DialogTitle>
 							<DialogDescription>
-								This immediately invalidates their current password and
-								issues a new one-time temporary password.
+								This immediately invalidates their current password and issues a
+								new one-time temporary password.
 								{passwordSetAt && (
 									<>
 										{" "}

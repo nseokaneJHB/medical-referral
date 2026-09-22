@@ -6,6 +6,7 @@ import {
 	usersQuerySchema,
 	userParamsSchema,
 	globalResponseSchema,
+	paginationQuerySchema,
 	userDetailResponseSchema,
 	userListResponseSchema,
 	timelineListResponseSchema,
@@ -83,6 +84,7 @@ export const route: FastifyPluginAsync = async (
 		],
 		schema: {
 			params: userParamsSchema,
+			querystring: paginationQuerySchema,
 			response: {
 				200: timelineListResponseSchema,
 				401: globalResponseSchema,

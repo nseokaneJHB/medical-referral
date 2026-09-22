@@ -4,9 +4,11 @@ import { APIError } from "better-auth";
 
 import { GlobalResponse, HTTP_RESPONSE_CODE } from "@referral-tracking/shared";
 
+import { httpCodeForStatus } from "../lib/util";
+
 export const error = async (
 	error: FastifyError,
-	_request: FastifyRequest,
+	request: FastifyRequest,
 	reply: FastifyReply,
 ): Promise<void> => {
 	// Validation errors
@@ -15,11 +17,12 @@ export const error = async (
 		const response: GlobalResponse = {
 			code,
 			message: "Validation error",
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			errors: (error as any).validation?.map((e: any) => ({
-				field: e.instancePath?.split("/")[1] || "body",
-				message: e.message,
-			})),
+			errors: request.validationError?.validation?.map(
+				(e: { instancePath?: string; message?: string }) => ({
+					field: e.instancePath?.split("/")[1] || "body",
+					message: e.message,
+				}),
+			),
 		};
 
 		return reply.status(status).send(response);
@@ -51,8 +54,7 @@ export const error = async (
 
 	// MySQL driver errors (thrown directly by mysql2, or wrapped in
 	// Drizzle's own error type with the original as `.cause`).
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	const mysqlError = ((error as any).cause ?? error) as {
+	const mysqlError = (error.cause ?? error) as {
 		code?: string;
 		sqlMessage?: string;
 	};
@@ -88,17 +90,20 @@ export const error = async (
 		return reply.status(status).send(response);
 	}
 
-	// Generic errors — log so I can mitigate later
-	console.log(
-		"\n================================= UNHANDLED ERRORS ===========================\n",
-	);
-	console.log("ERROR:", error);
-	console.log("ERROR INSTANCE:", typeof error);
-	console.log("ERROR NAME:", error.name);
-	console.log("ERROR CODE:", error.code);
-	console.log("ERROR MESSAGE:", error.message);
-	console.log("ERROR VALIDATION:", error.validation);
-	console.log("ERROR VALIDATION CONTEXT:", error.validationContext);
+	if (
+		typeof error.statusCode === "number" &&
+		error.statusCode >= 400 &&
+		error.statusCode < 500
+	) {
+		const response: GlobalResponse = {
+			code: httpCodeForStatus(error.statusCode),
+			message: error.message,
+		};
+
+		return reply.status(error.statusCode).send(response);
+	}
+
+	request.log.error({ error }, "Unhandled error");
 
 	const { status, code } = HTTP_RESPONSE_CODE.INTERNAL_SERVER_ERROR;
 	const response: GlobalResponse = {

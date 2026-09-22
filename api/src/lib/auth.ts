@@ -1,4 +1,5 @@
 import { betterAuth } from "better-auth/minimal";
+import { twoFactor } from "better-auth/plugins";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 
 import {
@@ -11,6 +12,7 @@ import {
 import * as schema from "../drizzle/schema";
 
 import { env } from "./env";
+import { sendEmail } from "./mailer";
 import { generateUuid } from "./util";
 import { connection } from "./database";
 import { hashPassword, verifyPassword } from "./password";
@@ -35,6 +37,7 @@ export const auth = betterAuth({
 			account: schema.AccountModel,
 			session: schema.SessionModel,
 			verification: schema.VerificationModel,
+			twoFactor: schema.TwoFactorModel,
 		},
 	}),
 
@@ -96,6 +99,12 @@ export const auth = betterAuth({
 				required: false,
 				defaultValue: false,
 			},
+			/** Embedded in the session cookie-cache (unlike nda_accepted_at) so middleware/authorize.ts can gate on it without a DB round trip. */
+			nda_accepted_version: {
+				input: false,
+				type: "string",
+				required: false,
+			},
 		},
 	},
 
@@ -155,6 +164,39 @@ export const auth = betterAuth({
 		max: env.RATE_LIMIT_MAX,
 		window: env.RATE_LIMIT_WINDOW,
 	},
+
+	/** skipVerificationOnEnable: false means enabling 2FA isn't active until the user proves they can produce a valid code. */
+	plugins: [
+		twoFactor({
+			issuer: APP_NAME,
+			skipVerificationOnEnable: false,
+			twoFactorCookieMaxAge: env.TWO_FACTOR_COOKIE_MAX_AGE_SECONDS,
+			otpOptions: {
+				sendOTP: async ({ user, otp }) => {
+					await sendEmail({
+						to: user.email,
+						subject: `${APP_NAME} verification code`,
+						html: `<p>Your verification code is <strong>${otp}</strong>. It expires shortly.</p>`,
+					});
+				},
+			},
+			schema: {
+				user: {
+					fields: {
+						twoFactorEnabled: "two_factor_enabled",
+					},
+				},
+				twoFactor: {
+					fields: {
+						secret: "secret",
+						backupCodes: "backup_codes",
+						userId: "user_id",
+						verified: "verified",
+					},
+				},
+			},
+		}),
+	],
 
 	advanced: {
 		cookiePrefix: "referral-tracking-better-auth",

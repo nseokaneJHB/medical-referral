@@ -10,7 +10,7 @@ import {
 	GENDER,
 	FRONTEND_URLS,
 	stringToTitleCase,
-	CreatePatientSchema,
+	createPatientSchema,
 	type PatientResponse,
 	type CreatePatientBody,
 } from "@referral-tracking/shared";
@@ -43,7 +43,7 @@ const NewPatientPage = () => {
 
 	const { control, handleSubmit } = useForm<CreatePatientBody>({
 		mode: "onChange",
-		resolver: zodResolver(CreatePatientSchema),
+		resolver: zodResolver(createPatientSchema),
 		defaultValues: {
 			first_name: "",
 			last_name: "",

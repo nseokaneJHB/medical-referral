@@ -13,17 +13,17 @@ import {
 	DEFAULT_PAGE_LIMIT,
 	DEFAULT_PAGE_NUMBER,
 	HTTP_RESPONSE_CODE,
-	PriorityEnum,
-	ReferralStatusEnum,
-	orderDirectionSchema,
+	prioritySchema,
+	referralStatusSchema,
 	stringToTitleCase,
-	type Role,
-	type ReferralResponse,
-	type ReferralSpecialtyListResponse,
 } from "@referral-tracking/shared";
 
-import { zeroFillCounts, generateUuid, localDateStartToUtc } from "../../lib/util";
-import { parseEnumList, parseSortList } from "../../lib/validator";
+import {
+	zeroFillCounts,
+	generateUuid,
+	localDateStartToUtc,
+} from "../../lib/util";
+import { parseEnumList } from "../../lib/validator";
 import {
 	canActOnReferral,
 	canViewReferral,
@@ -31,13 +31,36 @@ import {
 	canManageReferralSpecialties,
 } from "../../lib/permission";
 
+import { userOne } from "../../repository/user";
+import { patientOne } from "../../repository/patient";
+import { facilityOne } from "../../repository/facility";
+import { timelineMany, timelineCreate } from "../../repository/timeline";
+import {
+	referralOne,
+	referralMany,
+	referralCount,
+	referralCreate as repositoryReferralCreate,
+	referralUpdate as repositoryReferralUpdate,
+} from "../../repository/referral";
+import {
+	specialtyOne,
+	specialtyLinkMany,
+	specialtyLinkCreate,
+	specialtyLinkDelete,
+} from "../../repository/specialty";
+import {
+	autoAssignmentAttempt,
+	autoAssignmentRevalidate,
+	autoAssignmentRecheckFacility,
+} from "../../repository/cross-schema/auto-assignment";
+
 import { ReferralModel, type ReferralModelSelect } from "../../drizzle/schema";
 
-import type {
-	OrderClause,
-	WhereClause,
-	WhereOperator,
-} from "../../core/helpers";
+import {
+	buildOrderClause,
+	type WhereClause,
+	type WhereOperator,
+} from "../../repository/helpers";
 
 import type {
 	ReferralRequest,
@@ -53,8 +76,7 @@ import type {
 	ReferralSpecialtyUnassignRequest,
 } from "./type";
 
-// Raw FK columns stay selected for internal access-check logic — the Zod
-// response schema doesn't declare them, so they're dropped on the wire.
+/** Raw FK columns stay selected for internal access-check logic; the Zod response schema doesn't declare them, so they're dropped on the wire. */
 const REFERRAL_FIELDS = {
 	id: true,
 	patient_id: true,
@@ -89,21 +111,15 @@ const TIMELINE_FIELDS = {
 	changed_at: true,
 } as const;
 
-/**
- * `origin_facility_id` is resolved server-side from the patient, never the
- * request. No block on a patient already having an active referral —
- * that's surfaced as a non-blocking warning client-side instead (see
- * `patient_id` filter on `listReferrals` below), since a patient can
- * legitimately need a second, unrelated referral while a long-running one
- * is still open.
- */
+/** Creates a referral — `origin_facility_id` is resolved server-side from the patient, never the request; a patient already having an active referral isn't blocked here, just surfaced as a client-side warning. */
 export const referralCreate = async (
 	request: FastifyRequest<ReferralCreateRequest>,
 	reply: FastifyReply<ReferralCreateRequest>,
 ): Promise<void> => {
-	const role = request.user!.role as Role;
+	const database = request.server.database;
+	const role = request.user!.role;
 
-	const patient = await request.server.core.patient.one({
+	const patient = await patientOne(database, {
 		where: { id: request.body.patient_id },
 		select: { id: true, facility_id: true },
 	});
@@ -114,19 +130,54 @@ export const referralCreate = async (
 	}
 
 	const doctor = role === ROLES.DOCTOR ? request.user!.id : request.body.doctor;
+	const { specialty_ids: specialtyIds, ...referralBody } = request.body;
 
-	const [created] = await request.server.core.referral.create({
-		data: {
-			...request.body,
-			id: generateUuid(),
-			referrer_id: request.user!.id,
-			origin_facility_id: patient.facility_id,
-			doctor,
-		},
-		select: { id: true },
+	const created = await database.transaction(async (tx) => {
+		const [createdReferral] = await repositoryReferralCreate(
+			tx,
+			{ select: { id: true } },
+			{
+				...referralBody,
+				id: generateUuid(),
+				referrer_id: request.user!.id,
+				origin_facility_id: patient.facility_id,
+				doctor,
+			},
+		);
+
+		if (specialtyIds && specialtyIds.length > 0) {
+			await specialtyLinkCreate(
+				tx,
+				{ owner: "referral", select: { id: true } },
+				specialtyIds.map((specialtyId) => ({
+					id: generateUuid(),
+					referral_id: createdReferral.id,
+					specialty_id: specialtyId,
+				})),
+			);
+		}
+
+		return createdReferral;
 	});
 
-	const referral = await request.server.core.referral.one({
+	/** Best-effort and runs only after the transaction above commits — a matching bug must never prevent referral creation. */
+	if (!doctor) {
+		try {
+			await autoAssignmentAttempt(database, {
+				referralId: created.id,
+				facilityId: request.body.destination_facility_id,
+				specialtyIds: specialtyIds ?? [],
+				currentStatus: REFERRAL_STATUS.PENDING,
+			});
+		} catch (error) {
+			request.log.error(
+				{ error, referralId: created.id },
+				"Auto-assignment failed after referral creation.",
+			);
+		}
+	}
+
+	const referral = await referralOne(database, {
 		where: { id: created.id },
 		select: REFERRAL_FIELDS,
 		include: REFERRAL_INCLUDE,
@@ -136,25 +187,22 @@ export const referralCreate = async (
 	reply.status(status).send({
 		code,
 		message: "Referral created.",
-		data: referral as unknown as ReferralResponse["data"],
+		data: referral!,
 	});
 };
 
-/**
- * Doctor sees referrals assigned to them plus unassigned ones at their
- * facility (so self-assign is discoverable); Nurse sees only ones they
- * created; Manager sees their facility's either direction.
- */
+/** Lists referrals scoped by role: Doctor sees their own plus unassigned ones at their facility, Nurse sees only ones they created, Manager sees their facility's either direction. */
 export const referrals = async (
 	request: FastifyRequest<ReferralsRequest>,
 	reply: FastifyReply<ReferralsRequest>,
 ): Promise<void> => {
 	const { query, server } = request;
+	const database = server.database;
 
 	const page = Number(query.page);
 	const limit = Number(query.limit);
 
-	const role = request.user!.role as Role;
+	const role = request.user!.role;
 
 	const where: WhereClause<ReferralModelSelect> = {};
 	if (role === ROLES.DOCTOR) {
@@ -174,9 +222,7 @@ export const referrals = async (
 		];
 	}
 
-	// Snapshot taken before the query-string filters below are layered on —
-	// the stats stay a stable role-scoped picture, not reactive to whatever
-	// the caller currently has typed into search/status/date filters.
+	/** Snapshotted before the query-string filters below are layered on, so the stats stay a stable role-scoped picture, not reactive to the caller's current search/status/date filters. */
 	const roleScopeWhere: WhereClause<ReferralModelSelect> = { ...where };
 
 	const dateFilter: WhereOperator<Date> = {};
@@ -190,10 +236,10 @@ export const referrals = async (
 	if (query.from || query.to) where.created_at = dateFilter;
 
 	if (query.status) {
-		where.status = { in: parseEnumList(query.status, ReferralStatusEnum) };
+		where.status = { in: parseEnumList(query.status, referralStatusSchema) };
 	}
 	if (query.priority) {
-		where.priority = { in: parseEnumList(query.priority, PriorityEnum) };
+		where.priority = { in: parseEnumList(query.priority, prioritySchema) };
 	}
 
 	if (query.search) {
@@ -202,16 +248,15 @@ export const referrals = async (
 
 	if (query.patient_id) where.patient_id = query.patient_id;
 
-	const sorts = parseSortList(query.sort, ReferralModel, "created_at");
-	const orders = parseEnumList(query.order, orderDirectionSchema) ?? ["desc"];
-	const order = Object.fromEntries(
-		sorts.map((sorting, index) => [
-			sorting,
-			orders[index] || orders[0] || "desc",
-		]),
-	) as OrderClause<ReferralModelSelect>;
+	const order = buildOrderClause<ReferralModelSelect>(
+		query.sort,
+		query.order,
+		ReferralModel,
+		"created_at",
+		"desc",
+	);
 
-	const result = await server.core.referral.many({
+	const result = await referralMany(database, {
 		page,
 		limit,
 		where,
@@ -221,7 +266,7 @@ export const referrals = async (
 	});
 
 	const statusCounts = zeroFillCounts(
-		await server.core.referral.count(roleScopeWhere, "status"),
+		await referralCount(database, { where: roleScopeWhere, groupBy: "status" }),
 		REFERRAL_STATUS,
 	);
 
@@ -234,17 +279,18 @@ export const referrals = async (
 	});
 };
 
+/** Fetches a single referral, if the caller can view it. */
 export const referral = async (
 	request: FastifyRequest<ReferralRequest>,
 	reply: FastifyReply<ReferralRequest>,
 ): Promise<void> => {
-	const referral = await request.server.core.referral.one({
+	const referral = await referralOne(request.server.database, {
 		where: { id: request.params.id },
 		select: REFERRAL_FIELDS,
 		include: REFERRAL_INCLUDE,
 	});
 
-	const role = request.user!.role as Role;
+	const role = request.user!.role;
 	if (
 		!referral ||
 		!canViewReferral(
@@ -262,18 +308,22 @@ export const referral = async (
 	reply.status(status).send({
 		code,
 		message: "Referral retrieved.",
-		data: referral as unknown as ReferralResponse["data"],
+		data: referral,
 	});
 };
 
+/** `true` if a referral's status can no longer legally transition. */
 const isTerminal = (status: string): boolean =>
 	(TERMINAL_REFERRAL_STATUSES as string[]).includes(status);
 
+/** Updates a referral's fields — Nurses only their own, Managers only doctor-assignment for referrals sent to their facility. */
 export const referralUpdate = async (
 	request: FastifyRequest<ReferralUpdateRequest>,
 	reply: FastifyReply<ReferralUpdateRequest>,
 ): Promise<void> => {
-	const existing = await request.server.core.referral.one({
+	const database = request.server.database;
+
+	const existing = await referralOne(database, {
 		where: { id: request.params.id },
 		select: {
 			id: true,
@@ -297,7 +347,7 @@ export const referralUpdate = async (
 		});
 	}
 
-	const role = request.user!.role as Role;
+	const role = request.user!.role;
 	if (role === ROLES.NURSE && existing.referrer_id !== request.user!.id) {
 		const { status, code } = HTTP_RESPONSE_CODE.FORBIDDEN;
 		return reply.status(status).send({
@@ -327,47 +377,43 @@ export const referralUpdate = async (
 		}
 	}
 
-	// A Manager assigning a doctor to a still-pending referral immediately
-	// accepts it too — no separate accept step (see Doctor self-assign below).
+	/** A Manager assigning a doctor to a still-pending referral immediately accepts it too — no separate accept step. */
 	const autoAccept =
 		role === ROLES.MANAGER &&
 		request.body.doctor &&
 		existing.status === REFERRAL_STATUS.PENDING;
 
-	// A doctor-assignment/reassignment event is auditable independent of
-	// whether it also happens to auto-accept a PENDING referral — a
-	// Manager reassigning an already-ACCEPTED referral's doctor must
-	// leave a trail too.
 	const doctorChanged =
-		request.body.doctor !== undefined && request.body.doctor !== existing.doctor;
+		request.body.doctor !== undefined &&
+		request.body.doctor !== existing.doctor;
 
 	if (doctorChanged) {
-		await request.server.core.connection.transaction(async (tx) => {
-			const txCore = request.server.core.withTransaction(tx);
-
-			await txCore.referral.update({
-				where: { id: request.params.id },
-				data: autoAccept
+		await database.transaction(async (tx) => {
+			await repositoryReferralUpdate(
+				tx,
+				{ where: { id: request.params.id }, select: { id: true } },
+				autoAccept
 					? { ...request.body, status: REFERRAL_STATUS.ACCEPTED }
 					: request.body,
-				select: { id: true },
-			});
+			);
 
 			const [previousDoctor, assignedDoctor] = await Promise.all([
 				existing.doctor
-					? txCore.user.one({
+					? userOne(tx, {
 							where: { id: existing.doctor },
 							select: { name: true },
 						})
 					: Promise.resolve(null),
-				txCore.user.one({
+				userOne(tx, {
 					where: { id: request.body.doctor! },
 					select: { name: true },
 				}),
 			]);
 
-			await txCore.timeline.create({
-				data: {
+			await timelineCreate(
+				tx,
+				{ select: { id: true } },
+				{
 					id: generateUuid(),
 					type: TIMELINE_TYPE.REFERRAL,
 					entity: request.params.id,
@@ -381,18 +427,17 @@ export const referralUpdate = async (
 							? `Assigned to ${assignedDoctor.name}.`
 							: null,
 				},
-				select: { id: true },
-			});
+			);
 		});
 	} else {
-		await request.server.core.referral.update({
-			where: { id: request.params.id },
-			data: request.body,
-			select: { id: true },
-		});
+		await repositoryReferralUpdate(
+			database,
+			{ where: { id: request.params.id }, select: { id: true } },
+			request.body,
+		);
 	}
 
-	const referral = await request.server.core.referral.one({
+	const referral = await referralOne(database, {
 		where: { id: request.params.id },
 		select: REFERRAL_FIELDS,
 		include: REFERRAL_INCLUDE,
@@ -402,23 +447,18 @@ export const referralUpdate = async (
 	reply.status(status).send({
 		code,
 		message: "Referral updated.",
-		data: referral as unknown as ReferralResponse["data"],
+		data: referral!,
 	});
 };
 
-/**
- * Lets a Doctor claim an unassigned referral themselves, rather than
- * waiting on an Admin to assign one via `PATCH /:id`. Deliberately a
- * separate sub-resource (mirrors `/:id/status`) instead of opening up the
- * general update endpoint to Doctors — narrower, auditable permission
- * surface. Restricted to referrals sent to the Doctor's own facility; a
- * Doctor can't claim referrals headed elsewhere.
- */
+/** Lets a Doctor claim an unassigned referral sent to their own facility, auto-accepting it if still PENDING. */
 export const referralAssign = async (
 	request: FastifyRequest<ReferralAssignRequest>,
 	reply: FastifyReply<ReferralAssignRequest>,
 ): Promise<void> => {
-	const existing = await request.server.core.referral.one({
+	const database = request.server.database;
+
+	const existing = await referralOne(database, {
 		where: { id: request.params.id },
 		select: {
 			id: true,
@@ -457,26 +497,21 @@ export const referralAssign = async (
 		});
 	}
 
-	// Claiming a still-pending referral immediately accepts it too — no
-	// separate accept step (see Manager doctor-assignment in `updateReferral`).
 	const autoAccept = existing.status === REFERRAL_STATUS.PENDING;
 
-	await request.server.core.connection.transaction(async (tx) => {
-		const txCore = request.server.core.withTransaction(tx);
-
-		await txCore.referral.update({
-			where: { id: request.params.id },
-			data: autoAccept
+	await database.transaction(async (tx) => {
+		await repositoryReferralUpdate(
+			tx,
+			{ where: { id: request.params.id }, select: { id: true } },
+			autoAccept
 				? { doctor: request.user!.id, status: REFERRAL_STATUS.ACCEPTED }
 				: { doctor: request.user!.id },
-			select: { id: true },
-		});
+		);
 
-		// `existing.doctor` is always null here — self-claim is blocked
-		// earlier in this handler whenever a doctor is already assigned —
-		// so this is always a fresh assignment, never a reassignment.
-		await txCore.timeline.create({
-			data: {
+		await timelineCreate(
+			tx,
+			{ select: { id: true } },
+			{
 				id: generateUuid(),
 				type: TIMELINE_TYPE.REFERRAL,
 				entity: request.params.id,
@@ -486,11 +521,10 @@ export const referralAssign = async (
 				changer_id: request.user!.id,
 				notes: `Assigned to ${request.user!.name}.`,
 			},
-			select: { id: true },
-		});
+		);
 	});
 
-	const referral = await request.server.core.referral.one({
+	const referral = await referralOne(database, {
 		where: { id: request.params.id },
 		select: REFERRAL_FIELDS,
 		include: REFERRAL_INCLUDE,
@@ -500,26 +534,18 @@ export const referralAssign = async (
 	reply.status(status).send({
 		code,
 		message: "Referral assigned.",
-		data: referral as unknown as ReferralResponse["data"],
+		data: referral!,
 	});
 };
 
-/**
- * Doctor-only. Resets the referral to `PENDING` and clears `doctor` at the
- * new destination, so that facility's Manager/Doctor triages it fresh —
- * matching how a normal new referral is picked up (see
- * `docs/roles-permissions.md`). Refuses any facility this referral has
- * already been at (origin, current destination, or any prior redirect's
- * destination) — closes the ping-pong/loop risk without an arbitrary hop
- * limit — and any facility that isn't currently `APPROVED`.
- */
+/** Doctor-only — redirects a referral to a new destination, resetting it to PENDING with `doctor` cleared; refuses any facility already visited (origin, destination, or a prior redirect) or not currently APPROVED. */
 export const referralRedirect = async (
 	request: FastifyRequest<ReferralRedirectRequest>,
 	reply: FastifyReply<ReferralRedirectRequest>,
 ): Promise<void> => {
-	const { core } = request.server;
+	const database = request.server.database;
 
-	const existing = await core.referral.one({
+	const existing = await referralOne(database, {
 		where: { id: request.params.id },
 		select: {
 			id: true,
@@ -535,7 +561,7 @@ export const referralRedirect = async (
 		return reply.status(status).send({ code, message: "Referral not found." });
 	}
 
-	const role = request.user!.role as Role;
+	const role = request.user!.role;
 	if (
 		!canRedirectReferral(
 			role,
@@ -562,7 +588,7 @@ export const referralRedirect = async (
 
 	const { destination_facility_id: newDestinationId, notes } = request.body;
 
-	const destination = await core.facility.one({
+	const destination = await facilityOne(database, {
 		where: { id: newDestinationId },
 		select: { id: true, status: true },
 	});
@@ -575,7 +601,7 @@ export const referralRedirect = async (
 		});
 	}
 
-	const priorRedirects = await core.timeline.many({
+	const priorRedirects = await timelineMany(database, {
 		page: 1,
 		limit: 1000,
 		where: {
@@ -602,21 +628,21 @@ export const referralRedirect = async (
 		});
 	}
 
-	await core.connection.transaction(async (tx) => {
-		const txCore = core.withTransaction(tx);
-
-		await txCore.referral.update({
-			where: { id: existing.id },
-			data: {
+	await database.transaction(async (tx) => {
+		await repositoryReferralUpdate(
+			tx,
+			{ where: { id: existing.id }, select: { id: true } },
+			{
 				doctor: null,
 				status: REFERRAL_STATUS.PENDING,
 				destination_facility_id: newDestinationId,
 			},
-			select: { id: true },
-		});
+		);
 
-		await txCore.timeline.create({
-			data: {
+		await timelineCreate(
+			tx,
+			{ select: { id: true } },
+			{
 				id: generateUuid(),
 				type: TIMELINE_TYPE.REFERRAL,
 				entity: existing.id,
@@ -626,11 +652,10 @@ export const referralRedirect = async (
 				changer_id: request.user!.id,
 				notes,
 			},
-			select: { id: true },
-		});
+		);
 	});
 
-	const referral = await core.referral.one({
+	const referral = await referralOne(database, {
 		where: { id: existing.id },
 		select: REFERRAL_FIELDS,
 		include: REFERRAL_INCLUDE,
@@ -640,23 +665,18 @@ export const referralRedirect = async (
 	reply.status(status).send({
 		code,
 		message: "Referral redirected.",
-		data: referral as unknown as ReferralResponse["data"],
+		data: referral!,
 	});
 };
 
-/**
- * Which clinical specialties a referral needs. Viewable by anyone who can
- * view the referral (`canViewReferral`); tagging/untagging is narrower
- * (`canManageReferralSpecialties`) — the referring Nurse, or an assigned/
- * eligible-unassigned Doctor, and only while the referral is still open.
- */
+/** Lists a referral's tagged specialties — viewable by anyone who can view the referral itself. */
 export const referralSpecialties = async (
 	request: FastifyRequest<ReferralSpecialtiesRequest>,
 	reply: FastifyReply<ReferralSpecialtiesRequest>,
 ): Promise<void> => {
-	const { core } = request.server;
+	const database = request.server.database;
 
-	const existing = await core.referral.one({
+	const existing = await referralOne(database, {
 		where: { id: request.params.id },
 		select: {
 			id: true,
@@ -667,7 +687,7 @@ export const referralSpecialties = async (
 		},
 	});
 
-	const role = request.user!.role as Role;
+	const role = request.user!.role;
 	if (
 		!existing ||
 		!canViewReferral(
@@ -681,7 +701,8 @@ export const referralSpecialties = async (
 		return reply.status(status).send({ code, message: "Referral not found." });
 	}
 
-	const result = await core.specialty.linkMany("referral", {
+	const result = await specialtyLinkMany(database, {
+		owner: "referral",
 		page: 1,
 		limit: 100,
 		where: { referral_id: request.params.id },
@@ -695,20 +716,18 @@ export const referralSpecialties = async (
 	reply.status(status).send({
 		code,
 		message: "Referral specialties retrieved.",
-		// `include`-derived fields (`specialty`) aren't modeled by `linkMany`'s
-		// return type — present at runtime, just invisible to this type. See
-		// `core/helpers.ts`.
-		data: result.data as unknown as ReferralSpecialtyListResponse["data"],
+		data: result.data,
 	});
 };
 
+/** Tags a specialty on a referral, then best-effort revalidates auto-assignment. */
 export const referralSpecialtyAssign = async (
 	request: FastifyRequest<ReferralSpecialtyAssignRequest>,
 	reply: FastifyReply<ReferralSpecialtyAssignRequest>,
 ): Promise<void> => {
-	const { core } = request.server;
+	const database = request.server.database;
 
-	const existing = await core.referral.one({
+	const existing = await referralOne(database, {
 		where: { id: request.params.id },
 		select: {
 			id: true,
@@ -724,7 +743,7 @@ export const referralSpecialtyAssign = async (
 		return reply.status(status).send({ code, message: "Referral not found." });
 	}
 
-	const role = request.user!.role as Role;
+	const role = request.user!.role;
 	if (
 		!canManageReferralSpecialties(
 			role,
@@ -749,7 +768,7 @@ export const referralSpecialtyAssign = async (
 		});
 	}
 
-	const specialty = await core.specialty.one({
+	const specialty = await specialtyOne(database, {
 		where: { id: request.body.specialty_id },
 		select: { id: true, name: true, description: true },
 	});
@@ -759,7 +778,8 @@ export const referralSpecialtyAssign = async (
 		return reply.status(status).send({ code, message: "Specialty not found." });
 	}
 
-	const existingLink = await core.specialty.linkMany("referral", {
+	const existingLink = await specialtyLinkMany(database, {
+		owner: "referral",
 		page: 1,
 		limit: 1,
 		where: {
@@ -777,14 +797,27 @@ export const referralSpecialtyAssign = async (
 		});
 	}
 
-	const [link] = await core.specialty.linkCreate("referral", {
-		data: {
+	const [link] = await specialtyLinkCreate(
+		database,
+		{
+			owner: "referral",
+			select: { id: true, referral_id: true, created_at: true },
+		},
+		{
 			id: generateUuid(),
 			referral_id: request.params.id,
 			specialty_id: request.body.specialty_id,
 		},
-		select: { id: true, referral_id: true, created_at: true },
-	});
+	);
+
+	try {
+		await autoAssignmentRevalidate(database, { referralId: request.params.id });
+	} catch (error) {
+		request.log.error(
+			{ error, referralId: request.params.id },
+			"Auto-assignment revalidation failed after specialty tag.",
+		);
+	}
 
 	const { status, code } = HTTP_RESPONSE_CODE.CREATED;
 	reply.status(status).send({
@@ -794,13 +827,14 @@ export const referralSpecialtyAssign = async (
 	});
 };
 
+/** Untags a specialty from a referral, then best-effort revalidates auto-assignment. */
 export const referralSpecialtyUnassign = async (
 	request: FastifyRequest<ReferralSpecialtyUnassignRequest>,
 	reply: FastifyReply<ReferralSpecialtyUnassignRequest>,
 ): Promise<void> => {
-	const { core } = request.server;
+	const database = request.server.database;
 
-	const existing = await core.referral.one({
+	const existing = await referralOne(database, {
 		where: { id: request.params.id },
 		select: {
 			id: true,
@@ -816,7 +850,7 @@ export const referralSpecialtyUnassign = async (
 		return reply.status(status).send({ code, message: "Referral not found." });
 	}
 
-	const role = request.user!.role as Role;
+	const role = request.user!.role;
 	if (
 		!canManageReferralSpecialties(
 			role,
@@ -841,7 +875,8 @@ export const referralSpecialtyUnassign = async (
 		});
 	}
 
-	const deleted = await core.specialty.linkDelete("referral", {
+	const deleted = await specialtyLinkDelete(database, {
+		owner: "referral",
 		where: {
 			referral_id: request.params.id,
 			specialty_id: request.params.specialtyId,
@@ -857,25 +892,36 @@ export const referralSpecialtyUnassign = async (
 		});
 	}
 
+	try {
+		await autoAssignmentRevalidate(database, { referralId: request.params.id });
+	} catch (error) {
+		request.log.error(
+			{ error, referralId: request.params.id },
+			"Auto-assignment revalidation failed after specialty untag.",
+		);
+	}
+
 	const { status, code } = HTTP_RESPONSE_CODE.OK;
 	reply.status(status).send({ code, message: "Specialty untagged." });
 };
 
-/**
- * Validates against `STATUS_TRANSITIONS` (build-spec.md section 2.3) AND the
- * per-role target restriction, then writes the new status and a `timeline`
- * row together in one transaction.
- */
+/** Validates the requested status change against `STATUS_TRANSITIONS` and the per-role target restriction, then writes the new status and a `timeline` row together in one transaction. */
 export const referralStatusUpdate = async (
 	request: FastifyRequest<ReferralStatusUpdateRequest>,
 	reply: FastifyReply<ReferralStatusUpdateRequest>,
 ): Promise<void> => {
-	const { core } = request.server;
+	const database = request.server.database;
 	const { next, notes } = request.body;
 
-	const existing = await core.referral.one({
+	const existing = await referralOne(database, {
 		where: { id: request.params.id },
-		select: { id: true, status: true, referrer_id: true, doctor: true },
+		select: {
+			id: true,
+			status: true,
+			referrer_id: true,
+			doctor: true,
+			destination_facility_id: true,
+		},
 	});
 
 	if (!existing) {
@@ -883,7 +929,7 @@ export const referralStatusUpdate = async (
 		return reply.status(status).send({ code, message: "Referral not found." });
 	}
 
-	const role = request.user!.role as Role;
+	const role = request.user!.role;
 	if (!canActOnReferral(role, request.user!.id, existing)) {
 		const { status, code } = HTTP_RESPONSE_CODE.FORBIDDEN;
 		return reply.status(status).send({
@@ -919,17 +965,17 @@ export const referralStatusUpdate = async (
 		});
 	}
 
-	await core.connection.transaction(async (tx) => {
-		const txCore = core.withTransaction(tx);
+	await database.transaction(async (tx) => {
+		await repositoryReferralUpdate(
+			tx,
+			{ where: { id: request.params.id }, select: { id: true } },
+			{ status: next },
+		);
 
-		await txCore.referral.update({
-			where: { id: request.params.id },
-			data: { status: next },
-			select: { id: true },
-		});
-
-		await txCore.timeline.create({
-			data: {
+		await timelineCreate(
+			tx,
+			{ select: { id: true } },
+			{
 				id: generateUuid(),
 				type: TIMELINE_TYPE.REFERRAL,
 				entity: request.params.id,
@@ -939,11 +985,23 @@ export const referralStatusUpdate = async (
 				changer_id: request.user!.id,
 				notes: notes ?? null,
 			},
-			select: { id: true },
-		});
+		);
 	});
 
-	const referral = await core.referral.one({
+	if (isTerminal(next) && existing.doctor) {
+		try {
+			await autoAssignmentRecheckFacility(database, {
+				facilityId: existing.destination_facility_id,
+			});
+		} catch (error) {
+			request.log.error(
+				{ error, referralId: request.params.id },
+				"Auto-assignment recheck failed after referral went terminal.",
+			);
+		}
+	}
+
+	const referral = await referralOne(database, {
 		where: { id: request.params.id },
 		select: REFERRAL_FIELDS,
 		include: REFERRAL_INCLUDE,
@@ -953,15 +1011,18 @@ export const referralStatusUpdate = async (
 	reply.status(status).send({
 		code,
 		message: "Referral status updated.",
-		data: referral as unknown as ReferralResponse["data"],
+		data: referral!,
 	});
 };
 
+/** Lists a referral's status/moderation timeline, paginated, if the caller can view the referral. */
 export const referralHistory = async (
 	request: FastifyRequest<ReferralHistoryRequest>,
 	reply: FastifyReply<ReferralHistoryRequest>,
 ): Promise<void> => {
-	const existing = await request.server.core.referral.one({
+	const database = request.server.database;
+
+	const existing = await referralOne(database, {
 		where: { id: request.params.id },
 		select: {
 			id: true,
@@ -972,7 +1033,7 @@ export const referralHistory = async (
 		},
 	});
 
-	const role = request.user!.role as Role;
+	const role = request.user!.role;
 	if (
 		!existing ||
 		!canViewReferral(
@@ -993,7 +1054,7 @@ export const referralHistory = async (
 		? Number(request.query.limit)
 		: DEFAULT_PAGE_LIMIT;
 
-	const result = await request.server.core.timeline.many({
+	const result = await timelineMany(database, {
 		page,
 		limit,
 		where: { type: TIMELINE_TYPE.REFERRAL, entity: request.params.id },

@@ -1,11 +1,9 @@
-import { sql } from "drizzle-orm";
 import {
 	date,
 	text,
 	index,
 	varchar,
 	mysqlEnum,
-	timestamp,
 	mysqlTable,
 } from "drizzle-orm/mysql-core";
 
@@ -13,6 +11,7 @@ import { GENDER } from "@referral-tracking/shared";
 
 import { UserModel } from "./user";
 import { FacilityModel } from "./facility";
+import { timestampColumns } from "./helpers";
 
 export const PatientModel = mysqlTable(
 	"patients",
@@ -33,11 +32,7 @@ export const PatientModel = mysqlTable(
 			.notNull()
 			.references(() => FacilityModel.id),
 
-		created_at: timestamp("created_at").notNull().defaultNow(),
-		updated_at: timestamp("updated_at")
-			.notNull()
-			.defaultNow()
-			.$onUpdate(() => sql`now()`),
+		...timestampColumns(),
 	},
 	(table) => [
 		index("patients_creator_id_idx").on(table.creator_id),

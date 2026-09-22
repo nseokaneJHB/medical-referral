@@ -6,6 +6,8 @@ import {
 	HTTP_RESPONSE_CODE,
 } from "@referral-tracking/shared";
 
+import { loginsMany } from "../../repository/logins";
+
 import type { LoginsRequest } from "./type";
 
 const LOGINS_FIELDS = {
@@ -19,6 +21,7 @@ const LOGINS_FIELDS = {
 	reason: true,
 } as const;
 
+/** Lists login audit rows, newest first. */
 export const logins = async (
 	request: FastifyRequest<LoginsRequest>,
 	reply: FastifyReply<LoginsRequest>,
@@ -30,7 +33,7 @@ export const logins = async (
 		? Number(request.query.limit)
 		: DEFAULT_PAGE_LIMIT;
 
-	const result = await request.server.core.logins.many({
+	const result = await loginsMany(request.server.database, {
 		page,
 		limit,
 		order: { login_at: "desc" },

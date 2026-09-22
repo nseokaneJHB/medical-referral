@@ -3,9 +3,10 @@ import type { FastifyInstance, FastifyPluginAsync } from "fastify";
 import {
 	ROLES,
 	API_PATHS,
-	UpdateFacilitySchema,
+	updateFacilitySchema,
 	facilitiesQuerySchema,
 	globalResponseSchema,
+	paginationQuerySchema,
 	facilityParamsSchema,
 	facilityResponseSchema,
 	facilityListResponseSchema,
@@ -83,6 +84,7 @@ export const route: FastifyPluginAsync = async (
 		],
 		schema: {
 			params: facilityParamsSchema,
+			querystring: paginationQuerySchema,
 			response: {
 				200: timelineListResponseSchema,
 				401: globalResponseSchema,
@@ -103,7 +105,7 @@ export const route: FastifyPluginAsync = async (
 		],
 		schema: {
 			params: facilityParamsSchema,
-			body: UpdateFacilitySchema,
+			body: updateFacilitySchema,
 			response: {
 				200: facilityResponseSchema,
 				401: globalResponseSchema,

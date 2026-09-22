@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 import {
-	UserSchema,
-	UserDetailSchema,
+	userSchema,
+	userDetailSchema,
 	userParamsSchema,
 	usersQuerySchema,
 	userResponseSchema,
@@ -10,8 +10,8 @@ import {
 	userListResponseSchema,
 } from "../schema/user";
 
-export type User = z.infer<typeof UserSchema>;
-export type UserDetail = z.infer<typeof UserDetailSchema>;
+export type User = z.infer<typeof userSchema>;
+export type UserDetail = z.infer<typeof userDetailSchema>;
 export type UserParams = z.infer<typeof userParamsSchema>;
 export type UsersQuery = z.infer<typeof usersQuerySchema>;
 export type UserResponse = z.infer<typeof userResponseSchema>;

@@ -8,24 +8,41 @@ import {
 	DEFAULT_PAGE_LIMIT,
 	DEFAULT_PAGE_NUMBER,
 	HTTP_RESPONSE_CODE,
-	CreateFacilitySchema,
-	orderDirectionSchema,
+	createFacilitySchema,
 	facilityStatusSchema,
 	TERMINAL_REFERRAL_STATUSES,
 	uuidSchema,
 	type Role,
-	type FacilitySpecialtyListResponse,
 	type FacilityDetailResponse,
 } from "@referral-tracking/shared";
 
-import { generateUuid, zeroFillCounts, normalizeNullableFields } from "../../lib/util";
-import { parseEnumList, parseSortList } from "../../lib/validator";
+import {
+	generateUuid,
+	zeroFillCounts,
+	normalizeNullableFields,
+} from "../../lib/util";
+import { parseEnumList } from "../../lib/validator";
 
-import type { CoreService } from "../../core";
+import {
+	facilityOne,
+	facilityMany,
+	facilityCount,
+	facilityUpdate as repositoryFacilityUpdate,
+} from "../../repository/facility";
+import { referralCount } from "../../repository/referral";
+import { timelineMany, timelineCreate } from "../../repository/timeline";
+import {
+	specialtyOne,
+	specialtyLinkMany,
+	specialtyLinkCreate,
+	specialtyLinkDelete,
+	specialtyLinkCount,
+} from "../../repository/specialty";
+import { sessionResolveUserFromNodeHeaders } from "../../repository/cross-schema/session";
 
 import { FacilityModel, type FacilityModelSelect } from "../../drizzle/schema";
 
-import type { OrderClause, WhereClause } from "../../core/helpers";
+import { buildOrderClause, type Executor, type WhereClause } from "../../repository/helpers";
 
 import type {
 	FacilitiesRequest,
@@ -61,22 +78,24 @@ const TIMELINE_INCLUDE = {
 	changer: { select: { id: true, name: true } },
 } as const;
 
-/**
- * `GET /facilities/:id` only — referral and specialty counts for this
- * facility, same shape/reasoning as `doctorStats` in `modules/users/service.ts`.
- */
+/** `GET /facilities/:id` only — referral and specialty counts for this facility, same shape as `doctorStats` in `modules/users/service.ts`. */
 const facilityStats = async (
-	core: Pick<CoreService, "referral" | "specialty">,
+	database: Executor,
 	facilityId: string,
 ): Promise<FacilityDetailResponse["data"]["stats"]> => {
 	const [referralsReceived, activeReferrals, specialtiesCount] =
 		await Promise.all([
-			core.referral.count({ destination_facility_id: facilityId }),
-			core.referral.count({
-				destination_facility_id: facilityId,
-				status: { notIn: TERMINAL_REFERRAL_STATUSES },
+			referralCount(database, { where: { destination_facility_id: facilityId } }),
+			referralCount(database, {
+				where: {
+					destination_facility_id: facilityId,
+					status: { notIn: TERMINAL_REFERRAL_STATUSES },
+				},
 			}),
-			core.specialty.linkCount("facility", { facility_id: facilityId }),
+			specialtyLinkCount(database, {
+				owner: "facility",
+				where: { facility_id: facilityId },
+			}),
 		]);
 
 	return {
@@ -86,31 +105,18 @@ const facilityStats = async (
 	};
 };
 
-/**
- * No `app.authenticate` on this route (see `route.ts`) — the unauthenticated
- * sign-up page needs to list facilities for a registering Nurse/Doctor/
- * Manager to pick from. Visibility is filtered by whoever's actually
- * asking, resolved here directly rather than via the hard `authenticate`
- * gate: no session (or Nurse/Doctor) sees only `APPROVED` facilities;
- * Manager sees `APPROVED` facilities plus their own regardless of status
- * (so they can track their own pending/rejected/flagged/suspended
- * facility); Administrator sees everything, unfiltered. Each concern
- * becomes its own clause, ANDed together via a single top-level `AND`,
- * rather than mixing a top-level `OR` and `AND` side by side.
- */
+/** No `app.authenticate` on this route — the unauthenticated sign-up page lists facilities too, so visibility is resolved here directly: unauthenticated/Nurse/Doctor see only `APPROVED`, Manager also sees their own regardless of status, Administrator sees everything. */
 export const facilities = async (
 	request: FastifyRequest<FacilitiesRequest>,
 	reply: FastifyReply<FacilitiesRequest>,
 ): Promise<void> => {
 	const { query, server } = request;
+	const database = server.database;
 
 	const page = Number(query.page);
 	const limit = Number(query.limit);
 
-	const caller =
-		await request.server.management.session.resolveUserFromNodeHeaders(
-			request.headers,
-		);
+	const caller = await sessionResolveUserFromNodeHeaders(request.headers);
 
 	const clauses: WhereClause<FacilityModelSelect>[] = [];
 
@@ -141,24 +147,16 @@ export const facilities = async (
 		});
 	}
 
-	// ANDed with the visibility clause above, not a replacement for it — a
-	// Nurse/Doctor filtering by a status they can't see just gets zero rows.
 	if (query.status) {
 		clauses.push({
 			status: { in: parseEnumList(query.status, facilityStatusSchema) },
 		});
 	}
 
-	// Facilities offering ANY of the given specialties — two-query fan-out
-	// (link ids, then filter facilities by id) rather than a join, matching
-	// `getPatientFlagStatuses`'s batch-lookup pattern in
-	// `patients/service.ts`; `limit: 1000` is the same flat cap for the
-	// same reason (realistic volumes nowhere near it). `inArray` on an
-	// empty id list correctly resolves to zero rows (drizzle-orm emits
-	// `sql\`false\``), so no empty-array guard is needed here.
 	if (query.specialty) {
 		const specialtyIds = parseEnumList(query.specialty, uuidSchema) ?? [];
-		const links = await server.core.specialty.linkMany("facility", {
+		const links = await specialtyLinkMany(database, {
+			owner: "facility",
 			page: 1,
 			limit: 1000,
 			where: { specialty_id: { in: specialtyIds } },
@@ -172,16 +170,15 @@ export const facilities = async (
 	const where: WhereClause<FacilityModelSelect> =
 		clauses.length > 0 ? { AND: clauses } : {};
 
-	const sorts = parseSortList(query.sort, FacilityModel, "name");
-	const orders = parseEnumList(query.order, orderDirectionSchema) ?? ["asc"];
-	const order = Object.fromEntries(
-		sorts.map((sorting, index) => [
-			sorting,
-			orders[index] || orders[0] || "asc",
-		]),
-	) as OrderClause<FacilityModelSelect>;
+	const order = buildOrderClause<FacilityModelSelect>(
+		query.sort,
+		query.order,
+		FacilityModel,
+		"name",
+		"asc",
+	);
 
-	const result = await server.core.facility.many({
+	const result = await facilityMany(database, {
 		page,
 		limit,
 		where,
@@ -190,7 +187,7 @@ export const facilities = async (
 	});
 
 	const statusCounts = zeroFillCounts(
-		await server.core.facility.count(visibilityWhere, "status"),
+		await facilityCount(database, { where: visibilityWhere, groupBy: "status" }),
 		FACILITY_STATUS,
 	);
 
@@ -203,11 +200,13 @@ export const facilities = async (
 	});
 };
 
+/** Fetches a single facility with its stats, restricted for a Manager to their own facility. */
 export const facility = async (
 	request: FastifyRequest<FacilityRequest>,
 	reply: FastifyReply<FacilityRequest>,
 ): Promise<void> => {
-	const role = request.user!.role as Role;
+	const role = request.user!.role;
+	const database = request.server.database;
 	if (
 		role === ROLES.MANAGER &&
 		request.params.id !== request.user!.facility_id
@@ -218,7 +217,7 @@ export const facility = async (
 			.send({ code, message: "You may only view your own facility." });
 	}
 
-	const facility = await request.server.core.facility.one({
+	const facility = await facilityOne(database, {
 		where: { id: request.params.id },
 		select: FACILITY_FIELDS,
 	});
@@ -228,21 +227,23 @@ export const facility = async (
 		return reply.status(status).send({ code, message: "Facility not found." });
 	}
 
-	const stats = await facilityStats(request.server.core, facility.id);
+	const stats = await facilityStats(database, facility.id);
 
 	const { status, code } = HTTP_RESPONSE_CODE.OK;
 	reply.status(status).send({
 		code,
 		message: "Facility retrieved.",
-		data: { ...facility, stats } as unknown as FacilityDetailResponse["data"],
+		data: { ...facility, stats },
 	});
 };
 
+/** Lists a facility's moderation/status timeline, paginated, restricted for a Manager to their own facility. */
 export const facilityHistory = async (
 	request: FastifyRequest<FacilityHistoryRequest>,
 	reply: FastifyReply<FacilityHistoryRequest>,
 ): Promise<void> => {
-	const role = request.user!.role as Role;
+	const role = request.user!.role;
+	const database = request.server.database;
 	if (
 		role === ROLES.MANAGER &&
 		request.params.id !== request.user!.facility_id
@@ -254,7 +255,7 @@ export const facilityHistory = async (
 		});
 	}
 
-	const facility = await request.server.core.facility.one({
+	const facility = await facilityOne(database, {
 		where: { id: request.params.id },
 		select: { id: true },
 	});
@@ -271,7 +272,7 @@ export const facilityHistory = async (
 		? Number(request.query.limit)
 		: DEFAULT_PAGE_LIMIT;
 
-	const result = await request.server.core.timeline.many({
+	const result = await timelineMany(database, {
 		page,
 		limit,
 		where: { type: TIMELINE_TYPE.FACILITY, entity: request.params.id },
@@ -288,11 +289,13 @@ export const facilityHistory = async (
 	});
 };
 
+/** Updates a facility's editable fields, restricted for a Manager to their own facility, recording a timeline entry when anything actually changed. */
 export const facilityUpdate = async (
 	request: FastifyRequest<FacilityUpdateRequest>,
 	reply: FastifyReply<FacilityUpdateRequest>,
 ): Promise<void> => {
-	const role = request.user!.role as Role;
+	const role = request.user!.role;
+	const database = request.server.database;
 	if (
 		role === ROLES.MANAGER &&
 		request.params.id !== request.user!.facility_id
@@ -303,7 +306,7 @@ export const facilityUpdate = async (
 			.send({ code, message: "You may only edit your own facility." });
 	}
 
-	const existing = await request.server.core.facility.one({
+	const existing = await facilityOne(database, {
 		where: { id: request.params.id },
 		select: { id: true, name: true, address: true },
 	});
@@ -313,7 +316,7 @@ export const facilityUpdate = async (
 		return reply.status(status).send({ code, message: "Facility not found." });
 	}
 
-	const body = normalizeNullableFields(request.body, CreateFacilitySchema);
+	const body = normalizeNullableFields(request.body, createFacilitySchema);
 
 	const changes = Object.entries(body)
 		.filter(([key, value]) => value !== existing[key as keyof typeof existing])
@@ -322,11 +325,11 @@ export const facilityUpdate = async (
 				`${key}: "${existing[key as keyof typeof existing]}" → "${value}"`,
 		);
 
-	const [facility] = await request.server.core.facility.update({
-		where: { id: request.params.id },
-		data: body,
-		select: FACILITY_FIELDS,
-	});
+	const [facility] = await repositoryFacilityUpdate(
+		database,
+		{ where: { id: request.params.id }, select: FACILITY_FIELDS },
+		body,
+	);
 
 	if (!facility) {
 		const { status, code } = HTTP_RESPONSE_CODE.NOT_FOUND;
@@ -334,8 +337,10 @@ export const facilityUpdate = async (
 	}
 
 	if (changes.length > 0) {
-		await request.server.core.timeline.create({
-			data: {
+		await timelineCreate(
+			database,
+			{ select: { id: true } },
+			{
 				id: generateUuid(),
 				type: TIMELINE_TYPE.FACILITY,
 				entity: existing.id,
@@ -345,8 +350,7 @@ export const facilityUpdate = async (
 				changer_id: request.user!.id,
 				notes: changes.join("; "),
 			},
-			select: { id: true },
-		});
+		);
 	}
 
 	const { status, code } = HTTP_RESPONSE_CODE.OK;
@@ -355,34 +359,27 @@ export const facilityUpdate = async (
 		.send({ code, message: "Facility updated.", data: facility });
 };
 
-/**
- * Same "Administrator, or the facility's own Manager" gate `facility()`/
- * `facilityUpdate()` enforce inline above — factored out here since it's
- * also what viewing a facility's specialties requires.
- */
+/** Same "Administrator, or the facility's own Manager" gate `facility()`/`facilityUpdate()` enforce inline above. */
 const canViewFacilitySpecialties = (
 	role: Role,
 	callerFacilityId: string | null,
 	facilityId: string,
 ): boolean => role !== ROLES.MANAGER || callerFacilityId === facilityId;
 
-/**
- * Unlike viewing, assigning/unassigning a facility's specialties is
- * Manager-only for their own facility — Administrator manages the
- * specialty vocabulary itself (`modules/specialties`) but not any one
- * facility's assignments.
- */
+/** Unlike viewing, assigning/unassigning a facility's specialties is Manager-only for their own facility — Administrator manages the specialty vocabulary itself, not any one facility's assignments. */
 const canAssignFacilitySpecialties = (
 	role: Role,
 	callerFacilityId: string | null,
 	facilityId: string,
 ): boolean => role === ROLES.MANAGER && callerFacilityId === facilityId;
 
+/** Lists a facility's assigned specialties. */
 export const facilitySpecialties = async (
 	request: FastifyRequest<FacilitySpecialtiesRequest>,
 	reply: FastifyReply<FacilitySpecialtiesRequest>,
 ): Promise<void> => {
-	const role = request.user!.role as Role;
+	const role = request.user!.role;
+	const database = request.server.database;
 	if (
 		!canViewFacilitySpecialties(
 			role,
@@ -397,7 +394,7 @@ export const facilitySpecialties = async (
 		});
 	}
 
-	const facility = await request.server.core.facility.one({
+	const facility = await facilityOne(database, {
 		where: { id: request.params.id },
 		select: { id: true },
 	});
@@ -407,7 +404,8 @@ export const facilitySpecialties = async (
 		return reply.status(status).send({ code, message: "Facility not found." });
 	}
 
-	const result = await request.server.core.specialty.linkMany("facility", {
+	const result = await specialtyLinkMany(database, {
+		owner: "facility",
 		page: 1,
 		limit: 100,
 		where: { facility_id: request.params.id },
@@ -421,18 +419,17 @@ export const facilitySpecialties = async (
 	reply.status(status).send({
 		code,
 		message: "Facility specialties retrieved.",
-		// `include`-derived fields (`specialty`) aren't modeled by `linkMany`'s
-		// return type — present at runtime, just invisible to this type. See
-		// `core/helpers.ts`.
-		data: result.data as unknown as FacilitySpecialtyListResponse["data"],
+		data: result.data,
 	});
 };
 
+/** Assigns a specialty to a facility. */
 export const facilitySpecialtyAssign = async (
 	request: FastifyRequest<FacilitySpecialtyAssignRequest>,
 	reply: FastifyReply<FacilitySpecialtyAssignRequest>,
 ): Promise<void> => {
-	const role = request.user!.role as Role;
+	const role = request.user!.role;
+	const database = request.server.database;
 	if (
 		!canAssignFacilitySpecialties(
 			role,
@@ -447,7 +444,7 @@ export const facilitySpecialtyAssign = async (
 		});
 	}
 
-	const facility = await request.server.core.facility.one({
+	const facility = await facilityOne(database, {
 		where: { id: request.params.id },
 		select: { id: true },
 	});
@@ -457,7 +454,7 @@ export const facilitySpecialtyAssign = async (
 		return reply.status(status).send({ code, message: "Facility not found." });
 	}
 
-	const specialty = await request.server.core.specialty.one({
+	const specialty = await specialtyOne(database, {
 		where: { id: request.body.specialty_id },
 		select: { id: true, name: true, description: true },
 	});
@@ -467,7 +464,8 @@ export const facilitySpecialtyAssign = async (
 		return reply.status(status).send({ code, message: "Specialty not found." });
 	}
 
-	const existing = await request.server.core.specialty.linkMany("facility", {
+	const existing = await specialtyLinkMany(database, {
+		owner: "facility",
 		page: 1,
 		limit: 1,
 		where: {
@@ -485,14 +483,18 @@ export const facilitySpecialtyAssign = async (
 		});
 	}
 
-	const [link] = await request.server.core.specialty.linkCreate("facility", {
-		data: {
+	const [link] = await specialtyLinkCreate(
+		database,
+		{
+			owner: "facility",
+			select: { id: true, facility_id: true, created_at: true },
+		},
+		{
 			id: generateUuid(),
 			facility_id: request.params.id,
 			specialty_id: request.body.specialty_id,
 		},
-		select: { id: true, facility_id: true, created_at: true },
-	});
+	);
 
 	const { status, code } = HTTP_RESPONSE_CODE.CREATED;
 	reply.status(status).send({
@@ -502,11 +504,13 @@ export const facilitySpecialtyAssign = async (
 	});
 };
 
+/** Unassigns a specialty from a facility. */
 export const facilitySpecialtyUnassign = async (
 	request: FastifyRequest<FacilitySpecialtyUnassignRequest>,
 	reply: FastifyReply<FacilitySpecialtyUnassignRequest>,
 ): Promise<void> => {
-	const role = request.user!.role as Role;
+	const role = request.user!.role;
+	const database = request.server.database;
 	if (
 		!canAssignFacilitySpecialties(
 			role,
@@ -521,7 +525,8 @@ export const facilitySpecialtyUnassign = async (
 		});
 	}
 
-	const deleted = await request.server.core.specialty.linkDelete("facility", {
+	const deleted = await specialtyLinkDelete(database, {
+		owner: "facility",
 		where: {
 			facility_id: request.params.id,
 			specialty_id: request.params.specialtyId,

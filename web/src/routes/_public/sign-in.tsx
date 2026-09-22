@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 import {
 	createFileRoute,
 	useNavigate,
@@ -5,15 +7,19 @@ import {
 } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
 
-import { useForm } from "react-hook-form";
+import { useForm, useController } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import {
-	HTTP_CODE,
-	SignInSchema,
+	signInSchema,
 	FRONTEND_URLS,
+	TWO_FACTOR_METHOD,
 	type SignInBody,
 	type GlobalResponse,
+	type SignInResponse,
+	type TwoFactorMethod,
+	twoFactorVerifyCodeSchema,
+	type TwoFactorVerifyCodeBody,
 } from "@referral-tracking/shared";
 
 import { Button } from "@/components/ui/button";
@@ -22,12 +28,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 import { Link } from "@/components/custom/link";
 import { Input } from "@/components/custom/input";
+import { CheckBox } from "@/components/custom/check-box";
 
 import { useFormField } from "@/hooks/use-form-field";
 import { useToastMutation } from "@/hooks/use-toast-mutation";
 
 import { QUERY_KEYS } from "@/api/constant";
-import { signIn, type AuthUserResponse } from "@/api/auth";
+import {
+	signIn,
+	twoFactorSendOtp,
+	twoFactorVerifyOtp,
+	twoFactorVerifyTotp,
+	twoFactorVerifyBackupCode,
+} from "@/api/auth";
 
 const SignInPage = () => {
 	const router = useRouter();
@@ -35,32 +48,63 @@ const SignInPage = () => {
 
 	const { queryClient } = Route.useRouteContext();
 
+	const [pendingMethods, setPendingMethods] = useState<
+		TwoFactorMethod[] | null
+	>(null);
+	const [activeMethod, setActiveMethod] = useState<TwoFactorMethod>(
+		TWO_FACTOR_METHOD.TOTP,
+	);
+	const [useBackupCode, setUseBackupCode] = useState(false);
+	const [otpSent, setOtpSent] = useState(false);
+
 	const { control, handleSubmit } = useForm<SignInBody>({
 		mode: "onChange",
-		resolver: zodResolver(SignInSchema),
+		resolver: zodResolver(signInSchema),
 		defaultValues: { email: "", password: "" },
 	});
 
 	const email = useFormField({ name: "email", control });
 	const password = useFormField({ name: "password", control });
 
-	const signInMutation = useMutation<AuthUserResponse, Error, SignInBody>({
+	const {
+		control: twoFactorControl,
+		handleSubmit: handleTwoFactorSubmit,
+		setValue: setTwoFactorValue,
+		setError: setTwoFactorError,
+	} = useForm<TwoFactorVerifyCodeBody>({
+		mode: "onChange",
+		resolver: zodResolver(twoFactorVerifyCodeSchema),
+		defaultValues: { code: "", trustDevice: false },
+	});
+
+	const code = useFormField({ name: "code", control: twoFactorControl });
+	const { field: trustDeviceField } = useController({
+		name: "trustDevice",
+		control: twoFactorControl,
+	});
+
+	const onSignedIn = async () => {
+		queryClient.removeQueries({ queryKey: QUERY_KEYS.ME });
+		await router.invalidate();
+		navigate({ to: FRONTEND_URLS.HOME });
+	};
+
+	const signInMutation = useMutation<SignInResponse, Error, SignInBody>({
 		mutationFn: signIn,
 	});
 
 	const onSubmit = async (payload: SignInBody) =>
 		useToastMutation({
 			loading: "Signing in...",
-			promise: signInMutation.mutateAsync(payload).then(
-				(): GlobalResponse => ({
-					code: HTTP_CODE.OK,
-					message: "Signed in.",
-				}),
-			),
-			onSuccess: async () => {
-				queryClient.removeQueries({ queryKey: QUERY_KEYS.ME });
-				await router.invalidate();
-				navigate({ to: FRONTEND_URLS.HOME });
+			promise: signInMutation.mutateAsync(payload),
+			onSuccess: async (data) => {
+				if (data.twoFactorRedirect) {
+					const methods = data.twoFactorMethods ?? [];
+					setPendingMethods(methods);
+					setActiveMethod(methods[0] ?? TWO_FACTOR_METHOD.TOTP);
+					return;
+				}
+				await onSignedIn();
 			},
 			onError: async (error) => {
 				if (error.errors) {
@@ -72,6 +116,223 @@ const SignInPage = () => {
 				}
 			},
 		});
+
+	const sendOtpMutation = useMutation<GlobalResponse, Error, boolean>({
+		mutationFn: (trust) => twoFactorSendOtp({ trustDevice: trust }),
+	});
+
+	const onSendOtp = async () =>
+		useToastMutation({
+			loading: "Sending code...",
+			promise: sendOtpMutation.mutateAsync(trustDeviceField.value ?? false),
+			onSuccess: async () => setOtpSent(true),
+		});
+
+	const verifyMutation = useMutation<
+		GlobalResponse,
+		Error,
+		TwoFactorVerifyCodeBody
+	>({
+		mutationFn: (payload) => {
+			if (useBackupCode) return twoFactorVerifyBackupCode(payload);
+			if (activeMethod === TWO_FACTOR_METHOD.OTP)
+				return twoFactorVerifyOtp(payload);
+			return twoFactorVerifyTotp(payload);
+		},
+	});
+
+	const onVerify = async (payload: TwoFactorVerifyCodeBody) =>
+		useToastMutation({
+			loading: "Verifying...",
+			promise: verifyMutation.mutateAsync(payload),
+			onSuccess: onSignedIn,
+			onError: async (error) => {
+				setTwoFactorError("code", { message: error.message });
+			},
+		});
+
+	const switchMethod = (method: TwoFactorMethod) => {
+		setActiveMethod(method);
+		setOtpSent(false);
+		setTwoFactorValue("code", "");
+	};
+
+	const toggleBackupCode = () => {
+		setUseBackupCode((value) => !value);
+		setTwoFactorValue("code", "");
+	};
+
+	const onBackToSignIn = () => {
+		setPendingMethods(null);
+		setActiveMethod(TWO_FACTOR_METHOD.TOTP);
+		setUseBackupCode(false);
+		setOtpSent(false);
+		setTwoFactorValue("code", "");
+	};
+
+	if (pendingMethods) {
+		const hasBothMethods =
+			pendingMethods.includes(TWO_FACTOR_METHOD.TOTP) &&
+			pendingMethods.includes(TWO_FACTOR_METHOD.OTP);
+		const isVerifying = verifyMutation.isPending;
+		const awaitingOtpSend =
+			activeMethod === TWO_FACTOR_METHOD.OTP && !otpSent && !useBackupCode;
+
+		return (
+			<form
+				onSubmit={handleTwoFactorSubmit(onVerify)}
+				className="w-full max-w-md"
+			>
+				<Card>
+					<CardHeader>
+						<CardTitle className="text-xl">Two-factor authentication</CardTitle>
+					</CardHeader>
+					<CardContent className="space-y-4">
+						{!useBackupCode && hasBothMethods && (
+							<div className="flex gap-2">
+								<Button
+									type="button"
+									title="Authenticator app"
+									variant={
+										activeMethod === TWO_FACTOR_METHOD.TOTP
+											? "default"
+											: "outline"
+									}
+									className="flex-1"
+									onClick={() => switchMethod(TWO_FACTOR_METHOD.TOTP)}
+								>
+									Authenticator app
+								</Button>
+								<Button
+									type="button"
+									title="Email code"
+									variant={
+										activeMethod === TWO_FACTOR_METHOD.OTP
+											? "default"
+											: "outline"
+									}
+									className="flex-1"
+									onClick={() => switchMethod(TWO_FACTOR_METHOD.OTP)}
+								>
+									Email code
+								</Button>
+							</div>
+						)}
+
+						{useBackupCode ? (
+							<Input
+								required
+								name="code"
+								label="Backup code"
+								error={code.error}
+								value={code.value}
+								onChange={code.onChange}
+								placeholder="xxxxxxxx"
+								disabled={isVerifying}
+							/>
+						) : awaitingOtpSend ? (
+							<Button
+								type="button"
+								title="Email me a code"
+								disabled={sendOtpMutation.isPending}
+								className="w-full"
+								onClick={onSendOtp}
+							>
+								{sendOtpMutation.isPending ? (
+									<>
+										<Spinner /> <span>Sending...</span>
+									</>
+								) : (
+									<span>Email me a code</span>
+								)}
+							</Button>
+						) : (
+							<Input
+								required
+								name="code"
+								label={
+									activeMethod === TWO_FACTOR_METHOD.OTP
+										? "Code emailed to you"
+										: "Authenticator code"
+								}
+								error={code.error}
+								value={code.value}
+								onChange={code.onChange}
+								placeholder="123456"
+								disabled={isVerifying}
+							/>
+						)}
+
+						<CheckBox
+							name="trustDevice"
+							label="Trust this device for 30 days"
+							checked={trustDeviceField.value}
+							onCheckedChange={trustDeviceField.onChange}
+						/>
+
+						{!awaitingOtpSend && (
+							<Button
+								type="submit"
+								title="Verify"
+								disabled={isVerifying}
+								className="w-full"
+							>
+								{isVerifying ? (
+									<>
+										<Spinner /> <span>Verifying...</span>
+									</>
+								) : (
+									<span>Verify</span>
+								)}
+							</Button>
+						)}
+
+						{activeMethod === TWO_FACTOR_METHOD.OTP &&
+							otpSent &&
+							!useBackupCode && (
+								<Button
+									type="button"
+									title="Resend code"
+									variant="link"
+									className="h-auto p-0 text-sm"
+									disabled={sendOtpMutation.isPending}
+									onClick={onSendOtp}
+								>
+									Resend code
+								</Button>
+							)}
+
+						<div className="flex items-center justify-between">
+							<Button
+								type="button"
+								title={
+									useBackupCode
+										? "Use a code instead"
+										: "Use a backup code instead"
+								}
+								variant="link"
+								className="h-auto p-0 text-sm"
+								onClick={toggleBackupCode}
+							>
+								{useBackupCode
+									? "Use a code instead"
+									: "Use a backup code instead"}
+							</Button>
+							<Button
+								type="button"
+								title="Back to sign in"
+								variant="link"
+								className="h-auto p-0 text-sm"
+								onClick={onBackToSignIn}
+							>
+								Back to sign in
+							</Button>
+						</div>
+					</CardContent>
+				</Card>
+			</form>
+		);
+	}
 
 	const isLoading = signInMutation.isPending;
 

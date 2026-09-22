@@ -1,12 +1,8 @@
-import {
-	timestamp,
-	varchar,
-	mysqlTable,
-	uniqueIndex,
-} from "drizzle-orm/mysql-core";
+import { varchar, mysqlTable, uniqueIndex } from "drizzle-orm/mysql-core";
 
 import { ReferralModel } from "./referral";
 import { SpecialtyModel } from "./specialty";
+import { createdAtColumn } from "./helpers";
 
 /** Many-to-many link — a referral can need multiple specialties. */
 export const ReferralSpecialtyModel = mysqlTable(
@@ -21,7 +17,7 @@ export const ReferralSpecialtyModel = mysqlTable(
 			.notNull()
 			.references(() => SpecialtyModel.id),
 
-		created_at: timestamp("created_at").notNull().defaultNow(),
+		...createdAtColumn(),
 	},
 	(table) => [
 		uniqueIndex("referral_specialties_uq_idx").on(
