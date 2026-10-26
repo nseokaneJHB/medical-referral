@@ -41,8 +41,8 @@ services:
     restart: unless-stopped
 
     ports:
-      - "11025:1025" # SMTP
-      - "18025:8025" # Web UI — view sent emails at http://localhost:18025
+      - "1025:1025" # SMTP
+      - "8025:8025" # Web UI — view sent emails at http://localhost:8025
 
     networks:
       referral-tracking:
