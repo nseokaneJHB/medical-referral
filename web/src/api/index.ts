@@ -2,9 +2,22 @@ import axios from "axios";
 
 import { AxiosError } from "axios";
 
+import { getRequest } from "@tanstack/react-start/server";
+
 import { GlobalResponse } from "@referral-tracking/shared";
 
 import { env } from "@/lib/env";
+
+/** Forwards the incoming request's session cookie (plus any caller-supplied headers) onto a server-side `api` call — needed since axios on the server has no browser cookie jar of its own. */
+export const forwardedRequestOptions = (
+	extraHeaders?: Record<string, string>,
+) => {
+	const request = getRequest();
+	const cookie = request.headers.get("cookie");
+	const headers = { ...(cookie ? { cookie } : {}), ...extraHeaders };
+
+	return Object.keys(headers).length > 0 ? { headers } : {};
+};
 
 export const CLIENT_ERROR = {
 	ECONNREFUSED: "ECONNREFUSED",
@@ -103,12 +116,6 @@ api.interceptors.response.use(
 	(response) => response,
 	(error: AxiosError<unknown>): Promise<AxiosError> => {
 		if (isApiErrorResponse(error?.response?.data)) {
-			// console.log("\n================ API RESPONSE ERROR ===============\n");
-
-			// console.log("RESPONSE DATA:", error.response.data);
-			// console.log("RESPONSE STATUS:", error.response.status);
-			// console.log("RESPONSE MESSAGE:", error.response.statusText);
-
 			const errorPayload = {
 				...error.response.data,
 				status: error.response.status,
@@ -122,12 +129,6 @@ api.interceptors.response.use(
 		}
 
 		if (isApiErrorResponse(error.request.data)) {
-			// console.log("\n================ API REQUEST ERROR ===============\n");
-
-			// console.log("REQUEST DATA:", error.request.data);
-			// console.log("REQUEST STATUS:", error.request.status);
-			// console.log("REQUEST MESSAGE:", error.request.statusText);
-
 			const errorPayload = {
 				...error.request.data,
 				status: error.request.status,
@@ -143,13 +144,6 @@ api.interceptors.response.use(
 
 			return Promise.reject(apiError.normalize());
 		}
-
-		// console.log("\n================ CLIENT ERROR ===============\n");
-
-		// console.log("NAME:", error);
-		// console.log("CODE:", error.code);
-		// console.log("STATUS:", error.status);
-		// console.log("MESSAGE:", error.message);
 
 		const errorPayload = {
 			...error,

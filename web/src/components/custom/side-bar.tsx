@@ -15,6 +15,7 @@ import {
 	UserIcon,
 	HistoryIcon,
 	LucideProps,
+	SettingsIcon,
 	Building2Icon,
 	PanelLeftIcon,
 	StethoscopeIcon,
@@ -390,6 +391,17 @@ export const SideBar = () => {
 									</span>
 								</div>
 								<DropdownMenuSeparator />
+								<DropdownMenuItem asChild>
+									<Link
+										to={FRONTEND_URLS.SETTINGS}
+										title="Settings"
+										variant="outline"
+										buttonClassName="w-full justify-start border-none bg-inherit"
+									>
+										<SettingsIcon />
+										<span>Settings</span>
+									</Link>
+								</DropdownMenuItem>
 								<DropdownMenuItem asChild>
 									<SignOutButton />
 								</DropdownMenuItem>

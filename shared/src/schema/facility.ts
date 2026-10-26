@@ -13,12 +13,12 @@ import {
 	paginationSortAndSearchQuerySchema,
 } from "./global";
 
-export const CreateFacilitySchema = z.object({
+export const createFacilitySchema = z.object({
 	name: stringSchema.min(1).max(255),
 	address: stringSchema.nullable(),
 });
 
-export const UpdateFacilitySchema = CreateFacilitySchema.partial();
+export const updateFacilitySchema = createFacilitySchema.partial();
 
 /**
  * `status` and `specialty` are both comma-separated (`parseEnumList`),
@@ -32,7 +32,7 @@ export const facilitiesQuerySchema =
 		specialty: stringSchema.optional(),
 	});
 
-export const FacilitySchema = z.object({
+export const facilitySchema = z.object({
 	id: uuidSchema,
 	name: stringSchema,
 	address: stringSchema.nullable(),
@@ -42,31 +42,31 @@ export const FacilitySchema = z.object({
 });
 
 export const facilityResponseSchema = globalResponseSchema.extend({
-	data: FacilitySchema,
+	data: facilitySchema,
 });
 
 export const facilityListResponseSchema = paginatedGlobalResponseSchema.extend({
-	data: z.array(FacilitySchema),
+	data: z.array(facilitySchema),
 	status_counts: z.record(facilityStatusSchema, integerSchema),
 });
 
 /**
  * `GET /facilities/:id` only — referral and specialty counts for this
- * specific facility, same shape/reasoning as `UserDoctorStatsSchema` in
+ * specific facility, same shape/reasoning as `userDoctorStatsSchema` in
  * `schema/user.ts`.
  */
-export const FacilityStatsSchema = z.object({
+export const facilityStatsSchema = z.object({
 	referrals_received: integerSchema,
 	active_referrals: integerSchema,
 	specialties_count: integerSchema,
 });
 
-export const FacilityDetailSchema = FacilitySchema.extend({
-	stats: FacilityStatsSchema,
+export const facilityDetailSchema = facilitySchema.extend({
+	stats: facilityStatsSchema,
 });
 
 export const facilityDetailResponseSchema = globalResponseSchema.extend({
-	data: FacilityDetailSchema,
+	data: facilityDetailSchema,
 });
 
 export const facilityParamsSchema = z.object({

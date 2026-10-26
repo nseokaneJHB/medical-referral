@@ -1,6 +1,7 @@
 import type { RouteGenericInterface } from "fastify";
 
 import type {
+	PaginationQuery,
 	ReferralParams,
 	ReferralsQuery,
 	GlobalResponse,
@@ -57,10 +58,7 @@ export interface ReferralsRequest extends RouteGenericInterface {
 
 export interface ReferralHistoryRequest extends RouteGenericInterface {
 	Params: ReferralParams;
-	Querystring: {
-		page?: string;
-		limit?: string;
-	};
+	Querystring: PaginationQuery;
 	Reply: TimelineListResponse | GlobalResponse;
 }
 

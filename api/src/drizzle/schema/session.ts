@@ -1,7 +1,7 @@
-import { sql } from "drizzle-orm";
 import { index, varchar, timestamp, mysqlTable } from "drizzle-orm/mysql-core";
 
 import { UserModel } from "./user";
+import { timestampColumns } from "./helpers";
 
 export const SessionModel = mysqlTable(
 	"session",
@@ -12,11 +12,7 @@ export const SessionModel = mysqlTable(
 		ip: varchar("ip", { length: 100 }),
 		agent: varchar("agent", { length: 512 }),
 
-		created_at: timestamp("created_at").notNull().defaultNow(),
-		updated_at: timestamp("updated_at")
-			.notNull()
-			.defaultNow()
-			.$onUpdate(() => sql`now()`),
+		...timestampColumns(),
 
 		user_id: varchar("user_id", { length: 36 })
 			.notNull()

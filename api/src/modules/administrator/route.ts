@@ -16,6 +16,7 @@ import {
 	facilityResponseSchema,
 	timelineResponseSchema,
 	createUserByAdminSchema,
+	paginationQuerySchema,
 	transferListResponseSchema,
 	appealListResponseSchema,
 	createUserByAdminResponseSchema,
@@ -272,6 +273,7 @@ export const route: FastifyPluginAsync = async (
 		handler: appeals,
 		preHandler: preHandler(EVENT_NAMES.ADMINISTRATOR_APPEAL_LIST),
 		schema: {
+			querystring: paginationQuerySchema,
 			response: {
 				200: appealListResponseSchema,
 				401: globalResponseSchema,
@@ -338,6 +340,7 @@ export const route: FastifyPluginAsync = async (
 		handler: transfers,
 		preHandler: preHandler(EVENT_NAMES.ADMINISTRATOR_TRANSFER_LIST),
 		schema: {
+			querystring: paginationQuerySchema,
 			response: {
 				200: transferListResponseSchema,
 				401: globalResponseSchema,

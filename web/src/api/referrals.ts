@@ -1,5 +1,4 @@
 import { createServerFn } from "@tanstack/react-start";
-import { getRequest } from "@tanstack/react-start/server";
 
 import {
 	API_URLS,
@@ -16,17 +15,11 @@ import {
 	type UpdateReferralStatusBody,
 } from "@referral-tracking/shared";
 
-import { api } from "@/api";
+import { api, forwardedRequestOptions } from "@/api";
 
 import { env } from "@/lib/env";
 
 const baseUrl = API_URLS(env.VITE_API_VERSION).REFERRALS;
-
-const forwardedRequestOptions = () => {
-	const request = getRequest();
-	const cookie = request.headers.get("cookie");
-	return cookie ? { headers: { cookie } } : {};
-};
 
 // Read (server-side, cookie-forwarded — used in route loaders)
 export const referralsRequest = createServerFn({ method: "GET" })
@@ -76,10 +69,8 @@ export const updateReferral = async (
 	id: string,
 	payload: UpdateReferralBody,
 ): Promise<ReferralResponse> => {
-	const { data } = await api.patch<ReferralResponse>(
-		`${baseUrl}${buildUrlWithParams(API_PATHS.REFERRAL_BY_ID, { id })}`,
-		payload,
-	);
+	const url = `${baseUrl}${buildUrlWithParams(API_PATHS.REFERRAL_BY_ID, { id })}`;
+	const { data } = await api.patch<ReferralResponse>(url, payload);
 	return data;
 };
 
@@ -87,18 +78,14 @@ export const updateReferralStatus = async (
 	id: string,
 	payload: UpdateReferralStatusBody,
 ): Promise<ReferralResponse> => {
-	const { data } = await api.patch<ReferralResponse>(
-		`${baseUrl}${buildUrlWithParams(API_PATHS.REFERRAL_STATUS_UPDATE, { id })}`,
-		payload,
-	);
+	const url = `${baseUrl}${buildUrlWithParams(API_PATHS.REFERRAL_STATUS_UPDATE, { id })}`;
+	const { data } = await api.patch<ReferralResponse>(url, payload);
 	return data;
 };
 
 export const assignReferral = async (id: string): Promise<ReferralResponse> => {
-	const { data } = await api.patch<ReferralResponse>(
-		`${baseUrl}${buildUrlWithParams(API_PATHS.REFERRAL_ASSIGN, { id })}`,
-		null,
-	);
+	const url = `${baseUrl}${buildUrlWithParams(API_PATHS.REFERRAL_ASSIGN, { id })}`;
+	const { data } = await api.patch<ReferralResponse>(url, null);
 	return data;
 };
 
@@ -106,9 +93,7 @@ export const redirectReferral = async (
 	id: string,
 	payload: RedirectReferralBody,
 ): Promise<ReferralResponse> => {
-	const { data } = await api.patch<ReferralResponse>(
-		`${baseUrl}${buildUrlWithParams(API_PATHS.REFERRAL_REDIRECT, { id })}`,
-		payload,
-	);
+	const url = `${baseUrl}${buildUrlWithParams(API_PATHS.REFERRAL_REDIRECT, { id })}`;
+	const { data } = await api.patch<ReferralResponse>(url, payload);
 	return data;
 };

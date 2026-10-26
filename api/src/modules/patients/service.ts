@@ -6,11 +6,8 @@ import {
 	TIMELINE_TYPE,
 	TIMELINE_ACTION,
 	HTTP_RESPONSE_CODE,
-	orderDirectionSchema,
-	CreatePatientSchema,
+	createPatientSchema,
 	TERMINAL_REFERRAL_STATUSES,
-	type Role,
-	type PatientResponse,
 	type PatientDetailResponse,
 } from "@referral-tracking/shared";
 
@@ -20,18 +17,27 @@ import {
 	localDateStartToUtc,
 	localMonthStartToUtc,
 } from "../../lib/util";
-import { parseEnumList, parseSortList } from "../../lib/validator";
+import { parseEnumList } from "../../lib/validator";
 import { canAccessPatient } from "../../lib/permission";
 
-import type { CoreService } from "../../core";
+import {
+	patientOne,
+	patientMany,
+	patientCount,
+	patientCreate as repositoryPatientCreate,
+	patientUpdate as repositoryPatientUpdate,
+} from "../../repository/patient";
+import { referralCount } from "../../repository/referral";
+import { timelineMany, timelineCreate } from "../../repository/timeline";
 
 import { PatientModel, type PatientModelSelect } from "../../drizzle/schema";
 
-import type {
-	OrderClause,
-	WhereClause,
-	WhereOperator,
-} from "../../core/helpers";
+import {
+	buildOrderClause,
+	type Executor,
+	type WhereClause,
+	type WhereOperator,
+} from "../../repository/helpers";
 
 import type {
 	PatientRequest,
@@ -42,8 +48,7 @@ import type {
 	PatientUnflagRequest,
 } from "./type";
 
-// `facility_id` stays selected for the internal access check below — the
-// Zod response schema no longer declares it, so it's dropped on the wire.
+/** `facility_id` stays selected for the internal access check below; the Zod response schema doesn't declare it, so it's dropped on the wire. */
 const PATIENT_FIELDS = {
 	id: true,
 	first_name: true,
@@ -67,25 +72,15 @@ interface FlagStatus {
 	flag_reason: string | null;
 }
 
-/**
- * Batched flag-status lookup — one query for however many patients are in
- * play (a single detail row, or a whole list page), not one query per
- * patient. `limit: 1000` mirrors `manager/service.ts`'s `appeals` handler,
- * which uses the same flat-cap-on-an-internal-batch-lookup pattern for the
- * same reason: realistic volumes here are nowhere near that cap, so a real
- * grouped/windowed query isn't worth the complexity this pass.
- * "Flagged" = the most recent `FLAGGED`/`UNFLAGGED` timeline row for that
- * patient is a `FLAGGED` one with no later `UNFLAGGED` — see
- * `docs/roles-permissions.md`'s "flag is orthogonal to status" design.
- */
+/** Batched flag-status lookup, one query for however many patients are in play — "flagged" means the most recent FLAGGED/UNFLAGGED row for that patient is a FLAGGED one with no later UNFLAGGED. */
 const getPatientFlagStatuses = async (
-	core: Pick<CoreService, "timeline">,
+	database: Executor,
 	patientIds: string[],
 ): Promise<Map<string, FlagStatus>> => {
 	const statuses = new Map<string, FlagStatus>();
 	if (patientIds.length === 0) return statuses;
 
-	const result = await core.timeline.many({
+	const result = await timelineMany(database, {
 		page: 1,
 		limit: 1000,
 		where: {
@@ -98,8 +93,6 @@ const getPatientFlagStatuses = async (
 	});
 
 	for (const row of result.data) {
-		// Rows arrive most-recent-first; the first row seen per patient is
-		// that patient's current flag status — skip any older rows after.
 		if (statuses.has(row.entity)) continue;
 		statuses.set(row.entity, {
 			flagged: row.action === TIMELINE_ACTION.FLAGGED,
@@ -112,70 +105,66 @@ const getPatientFlagStatuses = async (
 
 const UNFLAGGED_STATUS: FlagStatus = { flagged: false, flag_reason: null };
 
-/**
- * `GET /patients/:id` only — total and active referral counts for this
- * patient, same shape/reasoning as `doctorStats` in `modules/users/service.ts`.
- */
+/** `GET /patients/:id` only — total and active referral counts for this patient, same shape as `doctorStats` in `modules/users/service.ts`. */
 const patientStats = async (
-	core: Pick<CoreService, "referral">,
+	database: Executor,
 	patientId: string,
 ): Promise<PatientDetailResponse["data"]["stats"]> => {
 	const [totalReferrals, activeReferrals] = await Promise.all([
-		core.referral.count({ patient_id: patientId }),
-		core.referral.count({
-			patient_id: patientId,
-			status: { notIn: TERMINAL_REFERRAL_STATUSES },
+		referralCount(database, { where: { patient_id: patientId } }),
+		referralCount(database, {
+			where: {
+				patient_id: patientId,
+				status: { notIn: TERMINAL_REFERRAL_STATUSES },
+			},
 		}),
 	]);
 
 	return { total_referrals: totalReferrals, active_referrals: activeReferrals };
 };
 
-/**
- * Composes the DB read (`Referral.count`) with the pure
- * `canAccessPatient` predicate — `lib/permission.ts` stays DB-free, so
- * this glue lives here instead, module-specific rather than shared.
- * Short-circuits before the query when `patient` is already the caller's
- * own facility's (the common case).
- */
+/** Composes the DB read (`referralCount`) with the pure `canAccessPatient` predicate, since `lib/permission.ts` stays DB-free; short-circuits when `patient` is already the caller's own facility's. */
 const canAccessPatientRecord = async (
-	core: Pick<CoreService, "referral">,
+	database: Executor,
 	userFacilityId: string | null,
 	patient: Pick<PatientModelSelect, "id" | "facility_id">,
 ): Promise<boolean> => {
 	if (patient.facility_id === userFacilityId) return true;
 	if (!userFacilityId) return false;
 
-	const activeReferralCount = await core.referral.count({
-		patient_id: patient.id,
-		status: { notIn: TERMINAL_REFERRAL_STATUSES },
-		OR: [
-			{ origin_facility_id: userFacilityId },
-			{ destination_facility_id: userFacilityId },
-		],
+	const activeReferralCount = await referralCount(database, {
+		where: {
+			patient_id: patient.id,
+			status: { notIn: TERMINAL_REFERRAL_STATUSES },
+			OR: [
+				{ origin_facility_id: userFacilityId },
+				{ destination_facility_id: userFacilityId },
+			],
+		},
 	});
 
 	return canAccessPatient(userFacilityId, patient, activeReferralCount > 0);
 };
 
-/**
- * `facility_id` is always the Nurse's own — only Nurses register patients.
- */
+/** Registers a new patient — `facility_id` is always the Nurse's own, since only Nurses register patients. */
 export const patientCreate = async (
 	request: FastifyRequest<PatientCreateRequest>,
 	reply: FastifyReply<PatientCreateRequest>,
 ): Promise<void> => {
-	const [created] = await request.server.core.patient.create({
-		data: {
-			...normalizeNullableFields(request.body, CreatePatientSchema),
+	const database = request.server.database;
+
+	const [created] = await repositoryPatientCreate(
+		database,
+		{ select: { id: true } },
+		{
+			...normalizeNullableFields(request.body, createPatientSchema),
 			id: generateUuid(),
 			creator_id: request.user!.id,
 			facility_id: request.user!.facility_id!,
 		},
-		select: { id: true },
-	});
+	);
 
-	const patient = await request.server.core.patient.one({
+	const patient = await patientOne(database, {
 		where: { id: created.id },
 		select: PATIENT_FIELDS,
 		include: PATIENT_INCLUDE,
@@ -185,27 +174,20 @@ export const patientCreate = async (
 	reply.status(status).send({
 		code,
 		message: "Patient created.",
-		// `include`-derived fields (`creator`/`facility`) aren't modeled by
-		// `WithCount` — present at runtime, just invisible to this type. A
-		// brand-new patient can't have any `FLAGGED`/`UNFLAGGED` timeline
-		// row yet, so `UNFLAGGED_STATUS` is correct here without needing to
-		// call `getPatientFlagStatuses` (unlike `patient`/`patientUpdate`).
 		data: {
-			...patient,
+			...patient!,
 			...UNFLAGGED_STATUS,
-		} as unknown as PatientResponse["data"],
+		},
 	});
 };
 
-/**
- * Date range/search/sort as usual; every role reaching this handler
- * (Nurse/Doctor/Manager) is scoped to their own facility.
- */
+/** Lists patients with pagination/date-range/search/sort filtering, scoped to the caller's own facility. */
 export const patients = async (
 	request: FastifyRequest<PatientsRequest>,
 	reply: FastifyReply<PatientsRequest>,
 ): Promise<void> => {
 	const { query, server } = request;
+	const database = server.database;
 
 	const page = Number(query.page);
 	const limit = Number(query.limit);
@@ -242,21 +224,22 @@ export const patients = async (
 	if (query.dob_from || query.dob_to) where.date_of_birth = dobFilter;
 
 	const startOfPeriod = localMonthStartToUtc(query.tz_offset);
-	const registeredThisPeriod = await server.core.patient.count({
-		facility_id: request.user!.facility_id!,
-		created_at: { gte: startOfPeriod },
+	const registeredThisPeriod = await patientCount(database, {
+		where: {
+			facility_id: request.user!.facility_id!,
+			created_at: { gte: startOfPeriod },
+		},
 	});
 
-	const sorts = parseSortList(query.sort, PatientModel, "created_at");
-	const orders = parseEnumList(query.order, orderDirectionSchema) ?? ["desc"];
-	const order = Object.fromEntries(
-		sorts.map((sorting, index) => [
-			sorting,
-			orders[index] || orders[0] || "desc",
-		]),
-	) as OrderClause<PatientModelSelect>;
+	const order = buildOrderClause<PatientModelSelect>(
+		query.sort,
+		query.order,
+		PatientModel,
+		"created_at",
+		"desc",
+	);
 
-	const result = await server.core.patient.many({
+	const result = await patientMany(database, {
 		page,
 		limit,
 		where,
@@ -266,7 +249,7 @@ export const patients = async (
 	});
 
 	const flagStatuses = await getPatientFlagStatuses(
-		server.core,
+		database,
 		result.data.map((row) => row.id),
 	);
 	const data = result.data.map((row) => ({
@@ -279,16 +262,19 @@ export const patients = async (
 		code,
 		message: "Patients retrieved.",
 		...result,
-		data: data as unknown as PatientResponse["data"][],
+		data,
 		registered_this_period: registeredThisPeriod,
 	});
 };
 
+/** Fetches a single patient with flag status and stats, if the caller can access it. */
 export const patient = async (
 	request: FastifyRequest<PatientRequest>,
 	reply: FastifyReply<PatientRequest>,
 ): Promise<void> => {
-	const patient = await request.server.core.patient.one({
+	const database = request.server.database;
+
+	const patient = await patientOne(database, {
 		where: { id: request.params.id },
 		select: PATIENT_FIELDS,
 		include: PATIENT_INCLUDE,
@@ -296,21 +282,17 @@ export const patient = async (
 
 	if (
 		!patient ||
-		!(await canAccessPatientRecord(
-			request.server.core,
-			request.user!.facility_id,
-			patient,
-		))
+		!(await canAccessPatientRecord(database, request.user!.facility_id, patient))
 	) {
 		const { status, code } = HTTP_RESPONSE_CODE.NOT_FOUND;
 		return reply.status(status).send({ code, message: "Patient not found." });
 	}
 
-	const flagStatus = (
-		await getPatientFlagStatuses(request.server.core, [patient.id])
-	).get(patient.id);
+	const flagStatus = (await getPatientFlagStatuses(database, [patient.id])).get(
+		patient.id,
+	);
 
-	const stats = await patientStats(request.server.core, patient.id);
+	const stats = await patientStats(database, patient.id);
 
 	const { status, code } = HTTP_RESPONSE_CODE.OK;
 	reply.status(status).send({
@@ -320,23 +302,19 @@ export const patient = async (
 			...patient,
 			...(flagStatus ?? UNFLAGGED_STATUS),
 			stats,
-		} as unknown as PatientDetailResponse["data"],
+		},
 	});
 };
 
-/**
- * Nurse-only — Doctors no longer have any patient field to update
- * (medical history is now derived from referrals, not stored on the
- * patient record). Nurses may update anything but `facility_id` — that's
- * the (not-yet-built) transfer workflow's job.
- */
+/** Nurse-only — updates a patient's fields except `facility_id`, which is the transfer workflow's job. */
 export const patientUpdate = async (
 	request: FastifyRequest<PatientUpdateRequest>,
 	reply: FastifyReply<PatientUpdateRequest>,
 ): Promise<void> => {
-	const role = request.user!.role as Role;
+	const role = request.user!.role;
+	const database = request.server.database;
 
-	const existing = await request.server.core.patient.one({
+	const existing = await patientOne(database, {
 		where: { id: request.params.id },
 		select: {
 			id: true,
@@ -352,17 +330,13 @@ export const patientUpdate = async (
 
 	if (
 		!existing ||
-		!(await canAccessPatientRecord(
-			request.server.core,
-			request.user!.facility_id,
-			existing,
-		))
+		!(await canAccessPatientRecord(database, request.user!.facility_id, existing))
 	) {
 		const { status, code } = HTTP_RESPONSE_CODE.NOT_FOUND;
 		return reply.status(status).send({ code, message: "Patient not found." });
 	}
 
-	const body = normalizeNullableFields(request.body, CreatePatientSchema);
+	const body = normalizeNullableFields(request.body, createPatientSchema);
 
 	if (role === ROLES.NURSE && "facility_id" in body) {
 		const { status, code } = HTTP_RESPONSE_CODE.FORBIDDEN;
@@ -372,19 +346,17 @@ export const patientUpdate = async (
 	}
 
 	const changes = Object.entries(body)
-		.filter(
-			([key, value]) => value !== existing[key as keyof typeof existing],
-		)
+		.filter(([key, value]) => value !== existing[key as keyof typeof existing])
 		.map(
 			([key, value]) =>
 				`${key}: "${existing[key as keyof typeof existing]}" → "${value}"`,
 		);
 
-	const [updated] = await request.server.core.patient.update({
-		where: { id: request.params.id },
-		data: body,
-		select: { id: true },
-	});
+	const [updated] = await repositoryPatientUpdate(
+		database,
+		{ where: { id: request.params.id }, select: { id: true } },
+		body,
+	);
 
 	if (!updated) {
 		const { status, code } = HTTP_RESPONSE_CODE.NOT_FOUND;
@@ -392,8 +364,10 @@ export const patientUpdate = async (
 	}
 
 	if (changes.length > 0) {
-		await request.server.core.timeline.create({
-			data: {
+		await timelineCreate(
+			database,
+			{ select: { id: true } },
+			{
 				id: generateUuid(),
 				type: TIMELINE_TYPE.PATIENT,
 				entity: updated.id,
@@ -403,61 +377,53 @@ export const patientUpdate = async (
 				changer_id: request.user!.id,
 				notes: changes.join("; "),
 			},
-			select: { id: true },
-		});
+		);
 	}
 
-	const patient = await request.server.core.patient.one({
+	const patient = await patientOne(database, {
 		where: { id: updated.id },
 		select: PATIENT_FIELDS,
 		include: PATIENT_INCLUDE,
 	});
 
-	const flagStatus = (
-		await getPatientFlagStatuses(request.server.core, [updated.id])
-	).get(updated.id);
+	const flagStatus = (await getPatientFlagStatuses(database, [updated.id])).get(
+		updated.id,
+	);
 
 	const { status, code } = HTTP_RESPONSE_CODE.OK;
 	reply.status(status).send({
 		code,
 		message: "Patient updated.",
 		data: {
-			...patient,
+			...patient!,
 			...(flagStatus ?? UNFLAGGED_STATUS),
-		} as unknown as PatientResponse["data"],
+		},
 	});
 };
 
-/**
- * Doctor-only. Advisory marker, not a status/lifecycle value — see
- * `docs/roles-permissions.md`. A patient can only be flagged once at a
- * time (no double-flag); flagging again requires unflagging first, so the
- * history stays a clean alternating FLAGGED/UNFLAGGED sequence.
- */
+/** Doctor-only — flags a patient as an advisory marker (not a status/lifecycle value); can't double-flag, unflag first. */
 export const patientFlag = async (
 	request: FastifyRequest<PatientFlagRequest>,
 	reply: FastifyReply<PatientFlagRequest>,
 ): Promise<void> => {
-	const existing = await request.server.core.patient.one({
+	const database = request.server.database;
+
+	const existing = await patientOne(database, {
 		where: { id: request.params.id },
 		select: { id: true, facility_id: true },
 	});
 
 	if (
 		!existing ||
-		!(await canAccessPatientRecord(
-			request.server.core,
-			request.user!.facility_id,
-			existing,
-		))
+		!(await canAccessPatientRecord(database, request.user!.facility_id, existing))
 	) {
 		const { status, code } = HTTP_RESPONSE_CODE.NOT_FOUND;
 		return reply.status(status).send({ code, message: "Patient not found." });
 	}
 
-	const flagStatus = (
-		await getPatientFlagStatuses(request.server.core, [existing.id])
-	).get(existing.id);
+	const flagStatus = (await getPatientFlagStatuses(database, [existing.id])).get(
+		existing.id,
+	);
 
 	if (flagStatus?.flagged) {
 		const { status, code } = HTTP_RESPONSE_CODE.CONFLICT;
@@ -466,8 +432,10 @@ export const patientFlag = async (
 			.send({ code, message: "This patient is already flagged." });
 	}
 
-	await request.server.core.timeline.create({
-		data: {
+	await timelineCreate(
+		database,
+		{ select: { id: true } },
+		{
 			id: generateUuid(),
 			type: TIMELINE_TYPE.PATIENT,
 			entity: existing.id,
@@ -477,10 +445,9 @@ export const patientFlag = async (
 			changer_id: request.user!.id,
 			notes: request.body.reason,
 		},
-		select: { id: true },
-	});
+	);
 
-	const patient = await request.server.core.patient.one({
+	const patient = await patientOne(database, {
 		where: { id: existing.id },
 		select: PATIENT_FIELDS,
 		include: PATIENT_INCLUDE,
@@ -491,10 +458,10 @@ export const patientFlag = async (
 		code,
 		message: "Patient flagged.",
 		data: {
-			...patient,
+			...patient!,
 			flagged: true,
 			flag_reason: request.body.reason,
-		} as unknown as PatientResponse["data"],
+		},
 	});
 };
 
@@ -503,26 +470,24 @@ export const patientUnflag = async (
 	request: FastifyRequest<PatientUnflagRequest>,
 	reply: FastifyReply<PatientUnflagRequest>,
 ): Promise<void> => {
-	const existing = await request.server.core.patient.one({
+	const database = request.server.database;
+
+	const existing = await patientOne(database, {
 		where: { id: request.params.id },
 		select: { id: true, facility_id: true },
 	});
 
 	if (
 		!existing ||
-		!(await canAccessPatientRecord(
-			request.server.core,
-			request.user!.facility_id,
-			existing,
-		))
+		!(await canAccessPatientRecord(database, request.user!.facility_id, existing))
 	) {
 		const { status, code } = HTTP_RESPONSE_CODE.NOT_FOUND;
 		return reply.status(status).send({ code, message: "Patient not found." });
 	}
 
-	const flagStatus = (
-		await getPatientFlagStatuses(request.server.core, [existing.id])
-	).get(existing.id);
+	const flagStatus = (await getPatientFlagStatuses(database, [existing.id])).get(
+		existing.id,
+	);
 
 	if (!flagStatus?.flagged) {
 		const { status, code } = HTTP_RESPONSE_CODE.CONFLICT;
@@ -531,8 +496,10 @@ export const patientUnflag = async (
 			.send({ code, message: "This patient isn't currently flagged." });
 	}
 
-	await request.server.core.timeline.create({
-		data: {
+	await timelineCreate(
+		database,
+		{ select: { id: true } },
+		{
 			id: generateUuid(),
 			type: TIMELINE_TYPE.PATIENT,
 			entity: existing.id,
@@ -542,10 +509,9 @@ export const patientUnflag = async (
 			changer_id: request.user!.id,
 			notes: request.body.notes ?? null,
 		},
-		select: { id: true },
-	});
+	);
 
-	const patient = await request.server.core.patient.one({
+	const patient = await patientOne(database, {
 		where: { id: existing.id },
 		select: PATIENT_FIELDS,
 		include: PATIENT_INCLUDE,
@@ -556,8 +522,8 @@ export const patientUnflag = async (
 		code,
 		message: "Patient unflagged.",
 		data: {
-			...patient,
+			...patient!,
 			...UNFLAGGED_STATUS,
-		} as unknown as PatientResponse["data"],
+		},
 	});
 };

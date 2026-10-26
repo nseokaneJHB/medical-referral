@@ -1,5 +1,4 @@
 import { createServerFn } from "@tanstack/react-start";
-import { getRequest } from "@tanstack/react-start/server";
 
 import {
 	API_URLS,
@@ -11,17 +10,11 @@ import {
 	type ReferralsReportQuery,
 } from "@referral-tracking/shared";
 
-import { api } from "@/api";
+import { api, forwardedRequestOptions } from "@/api";
 
 import { env } from "@/lib/env";
 
 const baseUrl = API_URLS(env.VITE_API_VERSION).DASHBOARD;
-
-const forwardedRequestOptions = () => {
-	const request = getRequest();
-	const cookie = request.headers.get("cookie");
-	return cookie ? { headers: { cookie } } : {};
-};
 
 export const nurseSummaryRequest = createServerFn({ method: "GET" })
 	.inputValidator((query?: ReferralsReportQuery) => query)
@@ -32,10 +25,8 @@ export const nurseSummaryRequest = createServerFn({ method: "GET" })
 			paramsSerializer: { indexes: null },
 		};
 
-		const { data } = await api.get<NurseSummaryResponse>(
-			`${baseUrl}${API_PATHS.DASHBOARD_NURSE_SUMMARY}`,
-			options,
-		);
+		const url = `${baseUrl}${API_PATHS.DASHBOARD_NURSE_SUMMARY}`;
+		const { data } = await api.get<NurseSummaryResponse>(url, options);
 		return data;
 	});
 
@@ -48,10 +39,8 @@ export const doctorSummaryRequest = createServerFn({ method: "GET" })
 			paramsSerializer: { indexes: null },
 		};
 
-		const { data } = await api.get<DoctorSummaryResponse>(
-			`${baseUrl}${API_PATHS.DASHBOARD_DOCTOR_SUMMARY}`,
-			options,
-		);
+		const url = `${baseUrl}${API_PATHS.DASHBOARD_DOCTOR_SUMMARY}`;
+		const { data } = await api.get<DoctorSummaryResponse>(url, options);
 		return data;
 	});
 
@@ -64,10 +53,8 @@ export const adminSummaryRequest = createServerFn({ method: "GET" })
 			paramsSerializer: { indexes: null },
 		};
 
-		const { data } = await api.get<AdminSummaryResponse>(
-			`${baseUrl}${API_PATHS.DASHBOARD_ADMIN_SUMMARY}`,
-			options,
-		);
+		const url = `${baseUrl}${API_PATHS.DASHBOARD_ADMIN_SUMMARY}`;
+		const { data } = await api.get<AdminSummaryResponse>(url, options);
 		return data;
 	});
 
@@ -80,9 +67,7 @@ export const managerSummaryRequest = createServerFn({ method: "GET" })
 			paramsSerializer: { indexes: null },
 		};
 
-		const { data } = await api.get<ManagerSummaryResponse>(
-			`${baseUrl}${API_PATHS.DASHBOARD_MANAGER_SUMMARY}`,
-			options,
-		);
+		const url = `${baseUrl}${API_PATHS.DASHBOARD_MANAGER_SUMMARY}`;
+		const { data } = await api.get<ManagerSummaryResponse>(url, options);
 		return data;
 	});

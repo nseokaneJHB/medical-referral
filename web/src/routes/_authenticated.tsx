@@ -1,6 +1,10 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 
-import { USER_STATUS, FRONTEND_URLS } from "@referral-tracking/shared";
+import {
+	NDA_VERSION,
+	USER_STATUS,
+	FRONTEND_URLS,
+} from "@referral-tracking/shared";
 
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 
@@ -34,6 +38,10 @@ export const Route = createFileRoute("/_authenticated")({
 
 		if (user.must_change_password) {
 			throw redirect({ to: FRONTEND_URLS.CHANGE_PASSWORD });
+		}
+
+		if (user.nda_accepted_version !== NDA_VERSION) {
+			throw redirect({ to: FRONTEND_URLS.ACCEPT_NDA });
 		}
 
 		return { user };

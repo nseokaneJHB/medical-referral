@@ -11,13 +11,10 @@ import { authorize } from "./authorize";
 import { authenticate } from "./authenticate";
 import { onRequestTimerHook, onResponseLoggingHook } from "./logging";
 
-import { CoreService } from "../core";
-import { ManagementService } from "../management";
-
 import { env } from "../lib/env";
-import { auth } from "../lib/auth";
 import { connection, close } from "../lib/database";
 
+/** Registers every Fastify plugin, decoration, and hook the app needs, in dependency order. */
 export const middlewares = async (app: FastifyInstance): Promise<void> => {
 	app.log.info("Enabling plugins...");
 	app.log.info("Loading helmet...");
@@ -56,9 +53,9 @@ export const middlewares = async (app: FastifyInstance): Promise<void> => {
 		secret: env.COOKIE_SECRET,
 		parseOptions: {
 			path: `/`,
-			httpOnly: true, // Cannot be accessed by JavaScript
-			secure: isProduction, // HTTPS only in production
-			sameSite: isProduction ? "strict" : "lax", // CSRF protection
+			httpOnly: true,
+			secure: isProduction,
+			sameSite: isProduction ? "strict" : "lax",
 		},
 	});
 
@@ -77,18 +74,11 @@ export const middlewares = async (app: FastifyInstance): Promise<void> => {
 	app.log.info("Loading event...");
 	app.decorate("event", event);
 
-	app.addHook("onRequest", onRequestTimerHook); // ⏱️ Start the clock
+	app.addHook("onRequest", onRequestTimerHook);
 
-	app.log.info("Loading core...");
-	const core = {
-		close,
-		connection,
-		...new CoreService(connection, auth),
-	};
-	app.decorate("core", core);
-
-	app.log.info("Loading management...");
-	app.decorate("management", new ManagementService(core));
+	app.log.info("Loading database...");
+	app.decorate("database", connection);
+	app.decorate("closeDatabase", close);
 
 	app.log.info("Loading authenticate...");
 	app.decorate("authenticate", authenticate);
@@ -96,8 +86,7 @@ export const middlewares = async (app: FastifyInstance): Promise<void> => {
 	app.log.info("Loading authorize...");
 	app.decorate("authorize", authorize);
 
-	// Register the metrics engine lifecycle tracking hooks
-	app.addHook("onResponse", onResponseLoggingHook); // 📊 Stop the clock and log details
+	app.addHook("onResponse", onResponseLoggingHook);
 
 	app.log.info("Middlewares Enabled.\n");
 

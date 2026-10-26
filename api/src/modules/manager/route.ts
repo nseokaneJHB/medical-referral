@@ -13,6 +13,7 @@ import {
 	globalResponseSchema,
 	transferResponseSchema,
 	moderationReasonSchema,
+	paginationQuerySchema,
 	timelineResponseSchema,
 	appealListResponseSchema,
 	transferListResponseSchema,
@@ -152,6 +153,7 @@ export const route: FastifyPluginAsync = async (
 		handler: appeals,
 		preHandler: preHandler(EVENT_NAMES.MANAGER_APPEAL_LIST),
 		schema: {
+			querystring: paginationQuerySchema,
 			response: {
 				200: appealListResponseSchema,
 				401: globalResponseSchema,
@@ -214,6 +216,7 @@ export const route: FastifyPluginAsync = async (
 		handler: transfers,
 		preHandler: preHandler(EVENT_NAMES.MANAGER_TRANSFER_LIST),
 		schema: {
+			querystring: paginationQuerySchema,
 			response: {
 				200: transferListResponseSchema,
 				401: globalResponseSchema,
@@ -228,6 +231,7 @@ export const route: FastifyPluginAsync = async (
 		handler: auditList,
 		preHandler: preHandler(EVENT_NAMES.MANAGER_AUDIT_LIST),
 		schema: {
+			querystring: paginationQuerySchema,
 			response: {
 				200: managerAuditListResponseSchema,
 				401: globalResponseSchema,

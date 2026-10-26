@@ -1,12 +1,8 @@
-import {
-	timestamp,
-	varchar,
-	mysqlTable,
-	uniqueIndex,
-} from "drizzle-orm/mysql-core";
+import { varchar, mysqlTable, uniqueIndex } from "drizzle-orm/mysql-core";
 
 import { UserModel } from "./user";
 import { SpecialtyModel } from "./specialty";
+import { createdAtColumn } from "./helpers";
 
 /**
  * Many-to-many link — a Doctor or Nurse can have multiple specialties.
@@ -26,7 +22,7 @@ export const UserSpecialtyModel = mysqlTable(
 			.notNull()
 			.references(() => SpecialtyModel.id),
 
-		created_at: timestamp("created_at").notNull().defaultNow(),
+		...createdAtColumn(),
 	},
 	(table) => [
 		uniqueIndex("user_specialties_uq_idx").on(

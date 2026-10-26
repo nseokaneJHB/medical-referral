@@ -8,9 +8,14 @@ import {
 } from "@referral-tracking/shared";
 
 import { zeroFillCounts, localDateStartToUtc } from "../../lib/util";
-import { TransferManager } from "../../management/transfer";
 
-import type { WhereClause } from "../../core/helpers";
+import { userCount } from "../../repository/user";
+import { patientCount } from "../../repository/patient";
+import { facilityCount } from "../../repository/facility";
+import { referralCount } from "../../repository/referral";
+import { transferGetPendingForFacility } from "../../repository/cross-schema/transfer";
+
+import type { WhereClause, WhereOperator } from "../../repository/helpers";
 import type { ReferralModelSelect } from "../../drizzle/schema";
 
 import type {
@@ -20,38 +25,53 @@ import type {
 	ManagerSummaryRequest,
 } from "./type";
 
-/**
- * PDF Nurse Dashboard widgets: "Referrals Created, Pending Referrals,
- * Canceled Referrals, Referrals on hold".
- */
+/** `to` is inclusive of that whole day, so the upper bound is midnight of the day after. */
+/** Builds a `created_at` range filter from optional `from`/`to` date strings. */
+const buildDateRangeFilter = (
+	from?: string,
+	to?: string,
+	tzOffset?: string,
+): WhereOperator<Date> | undefined => {
+	if (!from && !to) return undefined;
+
+	const filter: WhereOperator<Date> = {};
+	if (from) filter.gte = localDateStartToUtc(from, tzOffset);
+	if (to) {
+		const end = localDateStartToUtc(to, tzOffset);
+		end.setUTCDate(end.getUTCDate() + 1);
+		filter.lt = end;
+	}
+	return filter;
+};
+
+/** Sums a per-status count breakdown into a flat total. */
+const sumCounts = (counts: Record<string, number>): number =>
+	Object.values(counts).reduce((a, b) => a + b, 0);
+
+/** PDF Nurse Dashboard widgets: Referrals Created, Pending, Canceled, and On Hold. */
 export const nurseSummary = async (
 	request: FastifyRequest<NurseSummaryRequest>,
 	reply: FastifyReply<NurseSummaryRequest>,
 ): Promise<void> => {
-	const { core } = request.server;
+	const database = request.server.database;
 
-	const where: { referrer_id: string; created_at?: Record<string, unknown> } = {
+	const where: { referrer_id: string; created_at?: WhereOperator<Date> } = {
 		referrer_id: request.user!.id,
 	};
 
-	if (request.query.from) {
-		where.created_at = {
-			...(where.created_at || {}),
-			gte: localDateStartToUtc(request.query.from, request.query.tz_offset),
-		};
-	}
-	if (request.query.to) {
-		const end = localDateStartToUtc(request.query.to, request.query.tz_offset);
-		end.setUTCDate(end.getUTCDate() + 1);
-		where.created_at = { ...(where.created_at || {}), lt: end };
-	}
+	const dateFilter = buildDateRangeFilter(
+		request.query.from,
+		request.query.to,
+		request.query.tz_offset,
+	);
+	if (dateFilter) where.created_at = dateFilter;
 
 	const counts = zeroFillCounts(
-		await core.referral.count(where, "status"),
+		await referralCount(database, { where, groupBy: "status" }),
 		REFERRAL_STATUS,
 	);
 
-	const referralsCreated = Object.values(counts).reduce((a, b) => a + b, 0);
+	const referralsCreated = sumCounts(counts);
 
 	const { status, code } = HTTP_RESPONSE_CODE.OK;
 	reply.status(status).send({
@@ -66,15 +86,12 @@ export const nurseSummary = async (
 	});
 };
 
-/**
- * PDF Doctor Dashboard widgets: "My Referrals, Accepted Referrals, Pending
- * Referral, Completed Referrals".
- */
+/** PDF Doctor Dashboard widgets: My Referrals, Accepted, Pending, and Completed. */
 export const doctorSummary = async (
 	request: FastifyRequest<DoctorSummaryRequest>,
 	reply: FastifyReply<DoctorSummaryRequest>,
 ): Promise<void> => {
-	const { core } = request.server;
+	const database = request.server.database;
 
 	const where: WhereClause<ReferralModelSelect> = {
 		OR: [
@@ -86,24 +103,19 @@ export const doctorSummary = async (
 		],
 	};
 
-	if (request.query.from) {
-		where.created_at = {
-			...(where.created_at || {}),
-			gte: localDateStartToUtc(request.query.from, request.query.tz_offset),
-		};
-	}
-	if (request.query.to) {
-		const end = localDateStartToUtc(request.query.to, request.query.tz_offset);
-		end.setUTCDate(end.getUTCDate() + 1);
-		where.created_at = { ...(where.created_at || {}), lt: end };
-	}
+	const dateFilter = buildDateRangeFilter(
+		request.query.from,
+		request.query.to,
+		request.query.tz_offset,
+	);
+	if (dateFilter) where.created_at = dateFilter;
 
 	const counts = zeroFillCounts(
-		await core.referral.count(where, "status"),
+		await referralCount(database, { where, groupBy: "status" }),
 		REFERRAL_STATUS,
 	);
 
-	const myReferrals = Object.values(counts).reduce((a, b) => a + b, 0);
+	const myReferrals = sumCounts(counts);
 
 	const { status, code } = HTTP_RESPONSE_CODE.OK;
 	reply.status(status).send({
@@ -118,45 +130,37 @@ export const doctorSummary = async (
 	});
 };
 
-/**
- * PDF Administrator Dashboard widgets: totals plus every referral status.
- */
+/** PDF Administrator Dashboard widgets: totals plus every referral status. */
 export const adminSummary = async (
 	request: FastifyRequest<AdminSummaryRequest>,
 	reply: FastifyReply<AdminSummaryRequest>,
 ): Promise<void> => {
-	const { core } = request.server;
+	const database = request.server.database;
 
 	const where: Record<string, unknown> = {};
 
-	if (request.query.from) {
-		where.created_at = {
-			...((where.created_at as Record<string, unknown>) || {}),
-			gte: localDateStartToUtc(request.query.from, request.query.tz_offset),
-		};
-	}
-	if (request.query.to) {
-		const end = localDateStartToUtc(request.query.to, request.query.tz_offset);
-		end.setUTCDate(end.getUTCDate() + 1);
-		where.created_at = {
-			...((where.created_at as Record<string, unknown>) || {}),
-			lt: end,
-		};
-	}
+	const dateFilter = buildDateRangeFilter(
+		request.query.from,
+		request.query.to,
+		request.query.tz_offset,
+	);
+	if (dateFilter) where.created_at = dateFilter;
+
+	const hasWhere = Object.keys(where).length > 0;
 
 	const [totalUsers, totalPatients, totalFacilities, statusCounts] =
 		await Promise.all([
-			core.user.count(Object.keys(where).length > 0 ? where : undefined),
-			core.patient.count(Object.keys(where).length > 0 ? where : undefined),
-			core.facility.count(Object.keys(where).length > 0 ? where : undefined),
-			core.referral.count(
-				Object.keys(where).length > 0 ? where : undefined,
-				"status",
-			),
+			userCount(database, { where: hasWhere ? where : undefined }),
+			patientCount(database, { where: hasWhere ? where : undefined }),
+			facilityCount(database, { where: hasWhere ? where : undefined }),
+			referralCount(database, {
+				where: hasWhere ? where : undefined,
+				groupBy: "status",
+			}),
 		]);
 
 	const counts = zeroFillCounts(statusCounts, REFERRAL_STATUS);
-	const totalReferrals = Object.values(counts).reduce((a, b) => a + b, 0);
+	const totalReferrals = sumCounts(counts);
 
 	const { status, code } = HTTP_RESPONSE_CODE.OK;
 	reply.status(status).send({
@@ -178,33 +182,24 @@ export const adminSummary = async (
 	});
 };
 
-/**
- * Facility-scoped version of `adminSummary` — a Manager's own staff/
- * patients/referrals (either direction) instead of system-wide totals.
- */
+/** Facility-scoped version of `adminSummary` — a Manager's own staff/patients/referrals instead of system-wide totals. */
 export const managerSummary = async (
 	request: FastifyRequest<ManagerSummaryRequest>,
 	reply: FastifyReply<ManagerSummaryRequest>,
 ): Promise<void> => {
-	const { core } = request.server;
+	const database = request.server.database;
 	const facilityId = request.user!.facility_id!;
 
 	const where: Record<string, unknown> = {};
 
-	if (request.query.from) {
-		where.created_at = {
-			...((where.created_at as Record<string, unknown>) || {}),
-			gte: localDateStartToUtc(request.query.from, request.query.tz_offset),
-		};
-	}
-	if (request.query.to) {
-		const end = localDateStartToUtc(request.query.to, request.query.tz_offset);
-		end.setUTCDate(end.getUTCDate() + 1);
-		where.created_at = {
-			...((where.created_at as Record<string, unknown>) || {}),
-			lt: end,
-		};
-	}
+	const dateFilter = buildDateRangeFilter(
+		request.query.from,
+		request.query.to,
+		request.query.tz_offset,
+	);
+	if (dateFilter) where.created_at = dateFilter;
+
+	const hasWhere = Object.keys(where).length > 0;
 
 	const [
 		totalStaff,
@@ -213,36 +208,36 @@ export const managerSummary = async (
 		pendingStaffApplications,
 		pendingTransfers,
 	] = await Promise.all([
-		core.user.count({
-			facility_id: facilityId,
-			...(Object.keys(where).length > 0 ? where : {}),
+		userCount(database, {
+			where: { facility_id: facilityId, ...(hasWhere ? where : {}) },
 		}),
-		core.patient.count({
-			facility_id: facilityId,
-			...(Object.keys(where).length > 0 ? where : {}),
+		patientCount(database, {
+			where: { facility_id: facilityId, ...(hasWhere ? where : {}) },
 		}),
-		core.referral.count(
-			{
+		referralCount(database, {
+			where: {
 				OR: [
 					{ origin_facility_id: facilityId },
 					{ destination_facility_id: facilityId },
 				],
-				...(Object.keys(where).length > 0 ? where : {}),
+				...(hasWhere ? where : {}),
 			},
-			"status",
-		),
-		core.user.count({
-			facility_id: facilityId,
-			role: { in: [ROLES.NURSE, ROLES.DOCTOR] },
-			status: USER_STATUS.PENDING,
+			groupBy: "status",
 		}),
-		new TransferManager(core)
-			.getPendingForFacility(facilityId)
-			.then((rows) => rows.length),
+		userCount(database, {
+			where: {
+				facility_id: facilityId,
+				role: { in: [ROLES.NURSE, ROLES.DOCTOR] },
+				status: USER_STATUS.PENDING,
+			},
+		}),
+		transferGetPendingForFacility(database, { facilityId }).then(
+			(rows) => rows.length,
+		),
 	]);
 
 	const counts = zeroFillCounts(statusCounts, REFERRAL_STATUS);
-	const totalReferrals = Object.values(counts).reduce((a, b) => a + b, 0);
+	const totalReferrals = sumCounts(counts);
 
 	const { status, code } = HTTP_RESPONSE_CODE.OK;
 	reply.status(status).send({

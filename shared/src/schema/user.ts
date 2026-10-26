@@ -14,7 +14,7 @@ import {
 	paginationSortAndSearchQuerySchema,
 } from "./global";
 
-export const UserSchema = z.object({
+export const userSchema = z.object({
 	id: uuidSchema,
 	name: stringSchema.nullable(),
 	email: stringSchema,
@@ -26,19 +26,19 @@ export const UserSchema = z.object({
 });
 
 export const userListResponseSchema = paginatedGlobalResponseSchema.extend({
-	data: z.array(UserSchema),
+	data: z.array(userSchema),
 	pending_applications: z.number(),
 });
 
 export const userResponseSchema = globalResponseSchema.extend({
-	data: UserSchema,
+	data: userSchema,
 });
 
 /**
  * Doctor-only — referral counts derived from `Referral.doctor`, present
  * only when the viewed user's role is `DOCTOR`.
  */
-export const UserDoctorStatsSchema = z.object({
+export const userDoctorStatsSchema = z.object({
 	total_referrals: z.number(),
 	completed_referrals: z.number(),
 	completion_rate: z.number(),
@@ -49,9 +49,9 @@ export const UserDoctorStatsSchema = z.object({
  * `facility_id` the list/admin-create endpoints still use, kept separate
  * so this doesn't ripple into those.
  */
-export const UserDetailSchema = UserSchema.omit({ facility_id: true }).extend({
+export const userDetailSchema = userSchema.omit({ facility_id: true }).extend({
 	facility: facilityRefSchema.nullable(),
-	stats: UserDoctorStatsSchema.optional(),
+	stats: userDoctorStatsSchema.optional(),
 	/**
 	 * When this user's credential `account.password` was last set (initial
 	 * creation or a subsequent admin reset) — `null` only if no credential
@@ -62,7 +62,7 @@ export const UserDetailSchema = UserSchema.omit({ facility_id: true }).extend({
 });
 
 export const userDetailResponseSchema = globalResponseSchema.extend({
-	data: UserDetailSchema,
+	data: userDetailSchema,
 });
 
 export const userParamsSchema = z.object({

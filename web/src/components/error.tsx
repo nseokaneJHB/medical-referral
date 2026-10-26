@@ -30,8 +30,7 @@ export const Error = ({ error }: ErrorComponentProps) => {
 		: CLIENT_ERROR.UNKNOWN_ERROR;
 
 	const message =
-		error.message ||
-		"Something went wrong while trying to load this page. Let's get you back to familiar tales.";
+		error.message || "Something went wrong while trying to load this page.";
 
 	return (
 		<div className="flex w-full flex-col items-center justify-center space-y-6 text-center">
@@ -94,19 +93,14 @@ export const Error = ({ error }: ErrorComponentProps) => {
 				)}
 			</div>
 
-			<div className="relative mt-6 space-y-2">
-				<div className="flex justify-center space-x-2">
-					{["dot-1", "dot-2", "dot-3", "dot-4", "dot-5"].map((id, i) => (
-						<div
-							key={id}
-							className="animate-bounce-dot bg-primary h-2 w-2 rounded-full"
-							style={{ animationDelay: `${i * 0.1}s` }}
-						></div>
-					))}
-				</div>
-				<p className="text-accent text-sm italic">
-					"Every story has a potential, even the broken ones find their feet."
-				</p>
+			<div className="relative mt-6 flex justify-center space-x-2">
+				{["dot-1", "dot-2", "dot-3", "dot-4", "dot-5"].map((id, i) => (
+					<div
+						key={id}
+						className="animate-bounce-dot bg-primary h-2 w-2 rounded-full"
+						style={{ animationDelay: `${i * 0.1}s` }}
+					></div>
+				))}
 			</div>
 		</div>
 	);

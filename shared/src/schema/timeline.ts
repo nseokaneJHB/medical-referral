@@ -25,7 +25,7 @@ export const timelineActionSchema = z
  * reason, a flag reason, a reviewer's comment on an appeal decision; the
  * one place a human explains "why" for anything this table records.
  */
-export const TimelineSchema = z.object({
+export const timelineSchema = z.object({
 	id: uuidSchema,
 	type: timelineTypeSchema,
 	entity: uuidSchema,
@@ -38,7 +38,7 @@ export const TimelineSchema = z.object({
 });
 
 export const timelineListResponseSchema = paginatedGlobalResponseSchema.extend({
-	data: z.array(TimelineSchema),
+	data: z.array(timelineSchema),
 });
 
 /**
@@ -48,12 +48,12 @@ export const timelineListResponseSchema = paginatedGlobalResponseSchema.extend({
  * `userRefSchema`'s shape (`id` + nullable `name`) for both cases; a
  * facility's `name` is never actually null, just typed compatibly.
  */
-export const AppealSchema = TimelineSchema.extend({
+export const appealRowSchema = timelineSchema.extend({
 	subject: userRefSchema,
 });
 
 export const appealListResponseSchema = paginatedGlobalResponseSchema.extend({
-	data: z.array(AppealSchema),
+	data: z.array(appealRowSchema),
 	by_type: z.object({ user: z.number(), facility: z.number() }),
 });
 
@@ -61,18 +61,18 @@ export const appealListResponseSchema = paginatedGlobalResponseSchema.extend({
  * A `timeline` row enriched with `subject`, scoped to a Manager's own
  * facility — the facility-wide "who did what when" feed covering their
  * staff, their patients, referrals touching their facility, and their
- * facility itself. Same enrichment shape as `AppealSchema` (this isn't
- * appeal-specific — `AppealSchema` is just the subset filtered to
+ * facility itself. Same enrichment shape as `appealRowSchema` (this isn't
+ * appeal-specific — `appealRowSchema` is just the subset filtered to
  * `APPEAL_SUBMITTED` rows).
  */
-export const ManagerAuditSchema = TimelineSchema.extend({
+export const managerAuditSchema = timelineSchema.extend({
 	subject: userRefSchema.extend({ role: roleSchema.nullable() }),
 	reason: stringSchema.nullable(),
 });
 
 export const managerAuditListResponseSchema =
 	paginatedGlobalResponseSchema.extend({
-		data: z.array(ManagerAuditSchema),
+		data: z.array(managerAuditSchema),
 	});
 
 /**
@@ -83,5 +83,5 @@ export const managerAuditListResponseSchema =
  * User or a Facility — one uniform response shape either way.
  */
 export const timelineResponseSchema = globalResponseSchema.extend({
-	data: TimelineSchema,
+	data: timelineSchema,
 });

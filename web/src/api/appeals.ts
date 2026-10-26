@@ -1,5 +1,4 @@
 import { createServerFn } from "@tanstack/react-start";
-import { getRequest } from "@tanstack/react-start/server";
 
 import {
 	API_URLS,
@@ -10,7 +9,7 @@ import {
 	type AppealDecisionBody,
 } from "@referral-tracking/shared";
 
-import { api } from "@/api";
+import { api, forwardedRequestOptions } from "@/api";
 
 import { env } from "@/lib/env";
 
@@ -45,13 +44,10 @@ const baseUrl = (namespace: AppealNamespace): string =>
 export const appealsRequest = createServerFn({ method: "GET" })
 	.inputValidator((data: { namespace: AppealNamespace }) => data)
 	.handler(async ({ data }): Promise<AppealListResponse> => {
-		const request = getRequest();
-		const cookie = request.headers.get("cookie");
-		const options = cookie ? { headers: { cookie } } : {};
-
+		const url = `${baseUrl(data.namespace)}${PATHS[data.namespace].LIST}`;
 		const { data: response } = await api.get<AppealListResponse>(
-			`${baseUrl(data.namespace)}${PATHS[data.namespace].LIST}`,
-			options,
+			url,
+			forwardedRequestOptions(),
 		);
 		return response;
 	});
@@ -63,10 +59,8 @@ export const approveAppeal = async (
 	id: string,
 	payload: AppealDecisionBody,
 ): Promise<TimelineResponse> => {
-	const { data } = await api.patch<TimelineResponse>(
-		`${baseUrl(namespace)}${buildUrlWithParams(PATHS[namespace].APPROVE, { id })}`,
-		payload,
-	);
+	const url = `${baseUrl(namespace)}${buildUrlWithParams(PATHS[namespace].APPROVE, { id })}`;
+	const { data } = await api.patch<TimelineResponse>(url, payload);
 	return data;
 };
 
@@ -75,9 +69,7 @@ export const denyAppeal = async (
 	id: string,
 	payload: AppealDecisionBody,
 ): Promise<TimelineResponse> => {
-	const { data } = await api.patch<TimelineResponse>(
-		`${baseUrl(namespace)}${buildUrlWithParams(PATHS[namespace].DENY, { id })}`,
-		payload,
-	);
+	const url = `${baseUrl(namespace)}${buildUrlWithParams(PATHS[namespace].DENY, { id })}`;
+	const { data } = await api.patch<TimelineResponse>(url, payload);
 	return data;
 };

@@ -7,11 +7,7 @@ import { useMutation } from "@tanstack/react-query";
 
 import { LogOutIcon } from "lucide-react";
 
-import {
-	HTTP_CODE,
-	FRONTEND_URLS,
-	type GlobalResponse,
-} from "@referral-tracking/shared";
+import { FRONTEND_URLS, type GlobalResponse } from "@referral-tracking/shared";
 
 import { Button } from "@/components/ui/button";
 
@@ -27,19 +23,14 @@ export const SignOutButton = () => {
 
 	const { queryClient } = useRouteContext({ strict: false });
 
-	const signOutMutation = useMutation<{ success: boolean }, Error>({
+	const signOutMutation = useMutation<GlobalResponse, Error>({
 		mutationFn: signOut,
 	});
 
 	const handleSignOut = () =>
 		useToastMutation({
 			loading: `Signing out...`,
-			promise: signOutMutation.mutateAsync().then(
-				(): GlobalResponse => ({
-					code: HTTP_CODE.OK,
-					message: "Signed out.",
-				}),
-			),
+			promise: signOutMutation.mutateAsync(),
 			onSuccess: async () => {
 				if (queryClient) {
 					queryClient.removeQueries({ queryKey: QUERY_KEYS.ME });

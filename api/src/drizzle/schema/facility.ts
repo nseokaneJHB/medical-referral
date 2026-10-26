@@ -1,14 +1,14 @@
-import { sql } from "drizzle-orm";
 import {
 	text,
 	index,
 	varchar,
 	mysqlEnum,
-	timestamp,
 	mysqlTable,
 } from "drizzle-orm/mysql-core";
 
 import { FACILITY_STATUS } from "@referral-tracking/shared";
+
+import { timestampColumns } from "./helpers";
 
 /**
  * A facility only ever comes into being `PENDING`, paired with its
@@ -25,11 +25,7 @@ export const FacilityModel = mysqlTable(
 			.default(FACILITY_STATUS.PENDING)
 			.notNull(),
 
-		created_at: timestamp("created_at").notNull().defaultNow(),
-		updated_at: timestamp("updated_at")
-			.notNull()
-			.defaultNow()
-			.$onUpdate(() => sql`now()`),
+		...timestampColumns(),
 	},
 	(table) => [
 		index("facilities_name_idx").on(table.name),

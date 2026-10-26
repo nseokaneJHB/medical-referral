@@ -3,14 +3,15 @@ import type { FastifyInstance, FastifyPluginAsync } from "fastify";
 import {
 	ROLES,
 	API_PATHS,
-	CreateReferralSchema,
-	UpdateReferralSchema,
+	createReferralSchema,
+	updateReferralSchema,
 	referralsQuerySchema,
 	globalResponseSchema,
+	paginationQuerySchema,
 	referralParamsSchema,
 	referralResponseSchema,
 	redirectReferralSchema,
-	UpdateReferralStatusSchema,
+	updateReferralStatusSchema,
 	referralListResponseSchema,
 	timelineListResponseSchema,
 	assignReferralSpecialtySchema,
@@ -48,7 +49,7 @@ export const route: FastifyPluginAsync = async (
 			app.authorize([ROLES.NURSE, ROLES.DOCTOR]),
 		],
 		schema: {
-			body: CreateReferralSchema,
+			body: createReferralSchema,
 			response: {
 				201: referralResponseSchema,
 				401: globalResponseSchema,
@@ -110,7 +111,7 @@ export const route: FastifyPluginAsync = async (
 		],
 		schema: {
 			params: referralParamsSchema,
-			body: UpdateReferralSchema,
+			body: updateReferralSchema,
 			response: {
 				200: referralResponseSchema,
 				401: globalResponseSchema,
@@ -132,7 +133,7 @@ export const route: FastifyPluginAsync = async (
 		],
 		schema: {
 			params: referralParamsSchema,
-			body: UpdateReferralStatusSchema,
+			body: updateReferralStatusSchema,
 			response: {
 				200: referralResponseSchema,
 				401: globalResponseSchema,
@@ -199,6 +200,7 @@ export const route: FastifyPluginAsync = async (
 		],
 		schema: {
 			params: referralParamsSchema,
+			querystring: paginationQuerySchema,
 			response: {
 				200: timelineListResponseSchema,
 				401: globalResponseSchema,

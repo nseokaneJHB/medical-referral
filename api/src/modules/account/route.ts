@@ -3,26 +3,31 @@ import type { FastifyInstance, FastifyPluginAsync } from "fastify";
 import {
 	API_PATHS,
 	appealSchema,
+	acceptNdaSchema,
 	globalResponseSchema,
 	timelineResponseSchema,
 	changePasswordSchema,
+	twoFactorEnableResponseSchema,
 	accountStatusResponseSchema,
+	twoFactorPasswordConfirmSchema,
+	twoFactorGetTotpUriResponseSchema,
+	twoFactorGenerateBackupCodesResponseSchema,
 } from "@referral-tracking/shared";
 
-import { accountStatus, appealSubmit, changePassword } from "./service";
+import {
+	accountStatus,
+	appealSubmit,
+	changePassword,
+	acceptNda,
+	twoFactorEnable,
+	twoFactorDisable,
+	twoFactorGetTotpUri,
+	twoFactorGenerateBackupCodes,
+} from "./service";
 
 import { EVENT_NAMES } from "../../lib/constant";
 
-/**
- * Self-service — reachable regardless of account status (only
- * `app.authenticate`, deliberately no `app.authorize`) since a `PENDING`/
- * `REJECTED`/`FLAGGED`/`DISABLED` account must still be able to see its own
- * status and file an appeal. See `middleware/authenticate.ts`'s docstring.
- * `change-password` is here for the same reason — a `must_change_password`
- * account is `ACTIVE` but blocked from every other route by
- * `middleware/authorize.ts`, so it must still be reachable via
- * `app.authenticate` alone.
- */
+/** Deliberately app.authenticate only, no app.authorize — every route here must stay reachable to accounts middleware/authorize.ts would otherwise block. */
 export const route: FastifyPluginAsync = async (
 	app: FastifyInstance,
 ): Promise<void> => {
@@ -69,6 +74,88 @@ export const route: FastifyPluginAsync = async (
 				401: globalResponseSchema,
 				404: globalResponseSchema,
 				409: globalResponseSchema,
+			},
+		},
+	});
+
+	app.route({
+		method: "PATCH",
+		url: API_PATHS.ACCOUNT_ACCEPT_NDA,
+		handler: acceptNda,
+		preHandler: [app.event(EVENT_NAMES.ACCOUNT_ACCEPT_NDA), app.authenticate],
+		schema: {
+			body: acceptNdaSchema,
+			response: {
+				200: globalResponseSchema,
+				401: globalResponseSchema,
+			},
+		},
+	});
+
+	app.route({
+		method: "POST",
+		url: API_PATHS.ACCOUNT_TWO_FACTOR_ENABLE,
+		handler: twoFactorEnable,
+		preHandler: [
+			app.event(EVENT_NAMES.ACCOUNT_TWO_FACTOR_ENABLE),
+			app.authenticate,
+		],
+		schema: {
+			body: twoFactorPasswordConfirmSchema,
+			response: {
+				200: twoFactorEnableResponseSchema,
+				401: globalResponseSchema,
+			},
+		},
+	});
+
+	app.route({
+		method: "POST",
+		url: API_PATHS.ACCOUNT_TWO_FACTOR_DISABLE,
+		handler: twoFactorDisable,
+		preHandler: [
+			app.event(EVENT_NAMES.ACCOUNT_TWO_FACTOR_DISABLE),
+			app.authenticate,
+		],
+		schema: {
+			body: twoFactorPasswordConfirmSchema,
+			response: {
+				200: globalResponseSchema,
+				401: globalResponseSchema,
+			},
+		},
+	});
+
+	app.route({
+		method: "POST",
+		url: API_PATHS.ACCOUNT_TWO_FACTOR_GET_TOTP_URI,
+		handler: twoFactorGetTotpUri,
+		preHandler: [
+			app.event(EVENT_NAMES.ACCOUNT_TWO_FACTOR_GET_TOTP_URI),
+			app.authenticate,
+		],
+		schema: {
+			body: twoFactorPasswordConfirmSchema,
+			response: {
+				200: twoFactorGetTotpUriResponseSchema,
+				401: globalResponseSchema,
+			},
+		},
+	});
+
+	app.route({
+		method: "POST",
+		url: API_PATHS.ACCOUNT_TWO_FACTOR_GENERATE_BACKUP_CODES,
+		handler: twoFactorGenerateBackupCodes,
+		preHandler: [
+			app.event(EVENT_NAMES.ACCOUNT_TWO_FACTOR_GENERATE_BACKUP_CODES),
+			app.authenticate,
+		],
+		schema: {
+			body: twoFactorPasswordConfirmSchema,
+			response: {
+				200: twoFactorGenerateBackupCodesResponseSchema,
+				401: globalResponseSchema,
 			},
 		},
 	});

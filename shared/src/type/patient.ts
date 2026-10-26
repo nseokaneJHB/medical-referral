@@ -1,13 +1,13 @@
 import { z } from "zod";
 
 import {
-	PatientSchema,
-	TransferSchema,
-	CreatePatientSchema,
-	UpdatePatientSchema,
+	patientSchema,
+	transferSchema,
+	createPatientSchema,
+	updatePatientSchema,
 	patientParamsSchema,
 	patientsQuerySchema,
-	PatientDetailSchema,
+	patientDetailSchema,
 	transferParamsSchema,
 	patientResponseSchema,
 	transferRequestSchema,
@@ -17,17 +17,17 @@ import {
 	patientDetailResponseSchema,
 } from "../schema/patient";
 
-export type Patient = z.infer<typeof PatientSchema>;
-export type CreatePatientBody = z.infer<typeof CreatePatientSchema>;
-export type UpdatePatientBody = z.infer<typeof UpdatePatientSchema>;
+export type Patient = z.infer<typeof patientSchema>;
+export type CreatePatientBody = z.infer<typeof createPatientSchema>;
+export type UpdatePatientBody = z.infer<typeof updatePatientSchema>;
 export type PatientParams = z.infer<typeof patientParamsSchema>;
 export type PatientsQuery = z.infer<typeof patientsQuerySchema>;
 export type PatientResponse = z.infer<typeof patientResponseSchema>;
 export type PatientListResponse = z.infer<typeof patientListResponseSchema>;
-export type PatientDetail = z.infer<typeof PatientDetailSchema>;
+export type PatientDetail = z.infer<typeof patientDetailSchema>;
 export type PatientDetailResponse = z.infer<typeof patientDetailResponseSchema>;
 
-export type Transfer = z.infer<typeof TransferSchema>;
+export type Transfer = z.infer<typeof transferSchema>;
 export type TransferRequestBody = z.infer<typeof transferRequestSchema>;
 export type TransferParams = z.infer<typeof transferParamsSchema>;
 export type TransferResponse = z.infer<typeof transferResponseSchema>;

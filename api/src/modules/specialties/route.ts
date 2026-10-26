@@ -5,8 +5,8 @@ import {
 	API_PATHS,
 	specialtiesQuerySchema,
 	specialtyParamsSchema,
-	CreateSpecialtySchema,
-	UpdateSpecialtySchema,
+	createSpecialtySchema,
+	updateSpecialtySchema,
 	globalResponseSchema,
 	specialtyResponseSchema,
 	specialtyListResponseSchema,
@@ -70,7 +70,7 @@ export const route: FastifyPluginAsync = async (
 			app.authorize([ROLES.ADMINISTRATOR]),
 		],
 		schema: {
-			body: CreateSpecialtySchema,
+			body: createSpecialtySchema,
 			response: {
 				201: specialtyResponseSchema,
 				401: globalResponseSchema,
@@ -92,7 +92,7 @@ export const route: FastifyPluginAsync = async (
 		],
 		schema: {
 			params: specialtyParamsSchema,
-			body: UpdateSpecialtySchema,
+			body: updateSpecialtySchema,
 			response: {
 				200: specialtyResponseSchema,
 				401: globalResponseSchema,

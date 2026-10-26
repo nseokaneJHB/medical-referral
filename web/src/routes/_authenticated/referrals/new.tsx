@@ -2,7 +2,6 @@ import { useState } from "react";
 
 import { createFileRoute, useNavigate, redirect } from "@tanstack/react-router";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { toast } from "sonner";
 
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -14,7 +13,7 @@ import {
 	PRIORITY,
 	FRONTEND_URLS,
 	stringToTitleCase,
-	CreateReferralSchema,
+	createReferralSchema,
 	TERMINAL_REFERRAL_STATUSES,
 	type SpecialtyRef,
 	type ReferralResponse,
@@ -37,7 +36,7 @@ import { useFacilitySearch } from "@/hooks/use-facility-search";
 import { QUERY_KEYS } from "@/api/constant";
 import { patientsRequest } from "@/api/patients";
 import { createReferral, referralsRequest } from "@/api/referrals";
-import { specialtiesRequest, assignReferralSpecialty } from "@/api/specialties";
+import { specialtiesRequest } from "@/api/specialties";
 import { canCreateReferral } from "@/lib/permissions";
 
 const PRIORITY_ITEMS = Object.values(PRIORITY).map((value) => ({
@@ -49,7 +48,7 @@ const PRIORITY_ITEMS = Object.values(PRIORITY).map((value) => ({
 // form-values type (the pre-parse shape, matching `z.input`) makes it
 // optional — even though `CreateReferralBody` (the post-parse `z.infer`
 // output) requires it. `useForm` must be typed against the input shape.
-type ReferralFormValues = z.input<typeof CreateReferralSchema>;
+type ReferralFormValues = z.input<typeof createReferralSchema>;
 
 const NewReferralPage = () => {
 	const navigate = useNavigate();
@@ -104,7 +103,7 @@ const NewReferralPage = () => {
 
 	const { control, handleSubmit } = useForm<ReferralFormValues>({
 		mode: "onChange",
-		resolver: zodResolver(CreateReferralSchema),
+		resolver: zodResolver(createReferralSchema),
 		defaultValues: {
 			patient_id: "",
 			destination_facility_id: "",
@@ -157,27 +156,9 @@ const NewReferralPage = () => {
 			promise: createReferralMutation.mutateAsync({
 				...payload,
 				priority: payload.priority ?? PRIORITY.MEDIUM,
+				specialty_ids: stagedSpecialties.map((staged) => staged.specialty.id),
 			}),
-			onSuccess: async (data) => {
-				const failedSpecialties: string[] = [];
-				for (const staged of stagedSpecialties) {
-					try {
-						await assignReferralSpecialty(data.data.id, {
-							specialty_id: staged.specialty.id,
-						});
-					} catch (error) {
-						console.error(
-							"Failed to tag a specialty on the new referral:",
-							error,
-						);
-						failedSpecialties.push(staged.specialty.name);
-					}
-				}
-				if (failedSpecialties.length > 0) {
-					toast.warning(
-						`Referral created, but ${failedSpecialties.length} specialty tag(s) failed to attach (${failedSpecialties.join(", ")}). Add them from the referral page.`,
-					);
-				}
+			onSuccess: async () => {
 				await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.REFERRALS });
 				navigate({ to: FRONTEND_URLS.REFERRALS });
 			},
@@ -278,7 +259,11 @@ const NewReferralPage = () => {
 								}
 							/>
 
-							<Button type="submit" title="Create referral" disabled={isLoading}>
+							<Button
+								type="submit"
+								title="Create referral"
+								disabled={isLoading}
+							>
 								{isLoading ? (
 									<>
 										<Spinner /> <span>Creating...</span>

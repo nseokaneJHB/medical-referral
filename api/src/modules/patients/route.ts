@@ -3,8 +3,8 @@ import type { FastifyInstance, FastifyPluginAsync } from "fastify";
 import {
 	ROLES,
 	API_PATHS,
-	CreatePatientSchema,
-	UpdatePatientSchema,
+	createPatientSchema,
+	updatePatientSchema,
 	approveActionSchema,
 	patientsQuerySchema,
 	globalResponseSchema,
@@ -46,7 +46,7 @@ export const route: FastifyPluginAsync = async (
 			app.authorize([ROLES.NURSE]),
 		],
 		schema: {
-			body: CreatePatientSchema,
+			body: createPatientSchema,
 			response: {
 				201: patientResponseSchema,
 				401: globalResponseSchema,
@@ -106,7 +106,7 @@ export const route: FastifyPluginAsync = async (
 		],
 		schema: {
 			params: patientParamsSchema,
-			body: UpdatePatientSchema,
+			body: updatePatientSchema,
 			response: {
 				200: patientResponseSchema,
 				401: globalResponseSchema,

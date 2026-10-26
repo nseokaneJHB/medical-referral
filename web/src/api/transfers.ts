@@ -1,5 +1,4 @@
 import { createServerFn } from "@tanstack/react-start";
-import { getRequest } from "@tanstack/react-start/server";
 
 import {
 	API_URLS,
@@ -11,7 +10,7 @@ import {
 	type TransferListResponse,
 } from "@referral-tracking/shared";
 
-import { api } from "@/api";
+import { api, forwardedRequestOptions } from "@/api";
 
 import { env } from "@/lib/env";
 
@@ -47,13 +46,10 @@ const baseUrl = (namespace: TransferNamespace): string =>
 export const transfersRequest = createServerFn({ method: "GET" })
 	.inputValidator((data: { namespace: TransferNamespace }) => data)
 	.handler(async ({ data }): Promise<TransferListResponse> => {
-		const request = getRequest();
-		const cookie = request.headers.get("cookie");
-		const options = cookie ? { headers: { cookie } } : {};
-
+		const url = `${baseUrl(data.namespace)}${PATHS[data.namespace].LIST}`;
 		const { data: response } = await api.get<TransferListResponse>(
-			`${baseUrl(data.namespace)}${PATHS[data.namespace].LIST}`,
-			options,
+			url,
+			forwardedRequestOptions(),
 		);
 		return response;
 	});
@@ -65,10 +61,8 @@ export const approveTransferOrigin = async (
 	id: string,
 	payload: ApproveActionBody,
 ): Promise<TransferResponse> => {
-	const { data } = await api.patch<TransferResponse>(
-		`${baseUrl(namespace)}${buildUrlWithParams(PATHS[namespace].ORIGIN_APPROVE, { id })}`,
-		payload,
-	);
+	const url = `${baseUrl(namespace)}${buildUrlWithParams(PATHS[namespace].ORIGIN_APPROVE, { id })}`;
+	const { data } = await api.patch<TransferResponse>(url, payload);
 	return data;
 };
 
@@ -77,10 +71,8 @@ export const rejectTransferOrigin = async (
 	id: string,
 	payload: ModerationReasonBody,
 ): Promise<TransferResponse> => {
-	const { data } = await api.patch<TransferResponse>(
-		`${baseUrl(namespace)}${buildUrlWithParams(PATHS[namespace].ORIGIN_REJECT, { id })}`,
-		payload,
-	);
+	const url = `${baseUrl(namespace)}${buildUrlWithParams(PATHS[namespace].ORIGIN_REJECT, { id })}`;
+	const { data } = await api.patch<TransferResponse>(url, payload);
 	return data;
 };
 
@@ -89,10 +81,8 @@ export const approveTransferDestination = async (
 	id: string,
 	payload: ApproveActionBody,
 ): Promise<TransferResponse> => {
-	const { data } = await api.patch<TransferResponse>(
-		`${baseUrl(namespace)}${buildUrlWithParams(PATHS[namespace].DESTINATION_APPROVE, { id })}`,
-		payload,
-	);
+	const url = `${baseUrl(namespace)}${buildUrlWithParams(PATHS[namespace].DESTINATION_APPROVE, { id })}`;
+	const { data } = await api.patch<TransferResponse>(url, payload);
 	return data;
 };
 
@@ -101,9 +91,7 @@ export const rejectTransferDestination = async (
 	id: string,
 	payload: ModerationReasonBody,
 ): Promise<TransferResponse> => {
-	const { data } = await api.patch<TransferResponse>(
-		`${baseUrl(namespace)}${buildUrlWithParams(PATHS[namespace].DESTINATION_REJECT, { id })}`,
-		payload,
-	);
+	const url = `${baseUrl(namespace)}${buildUrlWithParams(PATHS[namespace].DESTINATION_REJECT, { id })}`;
+	const { data } = await api.patch<TransferResponse>(url, payload);
 	return data;
 };

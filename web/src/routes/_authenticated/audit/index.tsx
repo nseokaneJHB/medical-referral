@@ -1,7 +1,5 @@
 import { useState } from "react";
 
-import { z } from "zod";
-
 import { createFileRoute, useNavigate, redirect } from "@tanstack/react-router";
 
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
@@ -18,8 +16,7 @@ import {
 	formatDate,
 	getRelativeTime,
 	stringToTitleCase,
-	DEFAULT_PAGE_LIMIT,
-	DEFAULT_PAGE_NUMBER,
+	paginationSortAndSearchQuerySchema,
 	type ManagerAudit,
 	type TimelineAction,
 	type LoginsListResponse,
@@ -52,11 +49,6 @@ import { ReadOnlyField } from "@/components/custom/read-only-field";
 
 import { QUERY_KEYS } from "@/api/constant";
 import { loginsRequest, managerAuditRequest } from "@/api/audit";
-
-const searchSchema = z.object({
-	page: z.string().default(`${DEFAULT_PAGE_NUMBER}`),
-	limit: z.string().default(`${DEFAULT_PAGE_LIMIT}`),
-});
 
 const LOGIN_STATUS_VARIANT: Record<string, "success" | "error" | "warning"> = {
 	[LOGIN_STATUS.SUCCESS]: "success",
@@ -722,7 +714,7 @@ const AuditPage = () => {
 
 export const Route = createFileRoute("/_authenticated/audit/")({
 	component: AuditPage,
-	validateSearch: searchSchema,
+	validateSearch: paginationSortAndSearchQuerySchema,
 	loaderDeps: ({ search }) => search,
 	beforeLoad: ({ context }) => {
 		if (!isManager(context.user) && !isAdministrator(context.user)) {

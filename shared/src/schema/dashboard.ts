@@ -8,7 +8,7 @@ import { globalResponseSchema } from "./global";
  * Widget counts per the PDF's Nurse Dashboard: "Referrals Created, Pending
  * Referrals, Canceled Referrals, Referrals on hold".
  */
-export const NurseSummarySchema = z.object({
+export const nurseSummarySchema = z.object({
 	referrals_created: integerSchema,
 	pending: integerSchema,
 	canceled: integerSchema,
@@ -19,7 +19,7 @@ export const NurseSummarySchema = z.object({
  * Widget counts per the PDF's Doctor Dashboard: "My Referrals, Accepted
  * Referrals, Pending Referral, Completed Referrals".
  */
-export const DoctorSummarySchema = z.object({
+export const doctorSummarySchema = z.object({
 	my_referrals: integerSchema,
 	accepted: integerSchema,
 	pending: integerSchema,
@@ -30,7 +30,7 @@ export const DoctorSummarySchema = z.object({
  * Widget counts per the PDF's Administrator Dashboard: totals plus a
  * referral breakdown across every status.
  */
-export const AdminSummarySchema = z.object({
+export const adminSummarySchema = z.object({
 	total_users: integerSchema,
 	total_patients: integerSchema,
 	total_facilities: integerSchema,
@@ -45,7 +45,7 @@ export const AdminSummarySchema = z.object({
 });
 
 /**
- * Facility-scoped version of `AdminSummarySchema` — a Manager's own staff/
+ * Facility-scoped version of `adminSummarySchema` — a Manager's own staff/
  * patients/referrals instead of system-wide totals.
  *
  * `pending_staff_applications`/`pending_transfers` are the "pending-actions
@@ -54,7 +54,7 @@ export const AdminSummarySchema = z.object({
  * transfer requests awaiting *this* Manager's decision on either side
  * (`GET /manager/transfers` is the actual queue; this is just the count).
  */
-export const ManagerSummarySchema = z.object({
+export const managerSummarySchema = z.object({
 	total_staff: integerSchema,
 	total_patients: integerSchema,
 	total_referrals: integerSchema,
@@ -70,17 +70,17 @@ export const ManagerSummarySchema = z.object({
 });
 
 export const nurseSummaryResponseSchema = globalResponseSchema.extend({
-	data: NurseSummarySchema,
+	data: nurseSummarySchema,
 });
 
 export const doctorSummaryResponseSchema = globalResponseSchema.extend({
-	data: DoctorSummarySchema,
+	data: doctorSummarySchema,
 });
 
 export const adminSummaryResponseSchema = globalResponseSchema.extend({
-	data: AdminSummarySchema,
+	data: adminSummarySchema,
 });
 
 export const managerSummaryResponseSchema = globalResponseSchema.extend({
-	data: ManagerSummarySchema,
+	data: managerSummarySchema,
 });

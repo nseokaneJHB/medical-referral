@@ -1,12 +1,8 @@
-import {
-	timestamp,
-	varchar,
-	mysqlTable,
-	uniqueIndex,
-} from "drizzle-orm/mysql-core";
+import { varchar, mysqlTable, uniqueIndex } from "drizzle-orm/mysql-core";
 
 import { FacilityModel } from "./facility";
 import { SpecialtyModel } from "./specialty";
+import { createdAtColumn } from "./helpers";
 
 /** Many-to-many link — a facility can have multiple specialties. */
 export const FacilitySpecialtyModel = mysqlTable(
@@ -21,7 +17,7 @@ export const FacilitySpecialtyModel = mysqlTable(
 			.notNull()
 			.references(() => SpecialtyModel.id),
 
-		created_at: timestamp("created_at").notNull().defaultNow(),
+		...createdAtColumn(),
 	},
 	(table) => [
 		uniqueIndex("facility_specialties_uq_idx").on(

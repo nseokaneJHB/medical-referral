@@ -10,6 +10,7 @@ import type {
 	UpdatePatientBody,
 	ModerationReasonBody,
 	PatientListResponse,
+	PatientDetailResponse,
 } from "@referral-tracking/shared";
 
 export interface PatientCreateRequest extends RouteGenericInterface {
@@ -19,7 +20,7 @@ export interface PatientCreateRequest extends RouteGenericInterface {
 
 export interface PatientRequest extends RouteGenericInterface {
 	Params: PatientParams;
-	Reply: PatientResponse | GlobalResponse;
+	Reply: PatientDetailResponse | GlobalResponse;
 }
 
 export interface PatientUpdateRequest extends RouteGenericInterface {

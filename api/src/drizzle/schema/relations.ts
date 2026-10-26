@@ -4,6 +4,7 @@ import { UserModel } from "./user";
 import { LoginsModel } from "./logins";
 import { SessionModel } from "./session";
 import { AccountModel } from "./account";
+import { TwoFactorModel } from "./two-factor";
 import { PatientModel } from "./patient";
 import { ReferralModel } from "./referral";
 import { TimelineModel } from "./timeline";
@@ -20,6 +21,7 @@ export const UserModelRelations = relations(UserModel, ({ one, many }) => ({
 	}),
 	sessions: many(SessionModel),
 	accounts: many(AccountModel),
+	twoFactors: many(TwoFactorModel),
 	patients: many(PatientModel),
 	createdReferrals: many(ReferralModel, { relationName: "createdReferrals" }),
 	assignedReferrals: many(ReferralModel, {
@@ -50,6 +52,13 @@ export const AccountRelations = relations(AccountModel, ({ one }) => ({
 	user: one(UserModel, {
 		references: [UserModel.id],
 		fields: [AccountModel.user_id],
+	}),
+}));
+
+export const TwoFactorRelations = relations(TwoFactorModel, ({ one }) => ({
+	user: one(UserModel, {
+		references: [UserModel.id],
+		fields: [TwoFactorModel.user_id],
 	}),
 }));
 

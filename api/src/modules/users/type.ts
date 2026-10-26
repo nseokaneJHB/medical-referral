@@ -1,6 +1,7 @@
 import type { RouteGenericInterface } from "fastify";
 
 import type {
+	PaginationQuery,
 	UsersQuery,
 	UserParams,
 	GlobalResponse,
@@ -25,10 +26,7 @@ export interface UserRequest extends RouteGenericInterface {
 
 export interface UserHistoryRequest extends RouteGenericInterface {
 	Params: UserParams;
-	Querystring: {
-		page?: string;
-		limit?: string;
-	};
+	Querystring: PaginationQuery;
 	Reply: TimelineListResponse | GlobalResponse;
 }
 

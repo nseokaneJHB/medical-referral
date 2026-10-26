@@ -1,73 +1,46 @@
 import { createServerFn } from "@tanstack/react-start";
-import { getRequest } from "@tanstack/react-start/server";
 
 import {
 	API_URLS,
 	API_PATHS,
-	type Role,
 	type SignUpBody,
 	type SignInBody,
+	type SignInResponse,
+	type GlobalResponse,
 	type SessionResponse,
+	type TwoFactorSendOtpBody,
+	type TwoFactorVerifyCodeBody,
 } from "@referral-tracking/shared";
 
-import { api } from "@/api";
+import { api, forwardedRequestOptions } from "@/api";
 
 import { env } from "@/lib/env";
 
 const baseUrl = API_URLS(env.VITE_API_VERSION).AUTH;
 
-/**
- * `/sign-up` and `/sign-in` forward Better Auth's own response body as-is
- * (see api/src/modules/authentication/service.ts's `forwardAuthResponse`)
- * — this is NOT the app's `SessionResponse` envelope, it's Better Auth's
- * native shape. `/session` is the one route with a hand-written handler
- * that actually returns `SessionResponse`.
- */
-export interface AuthUserResponse {
-	token: string;
-	redirect?: boolean;
-	user: {
-		id: string;
-		name: string;
-		email: string;
-		role: Role;
-		image: string | null;
-		emailVerified: boolean;
-		createdAt: string;
-		updatedAt: string;
-		facility_id: string | null;
-	};
-}
-
 export type AuthUser = NonNullable<SessionResponse["user"]>;
 
-// Sign up (client side)
-export const signUp = async (
-	payload: SignUpBody,
-): Promise<AuthUserResponse> => {
+export const signUp = async (payload: SignUpBody): Promise<GlobalResponse> => {
 	const url = `${baseUrl}${API_PATHS.SIGN_UP}`;
 
-	const { data } = await api.post<AuthUserResponse>(url, payload);
+	const { data } = await api.post<GlobalResponse>(url, payload);
 
 	return data;
 };
 
-// Sign in (client side)
-export const signIn = async (
-	payload: SignInBody,
-): Promise<AuthUserResponse> => {
+/** May come back asking for a second factor instead of a session; see SignInResponse.twoFactorRedirect. */
+export const signIn = async (payload: SignInBody): Promise<SignInResponse> => {
 	const url = `${baseUrl}${API_PATHS.SIGN_IN}`;
 
-	const { data } = await api.post<AuthUserResponse>(url, payload);
+	const { data } = await api.post<SignInResponse>(url, payload);
 
 	return data;
 };
 
-// Sign out (client side)
-export const signOut = async (): Promise<{ success: boolean }> => {
+export const signOut = async (): Promise<GlobalResponse> => {
 	const url = `${baseUrl}${API_PATHS.SIGN_OUT}`;
 
-	const { data } = await api.post<{ success: boolean }>(url, null);
+	const { data } = await api.post<GlobalResponse>(url, null);
 
 	return data;
 };
@@ -78,13 +51,51 @@ export const sessionRequest = createServerFn({
 }).handler(async (): Promise<SessionResponse> => {
 	const url = `${baseUrl}${API_PATHS.SESSION}`;
 
-	const request = getRequest();
-	const cookie = request.headers.get("cookie");
-
-	let options = {};
-	if (cookie) options = { headers: { cookie } };
-
-	const { data } = await api.get<SessionResponse>(url, options);
+	const { data } = await api.get<SessionResponse>(
+		url,
+		forwardedRequestOptions(),
+	);
 
 	return data;
 });
+
+/** Also doubles as the "confirm enrollment" step right after POST /account/two-factor/enable — see docs/2fa.md. */
+export const twoFactorVerifyTotp = async (
+	payload: TwoFactorVerifyCodeBody,
+): Promise<GlobalResponse> => {
+	const url = `${baseUrl}${API_PATHS.TWO_FACTOR_VERIFY_TOTP}`;
+
+	const { data } = await api.post<GlobalResponse>(url, payload);
+
+	return data;
+};
+
+export const twoFactorVerifyBackupCode = async (
+	payload: TwoFactorVerifyCodeBody,
+): Promise<GlobalResponse> => {
+	const url = `${baseUrl}${API_PATHS.TWO_FACTOR_VERIFY_BACKUP_CODE}`;
+
+	const { data } = await api.post<GlobalResponse>(url, payload);
+
+	return data;
+};
+
+export const twoFactorSendOtp = async (
+	payload: TwoFactorSendOtpBody,
+): Promise<GlobalResponse> => {
+	const url = `${baseUrl}${API_PATHS.TWO_FACTOR_SEND_OTP}`;
+
+	const { data } = await api.post<GlobalResponse>(url, payload);
+
+	return data;
+};
+
+export const twoFactorVerifyOtp = async (
+	payload: TwoFactorVerifyCodeBody,
+): Promise<GlobalResponse> => {
+	const url = `${baseUrl}${API_PATHS.TWO_FACTOR_VERIFY_OTP}`;
+
+	const { data } = await api.post<GlobalResponse>(url, payload);
+
+	return data;
+};

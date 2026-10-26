@@ -1,6 +1,7 @@
 import type { RouteGenericInterface } from "fastify";
 
 import type {
+	PaginationQuery,
 	PatientParams,
 	GlobalResponse,
 	TransferParams,
@@ -30,6 +31,6 @@ export interface TransferRejectRequest extends RouteGenericInterface {
 }
 
 export interface TransfersRequest extends RouteGenericInterface {
-	Querystring: { page?: string; limit?: string };
+	Querystring: PaginationQuery;
 	Reply: TransferListResponse | GlobalResponse;
 }

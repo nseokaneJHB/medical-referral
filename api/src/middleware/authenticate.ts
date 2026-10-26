@@ -10,22 +10,11 @@ import {
 
 import { auth } from "../lib/auth";
 
+import { sessionMapUser } from "../repository/cross-schema/session";
+
 import { SessionModelSelect } from "../drizzle/schema";
 
-/**
- * Middleware: Require a valid authenticated session.
- * Attaches session and user to the request for downstream handlers.
- *
- * Status/facility gating (is this account/facility usable right now) lives
- * in `authorize` (`middleware/authorize.ts`), not here — `authenticate`
- * only ever checks "is there a session." This is deliberate: `PENDING`/
- * `REJECTED`/`FLAGGED`/`DISABLED` accounts (and users at a non-`APPROVED`
- * facility) must still be able to sign in to see their own status and file
- * an appeal (`modules/account/route.ts`), which only works if
- * `authenticate` alone doesn't already reject them.
- *
- * Usage: preHandler: [app.authenticate]
- */
+/** Requires a valid session and attaches it plus the user to the request; status/facility gating lives in `authorize` instead, since a PENDING/REJECTED/etc. account must still be able to sign in to see its own status. */
 export const authenticate = async (
 	request: FastifyRequest,
 	reply: FastifyReply,
@@ -56,7 +45,7 @@ export const authenticate = async (
 		ip: userSession.session.ipAddress ?? null,
 	};
 
-	request.user = request.server.management.session.mapUser(userSession.user);
+	request.user = sessionMapUser(userSession.user);
 	request.session = session;
 
 	return;

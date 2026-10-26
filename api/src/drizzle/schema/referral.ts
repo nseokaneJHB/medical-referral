@@ -1,10 +1,8 @@
-import { sql } from "drizzle-orm";
 import {
 	text,
 	index,
 	varchar,
 	mysqlEnum,
-	timestamp,
 	mysqlTable,
 } from "drizzle-orm/mysql-core";
 
@@ -13,6 +11,7 @@ import { PRIORITY, REFERRAL_STATUS } from "@referral-tracking/shared";
 import { UserModel } from "./user";
 import { PatientModel } from "./patient";
 import { FacilityModel } from "./facility";
+import { timestampColumns } from "./helpers";
 
 export const ReferralModel = mysqlTable(
 	"referrals",
@@ -46,11 +45,7 @@ export const ReferralModel = mysqlTable(
 			.references(() => UserModel.id),
 		doctor: varchar("doctor", { length: 36 }).references(() => UserModel.id),
 
-		created_at: timestamp("created_at").notNull().defaultNow(),
-		updated_at: timestamp("updated_at")
-			.notNull()
-			.defaultNow()
-			.$onUpdate(() => sql`now()`),
+		...timestampColumns(),
 	},
 	(table) => [
 		index("referrals_patient_idx").on(table.patient_id),

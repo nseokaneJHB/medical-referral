@@ -1737,3 +1737,35 @@ list endpoint) given how many different lists exist, or should it start
 narrowly with just the audit log, which is the most obviously
 compliance-motivated use case?
 
+## 2FA frontend not yet built, and no admin-recovery path for a locked-out user
+
+**Status:** Open — flagged during the 2FA backend build (2026-09-16/17, see
+`docs/2fa.md`), not from scenario testing. Two related gaps, not defects —
+the backend feature is fully implemented and live-verified; these are the
+known remaining pieces.
+
+- **No frontend exists yet.** The backend ships 8 working endpoints (enable,
+  disable, get-totp-uri, generate-backup-codes, verify-totp,
+  verify-backup-code, send-otp, verify-otp — see `docs/2fa.md`'s
+  touchpoints), but nothing in `web/src` calls any of them. Concretely
+  still needed: an Account-settings 2FA section (enroll TOTP with QR code
+  display, enroll email OTP, view/regenerate backup codes, disable, manage
+  trusted devices); the sign-in page needs to handle a `twoFactorRedirect:
+  true` response by prompting for a code instead of treating it as a failed
+  login; `web/src/api/auth.ts`/`account.ts` need client functions for all 8
+  endpoints.
+- **No admin-forced 2FA reset exists for a user who's locked themselves
+  out** (lost authenticator device *and* lost their backup codes). Today
+  that has no path at all short of direct DB intervention — no
+  Administrator/Manager action to disable or reset another user's 2FA the
+  way `POST /administrator/users/:id/reset-password` already exists for
+  passwords.
+
+Open questions to resolve before picking this up: should the frontend ship
+before or alongside a first real (non-Mailpit) email provider decision for
+production, since email OTP is inert without one? For the admin-reset gap —
+should it mirror the existing password-reset pattern exactly (an
+Administrator/Manager action, audited via `timeline`, forcing the user to
+re-enroll on next sign-in), and should it require the same kind of
+step-up/reason justification the other moderation actions already do?
+

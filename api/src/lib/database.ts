@@ -24,9 +24,9 @@ const createClient = (): mysql.Pool => {
 		global.client ??
 		mysql.createPool({
 			uri: env.DATABASE_URL,
-			connectionLimit: isProduction ? 10 : 1,
-			idleTimeout: 30000,
-			connectTimeout: 10000,
+			connectionLimit: env.DB_POOL_CONNECTION_LIMIT,
+			idleTimeout: env.DB_POOL_IDLE_TIMEOUT_MS,
+			connectTimeout: env.DB_POOL_CONNECT_TIMEOUT_MS,
 		})
 	);
 };

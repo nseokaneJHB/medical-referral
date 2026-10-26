@@ -14,7 +14,7 @@ import {
 	REFERRAL_STATUS,
 	FRONTEND_URLS,
 	stringToTitleCase,
-	UpdateReferralSchema,
+	updateReferralSchema,
 	STATUS_TRANSITIONS,
 	NURSE_STATUS_TARGETS,
 	redirectReferralSchema,
@@ -355,7 +355,7 @@ const ReferralDetailPage = () => {
 
 	const { control, handleSubmit } = useForm<UpdateReferralBody>({
 		mode: "onChange",
-		resolver: zodResolver(UpdateReferralSchema),
+		resolver: zodResolver(updateReferralSchema),
 		defaultValues: {
 			destination_facility_id: referral.destination_facility.id,
 			visit_reason: referral.visit_reason,

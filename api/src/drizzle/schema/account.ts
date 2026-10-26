@@ -1,7 +1,7 @@
-import { sql } from "drizzle-orm";
-import { index, varchar, timestamp, mysqlTable } from "drizzle-orm/mysql-core";
+import { index, varchar, mysqlTable } from "drizzle-orm/mysql-core";
 
 import { UserModel } from "./user";
+import { timestampColumns } from "./helpers";
 
 export const AccountModel = mysqlTable(
 	"account",
@@ -11,11 +11,7 @@ export const AccountModel = mysqlTable(
 		account_id: varchar("account_id", { length: 255 }).notNull(),
 		provider: varchar("provider", { length: 255 }).notNull(),
 
-		created_at: timestamp("created_at").notNull().defaultNow(),
-		updated_at: timestamp("updated_at")
-			.notNull()
-			.defaultNow()
-			.$onUpdate(() => sql`now()`),
+		...timestampColumns(),
 
 		user_id: varchar("user_id", { length: 36 })
 			.notNull()

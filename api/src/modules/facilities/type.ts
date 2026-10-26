@@ -1,6 +1,7 @@
 import type { RouteGenericInterface } from "fastify";
 
 import type {
+	PaginationQuery,
 	FacilityParams,
 	FacilitiesQuery,
 	GlobalResponse,
@@ -8,6 +9,7 @@ import type {
 	FacilityResponse,
 	FacilityListResponse,
 	TimelineListResponse,
+	FacilityDetailResponse,
 	FacilitySpecialtyListResponse,
 	FacilitySpecialtyLinkResponse,
 	AssignFacilitySpecialtyBody,
@@ -17,7 +19,7 @@ import type {
 /** No `FacilityCreateRequest` — `POST /facilities` is removed, see `route.ts`. */
 export interface FacilityRequest extends RouteGenericInterface {
 	Params: FacilityParams;
-	Reply: FacilityResponse | GlobalResponse;
+	Reply: FacilityDetailResponse | GlobalResponse;
 }
 
 export interface FacilityUpdateRequest extends RouteGenericInterface {
@@ -33,10 +35,7 @@ export interface FacilitiesRequest extends RouteGenericInterface {
 
 export interface FacilityHistoryRequest extends RouteGenericInterface {
 	Params: FacilityParams;
-	Querystring: {
-		page?: string;
-		limit?: string;
-	};
+	Querystring: PaginationQuery;
 	Reply: TimelineListResponse | GlobalResponse;
 }
 

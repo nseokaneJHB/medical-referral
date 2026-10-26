@@ -8,62 +8,50 @@ import {
 	FACILITY_STATUS,
 	HTTP_RESPONSE_CODE,
 	type SessionResponse,
+	type TwoFactorMethod,
 } from "@referral-tracking/shared";
 
+import { env } from "../../lib/env";
 import { auth } from "../../lib/auth";
-import { generateUuid } from "../../lib/util";
+import { generateUuid, httpCodeForStatus } from "../../lib/util";
+
+import { userOne } from "../../repository/user";
+import { facilityOne, facilityCreate } from "../../repository/facility";
+import { loginsMany, loginsCreate, loginsUpdate } from "../../repository/logins";
+import { authSignOut } from "../../repository/authentication";
+import { sessionMapUser } from "../../repository/cross-schema/session";
+
+import type { Executor } from "../../repository/helpers";
 
 import type {
 	SignUpRequest,
 	SignInRequest,
 	SignOutRequest,
 	SessionRequest,
+	TwoFactorSendOtpRequest,
+	TwoFactorVerifyOtpRequest,
+	TwoFactorVerifyTotpRequest,
+	TwoFactorVerifyBackupCodeRequest,
 } from "./type";
 
-/**
- * Forwards a better-auth `Response` (returned via `asResponse: true`) onto
- * a Fastify reply — status, headers (including the session `Set-Cookie`),
- * and JSON body all carry over as-is.
- */
-const forwardAuthResponse = async (
-	reply: FastifyReply,
-	response: Response,
-): Promise<void> => {
-	response.headers.forEach((value, key) => {
-		if (key.toLowerCase() === "content-length") return;
-		reply.header(key, value);
-	});
+/** Shape of better-auth's own error response body, read once per failed call. */
+type AuthErrorBody = { message?: string };
 
-	const body = await response.json().catch(() => null);
+/** Shape of a two-factor verify endpoint's response body — carries the signed-in user's id on success, a message on failure. */
+type TwoFactorVerifyBody = { user?: { id: string }; message?: string };
 
-	reply.status(response.status);
-	reply.send(body);
+type SignInBody = AuthErrorBody & {
+	twoFactorRedirect?: boolean;
+	twoFactorMethods?: TwoFactorMethod[];
 };
 
-/**
- * A facility only ever comes into being `PENDING`, paired with its
- * founding Manager's own (also-`PENDING`) application — approved together
- * by an Administrator, or both stay hidden/rejected. Joining an *existing*
- * facility (Manager or Nurse/Doctor) instead must actually be one an
- * Administrator has approved — closes the gap where a client bypasses the
- * visibility filter on `GET /facilities` and POSTs a known-but-hidden
- * (pending/rejected/flagged/suspended) facility id directly.
- *
- * Not wrapped in a try/catch to clean up a just-created facility if
- * `signUpEmail` fails afterward: `Facility`'s repo class deliberately has
- * no `delete` (see `core/facility.ts` — a facility already referenced by
- * other rows is a reassignment/soft-delete problem, not a hard delete,
- * matching this whole redesign's no-hard-delete stance). A failure here
- * leaves the paired facility `PENDING` and orphaned (no Manager ever
- * attached) — inert and Administrator-visible-only, not a data integrity
- * problem, just a harmless leftover. True atomicity across this Drizzle
- * write and better-auth's own adapter writes isn't achievable without
- * deeper surgery on the adapter regardless.
- */
+/** Signs up a new account, creating a `PENDING` facility for a founding Manager or validating an existing approved one to join; not wrapped in a cleanup try/catch since `repository/facility.ts` has no `delete` and an orphaned `PENDING` facility is a harmless leftover, not a data-integrity problem. */
 export const signUp = async (
 	request: FastifyRequest<SignUpRequest>,
 	reply: FastifyReply<SignUpRequest>,
 ): Promise<void> => {
+	const database = request.server.database;
+
 	const {
 		name,
 		email,
@@ -77,18 +65,19 @@ export const signUp = async (
 	let resolvedFacilityId = facility_id;
 
 	if (role === ROLES.MANAGER && new_facility_name) {
-		const [facility] = await request.server.core.facility.create({
-			data: {
+		const [facility] = await facilityCreate(
+			database,
+			{ select: { id: true } },
+			{
 				id: generateUuid(),
 				name: new_facility_name,
 				address: new_facility_address ?? null,
 				status: FACILITY_STATUS.PENDING,
 			},
-			select: { id: true },
-		});
+		);
 		resolvedFacilityId = facility.id;
 	} else if (facility_id) {
-		const facility = await request.server.core.facility.one({
+		const facility = await facilityOne(database, {
 			where: { id: facility_id },
 			select: { id: true, status: true },
 		});
@@ -115,26 +104,94 @@ export const signUp = async (
 		body: { name, email, password, role, facility_id: resolvedFacilityId },
 	});
 
-	return forwardAuthResponse(reply, response);
+	const cookies = response.headers.getSetCookie();
+	if (cookies.length > 0) reply.header("set-cookie", cookies);
+
+	if (response.ok) {
+		return reply
+			.status(response.status)
+			.send({ code: HTTP_RESPONSE_CODE.OK.code, message: "Account created." });
+	}
+
+	const failure = (await response.json()) as AuthErrorBody;
+
+	return reply.status(response.status).send({
+		code: httpCodeForStatus(response.status),
+		message: failure?.message ?? "Could not create account.",
+	});
 };
 
-/**
- * Resolves the user by email first (so a failed attempt against a *known*
- * email still gets an audit row — build-spec.md's `login_audit` table
- * (now `logins`) is meant to track attempts, not just successes) then logs
- * the outcome. Unknown emails aren't logged: there's no user row to attach
- * them to, and `logins.user_id` is a required FK.
- */
+/** Better-auth doesn't expose whose 2FA attempt just failed, so this resolves stale pending rows on the user's next sign-in instead — see docs/2fa.md decision #6. */
+const resolveStalePendingLogins = async (
+	database: Executor,
+	userId: string,
+): Promise<void> => {
+	const cutoff = new Date(
+		Date.now() - env.TWO_FACTOR_COOKIE_MAX_AGE_SECONDS * 1000,
+	);
+
+	const stale = await loginsMany(database, {
+		page: 1,
+		limit: 20,
+		where: {
+			user_id: userId,
+			status: LOGIN_STATUS.TWO_FACTOR_PENDING,
+			login_at: { lt: cutoff },
+		},
+		select: { id: true },
+	});
+
+	for (const row of stale.data) {
+		await loginsUpdate(
+			database,
+			{ where: { id: row.id }, select: { id: true } },
+			{
+				status: LOGIN_STATUS.FAILED,
+				reason: "Second factor not completed.",
+			},
+		);
+	}
+};
+
+/** Mirrors signOut's "most recent open row" lookup further below. */
+const resolvePendingLoginSuccess = async (
+	database: Executor,
+	userId: string,
+): Promise<void> => {
+	const pending = await loginsMany(database, {
+		page: 1,
+		limit: 1,
+		order: { login_at: "desc" },
+		where: { user_id: userId, status: LOGIN_STATUS.TWO_FACTOR_PENDING },
+		select: { id: true },
+	});
+
+	const [row] = pending.data;
+	if (!row) return;
+
+	await loginsUpdate(
+		database,
+		{ where: { id: row.id }, select: { id: true } },
+		{ status: LOGIN_STATUS.SUCCESS },
+	);
+};
+
+/** Unknown emails aren't logged (no user row to attach the FK to); a correct password against a 2FA-enabled account logs TWO_FACTOR_PENDING instead of SUCCESS. */
 export const signIn = async (
 	request: FastifyRequest<SignInRequest>,
 	reply: FastifyReply<SignInRequest>,
 ): Promise<void> => {
+	const database = request.server.database;
 	const { email, password } = request.body;
 
-	const existingUser = await request.server.core.user.one({
+	const existingUser = await userOne(database, {
 		where: { email },
 		select: { id: true },
 	});
+
+	if (existingUser) {
+		await resolveStalePendingLogins(database, existingUser.id);
+	}
 
 	const response = await auth.api.signInEmail({
 		asResponse: true,
@@ -142,52 +199,73 @@ export const signIn = async (
 		body: { email, password },
 	});
 
+	const body = (await response.json()) as SignInBody;
+
 	if (existingUser) {
+		let status: (typeof LOGIN_STATUS)[keyof typeof LOGIN_STATUS];
 		let reason: string | null = null;
-		if (!response.ok) {
-			const errorBody = (await response
-				.clone()
-				.json()
-				.catch(() => null)) as { message?: string } | null;
-			reason = errorBody?.message ?? "Invalid email or password.";
+
+		if (body?.twoFactorRedirect) {
+			status = LOGIN_STATUS.TWO_FACTOR_PENDING;
+		} else if (!response.ok) {
+			status = LOGIN_STATUS.FAILED;
+			reason = body?.message ?? "Invalid email or password.";
+		} else {
+			status = LOGIN_STATUS.SUCCESS;
 		}
 
-		await request.server.core.logins.create({
-			data: {
+		await loginsCreate(
+			database,
+			{ select: { id: true } },
+			{
 				id: generateUuid(),
 				user_id: existingUser.id,
 				login_at: new Date(),
 				ip: request.ip,
 				device: request.headers["user-agent"] ?? null,
-				status: response.ok ? LOGIN_STATUS.SUCCESS : LOGIN_STATUS.FAILED,
+				status,
 				reason,
 			},
-			select: { id: true },
+		);
+	}
+
+	const cookies = response.headers.getSetCookie();
+	if (cookies.length > 0) reply.header("set-cookie", cookies);
+
+	if (body?.twoFactorRedirect) {
+		return reply.status(response.status).send({
+			code: HTTP_RESPONSE_CODE.OK.code,
+			message: "Enter your two-factor code to continue.",
+			twoFactorRedirect: true,
+			twoFactorMethods: body.twoFactorMethods ?? [],
 		});
 	}
 
-	return forwardAuthResponse(reply, response);
+	if (response.ok) {
+		return reply
+			.status(response.status)
+			.send({ code: HTTP_RESPONSE_CODE.OK.code, message: "Signed in." });
+	}
+
+	return reply.status(response.status).send({
+		code: httpCodeForStatus(response.status),
+		message: body?.message ?? "Invalid email or password.",
+	});
 };
 
-/**
- * Stamps `logout_at` on the most recent still-open `logins` row for this
- * user — resolving the session as the standard `authenticate` middleware
- * would, but sign-out itself stays open to unauthenticated requests
- * (better-auth's own signOut no-ops gracefully without one).
- */
+/** Stamps `logout_at` on the most recent still-open `logins` row for this user; sign-out itself stays open to unauthenticated requests since better-auth's own signOut no-ops gracefully without one. */
 export const signOut = async (
 	request: FastifyRequest<SignOutRequest>,
 	reply: FastifyReply<SignOutRequest>,
 ): Promise<void> => {
+	const database = request.server.database;
 	const headers = fromNodeHeaders(request.headers);
 	const currentSession = await auth.api.getSession({ headers });
 
-	const response = await request.server.core.betterAuth.signOut(
-		request.headers,
-	);
+	const response = await authSignOut(request.headers);
 
 	if (currentSession?.user?.id) {
-		const openLogins = await request.server.core.logins.many({
+		const openLogins = await loginsMany(database, {
 			limit: 1,
 			order: { login_at: "desc" },
 			where: {
@@ -200,17 +278,27 @@ export const signOut = async (
 
 		const [openLogin] = openLogins.data;
 		if (openLogin) {
-			await request.server.core.logins.update({
-				where: { id: openLogin.id },
-				data: { logout_at: new Date() },
-				select: { id: true },
-			});
+			await loginsUpdate(
+				database,
+				{ where: { id: openLogin.id }, select: { id: true } },
+				{ logout_at: new Date() },
+			);
 		}
 	}
 
-	return forwardAuthResponse(reply, response);
+	const cookies = response.headers.getSetCookie();
+	if (cookies.length > 0) reply.header("set-cookie", cookies);
+
+	const { status, code } = response.ok
+		? HTTP_RESPONSE_CODE.OK
+		: HTTP_RESPONSE_CODE.BAD_REQUEST;
+
+	return reply
+		.status(status)
+		.send({ code, message: response.ok ? "Signed out." : "Sign out failed." });
 };
 
+/** Reports the caller's current session, or a null user if there isn't one. */
 export const session = async (
 	request: FastifyRequest<SessionRequest>,
 	reply: FastifyReply<SessionRequest>,
@@ -219,29 +307,149 @@ export const session = async (
 		headers: fromNodeHeaders(request.headers),
 	});
 
-	const { code } = HTTP_RESPONSE_CODE.OK;
+	const { status, code } = HTTP_RESPONSE_CODE.OK;
+
+	const user = userSession ? sessionMapUser(userSession.user) : null;
 
 	const response: SessionResponse = {
 		code,
 		message: userSession ? "Session active." : "No active session.",
-		user: userSession
+		user: user
 			? {
-					id: userSession.user.id,
-					name: userSession.user.name ?? "",
-					email: userSession.user.email,
-					// eslint-disable-next-line @typescript-eslint/no-explicit-any
-					role: (userSession.user as any).role,
-					// eslint-disable-next-line @typescript-eslint/no-explicit-any
-					status: (userSession.user as any).status,
-					facility_id:
-						// eslint-disable-next-line @typescript-eslint/no-explicit-any
-						(userSession.user as any).facility_id ?? null,
-					must_change_password:
-						// eslint-disable-next-line @typescript-eslint/no-explicit-any
-						(userSession.user as any).must_change_password ?? false,
+					id: user.id,
+					name: user.name ?? "",
+					email: user.email,
+					role: user.role,
+					status: user.status,
+					facility_id: user.facility_id,
+					must_change_password: user.must_change_password,
+					nda_accepted_version: user.nda_accepted_version,
+					two_factor_enabled: user.two_factor_enabled,
 				}
 			: null,
 	};
 
-	reply.status(200).send(response);
+	reply.status(status).send(response);
+};
+
+/** Completes sign-in with a TOTP code. */
+export const twoFactorVerifyTotp = async (
+	request: FastifyRequest<TwoFactorVerifyTotpRequest>,
+	reply: FastifyReply<TwoFactorVerifyTotpRequest>,
+): Promise<void> => {
+	const response = await auth.api.verifyTOTP({
+		asResponse: true,
+		headers: fromNodeHeaders(request.headers),
+		body: request.body,
+	});
+
+	const body = (await response.json()) as TwoFactorVerifyBody;
+
+	if (response.ok && body?.user?.id) {
+		await resolvePendingLoginSuccess(request.server.database, body.user.id);
+	}
+
+	const cookies = response.headers.getSetCookie();
+	if (cookies.length > 0) reply.header("set-cookie", cookies);
+
+	if (response.ok) {
+		return reply
+			.status(response.status)
+			.send({ code: HTTP_RESPONSE_CODE.OK.code, message: "Signed in." });
+	}
+
+	return reply.status(response.status).send({
+		code: httpCodeForStatus(response.status),
+		message: body?.message ?? "Invalid code.",
+	});
+};
+
+/** Completes sign-in with a two-factor backup code. */
+export const twoFactorVerifyBackupCode = async (
+	request: FastifyRequest<TwoFactorVerifyBackupCodeRequest>,
+	reply: FastifyReply<TwoFactorVerifyBackupCodeRequest>,
+): Promise<void> => {
+	const response = await auth.api.verifyBackupCode({
+		asResponse: true,
+		headers: fromNodeHeaders(request.headers),
+		body: request.body,
+	});
+
+	const body = (await response.json()) as TwoFactorVerifyBody;
+
+	if (response.ok && body?.user?.id) {
+		await resolvePendingLoginSuccess(request.server.database, body.user.id);
+	}
+
+	const cookies = response.headers.getSetCookie();
+	if (cookies.length > 0) reply.header("set-cookie", cookies);
+
+	if (response.ok) {
+		return reply
+			.status(response.status)
+			.send({ code: HTTP_RESPONSE_CODE.OK.code, message: "Signed in." });
+	}
+
+	return reply.status(response.status).send({
+		code: httpCodeForStatus(response.status),
+		message: body?.message ?? "Invalid backup code.",
+	});
+};
+
+/** Sends a two-factor OTP code to the caller's email. */
+export const twoFactorSendOtp = async (
+	request: FastifyRequest<TwoFactorSendOtpRequest>,
+	reply: FastifyReply<TwoFactorSendOtpRequest>,
+): Promise<void> => {
+	const response = await auth.api.sendTwoFactorOTP({
+		asResponse: true,
+		headers: fromNodeHeaders(request.headers),
+		body: request.body,
+	});
+
+	if (response.ok) {
+		return reply.status(response.status).send({
+			code: HTTP_RESPONSE_CODE.OK.code,
+			message: "Code sent to your email.",
+		});
+	}
+
+	const body = (await response.json()) as AuthErrorBody;
+
+	return reply.status(response.status).send({
+		code: httpCodeForStatus(response.status),
+		message: body?.message ?? "Could not send code.",
+	});
+};
+
+/** Completes sign-in with a two-factor OTP code. */
+export const twoFactorVerifyOtp = async (
+	request: FastifyRequest<TwoFactorVerifyOtpRequest>,
+	reply: FastifyReply<TwoFactorVerifyOtpRequest>,
+): Promise<void> => {
+	const response = await auth.api.verifyTwoFactorOTP({
+		asResponse: true,
+		headers: fromNodeHeaders(request.headers),
+		body: request.body,
+	});
+
+	const body = (await response.json()) as TwoFactorVerifyBody;
+
+	if (response.ok && body?.user?.id) {
+		await resolvePendingLoginSuccess(request.server.database, body.user.id);
+	}
+
+	const cookies = response.headers.getSetCookie();
+	if (cookies.length > 0) reply.header("set-cookie", cookies);
+
+	if (response.ok) {
+		return reply
+			.status(response.status)
+			.send({ code: HTTP_RESPONSE_CODE.OK.code, message: "Signed in." });
+	}
+
+	return reply.status(response.status).send({
+		code: httpCodeForStatus(response.status),
+		message: body?.message ?? "Invalid code.",
+	});
 };
